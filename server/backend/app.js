@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const { pool } = require('./services/db');
 
 const app = express();
 
@@ -8,8 +9,15 @@ app.use(cors());
 app.use(express.json());
 
 // health check
-app.get('/health', (req, res) => {
-  res.json({ ok: true });
+app.get('/health', async (req, res) => {
+  const payload = { ok: true };
+  try {
+    const r = await pool.query('SELECT COUNT(*)::int AS n FROM contract_token_balances');
+    payload.erc20_balances_count = r.rows[0]?.n ?? 0;
+  } catch (e) {
+    payload.erc20_balances_count = null;
+  }
+  res.json(payload);
 });
 
 // routes

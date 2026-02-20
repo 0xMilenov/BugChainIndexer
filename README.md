@@ -1,10 +1,12 @@
-# BugChainIndexer
+> **Multi-blockchain contract analysis and indexing system with AI-powered security audits using evmbench**
 
-> **Multi-blockchain contract analysis and indexing system with AI-powered security audits**
+**Fork of [kismp123/BugChainIndexer](https://github.com/kismp123/BugChainIndexer)** · Significantly improved by **0xMilenov**
 
-**By VISUALISA**
+> ⚠️ **Note:** This project is still in active development.
+>
+> **Planned:** [Solodit](https://solodit.cyfrin.io) API integration (50,000+ vulnerabilities); one-click fuzz campaigns via [getrecon](https://getrecon.xyz/).
 
-BugChainIndexer is a comprehensive blockchain analysis platform that monitors, analyzes, and indexes contract data across 14+ blockchain networks. It features an optimized backend with sub-second response times, ERC-20 balance tracking, contract bookmarks, and **AI-powered security audits** via [evmbench](https://github.com/paradigmxyz/evmbench) integration.
+BugChainIndexer is a comprehensive blockchain analysis platform that monitors, analyzes, and indexes contract data across 14+ blockchain networks. The original project by [@kismp123](https://github.com/kismp123) provides the core indexing engine and multi-chain scanning. This fork adds: **Etherscan API v2** support; **source code storage** and a **query-based search** to search and compare across stored contracts; a significantly improved UI with **dedicated contract pages**; **AI-powered security audits** via [evmbench](https://github.com/paradigmxyz/evmbench); and production deployment tooling.
 
 ---
 
@@ -256,4 +258,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-**By VISUALISA · Built for scale · Optimized for performance**
+**Original:** [kismp123/BugChainIndexer](https://github.com/kismp123/BugChainIndexer) · **Fork:** VISUALISA · Built for scale · Optimized for performance

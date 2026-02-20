@@ -8,9 +8,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCANNERS_DIR="$SCRIPT_DIR/core"
 LOG_DIR="$SCRIPT_DIR/logs"
 
+# Load backend .env so scanners use same DB as API (DATABASE_URL)
+if [[ -f "$SCRIPT_DIR/../server/backend/.env" ]]; then
+  set -a
+  # shellcheck source=/dev/null
+  source "$SCRIPT_DIR/../server/backend/.env"
+  set +a
+fi
+
 # Configuration
 TIMEOUT_SECONDS="${TIMEOUT_SECONDS:-7200}"
-NETWORKS=(ethereum binance optimism base arbitrum polygon avalanche gnosis linea scroll mantle)
+NETWORKS=(ethereum binance optimism base arbitrum polygon avalanche gnosis linea scroll mantle megaeth arbitrum-nova celo cronos moonbeam moonriver opbnb polygon-zkevm)
 
 # Create logs directory
 mkdir -p "$LOG_DIR"
@@ -196,7 +204,7 @@ run_parallel() {
 main() {
     local scanner="${1:-help}"
     local mode="${2:-auto}"
-    local network="${3:-}"
+    local network="${3:-${NETWORK:-}}"
     
     case "$scanner" in
         "funds"|"FundUpdater")
@@ -259,19 +267,51 @@ main() {
             fi
             ;;
 
+        "erc20-backfill"|"erc20-backfill-address")
+            log "💰 Backfilling ERC-20 balance for specific address..."
+            if [[ -z "$network" ]]; then
+              network="${NETWORK:-ethereum}"
+            fi
+            if [[ -z "${ADDRESS:-}" ]]; then
+              log "ERROR: Set ADDRESS=0x... for single-address backfill"
+              exit 1
+            fi
+            lock_and_run "erc20-backfill-$network" "env NETWORK=\"$network\" ADDRESS=\"$ADDRESS\" node \"$SCANNERS_DIR/../utils/backfill-erc20-balance.js\""
+            ;;
+
+        "erc20-backfill-all")
+            log "💰 Backfilling ERC-20 balances across all networks..."
+            lock_and_run "erc20-backfill-all" "node \"$SCANNERS_DIR/../utils/backfill-erc20-all-networks.js\""
+            ;;
+
+        "erc20-balances"|"ERC20TokenBalanceScanner")
+            log "💰 Starting ERC20TokenBalanceScanner${network:+ for $network}..."
+            if [[ -n "$network" ]]; then
+                lock_and_run "erc20-balances-$network" "run_network ERC20TokenBalanceScanner $network"
+            elif [[ "${ERC20_PARALLEL:-0}" == "1" ]]; then
+                lock_and_run "erc20-balances-parallel" "run_parallel ERC20TokenBalanceScanner"
+            else
+                lock_and_run "erc20-balances-sequential" "run_sequential ERC20TokenBalanceScanner"
+            fi
+            ;;
+
         "all"|"suite")
-            log "🚀 Starting complete scanner suite (unified + funds + revalidate)..."
+            log "🚀 Starting complete scanner suite (unified + funds + revalidate + erc20)..."
             
             # Unified blockchain analysis with integrated verification (parallel)
-            log "📊 [1/3] Running UnifiedScanner (parallel)..."
+            log "📊 [1/4] Running UnifiedScanner (parallel)..."
             lock_and_run "suite-unified" "run_parallel UnifiedScanner" || exit 1
             
             # Fund updates (sequential for stability)
-            log "🏛️ [2/3] Running FundUpdater (sequential)..."
+            log "🏛️ [2/4] Running FundUpdater (sequential)..."
             lock_and_run "suite-funds" "run_sequential FundUpdater" || exit 1
             
+            # ERC-20 token balances (sequential to avoid rate limits)
+            log "💰 [3/4] Running ERC20TokenBalanceScanner (sequential)..."
+            lock_and_run "suite-erc20" "run_sequential ERC20TokenBalanceScanner" || exit 1
+            
             # Data revalidation (parallel)
-            log "🔍 [3/3] Running DataRevalidator (parallel)..."
+            log "🔍 [4/4] Running DataRevalidator (parallel)..."
             lock_and_run "suite-revalidate" "run_parallel DataRevalidator" || exit 1
             
             log "✅ Complete scanner suite finished successfully"
@@ -408,6 +448,15 @@ main() {
             node "$SCRIPT_DIR/utils/db-optimize-large.js"
             ;;
 
+        "db-reset"|"reset")
+            log "🗑️ Database reset (dry run)..."
+            node "$SCRIPT_DIR/utils/db-reset.js"
+            ;;
+        "db-reset-execute"|"reset-execute")
+            log "🗑️ Database reset - DELETING ALL DATA..."
+            node "$SCRIPT_DIR/utils/db-reset.js" --execute
+            ;;
+
         "index-optimize"|"optimize-indexes"|"fillfactor")
             log "🔧 Optimizing index FILLFACTOR (reduces page splits and lock contention)..."
             node "$SCRIPT_DIR/utils/optimize-index-fillfactor.js"
@@ -438,6 +487,9 @@ Available Scanners:
   funds-high    Update asset balances for high-value addresses (fund >= 100,000, includes ALL_FLAG)
   unified       Complete blockchain analysis pipeline: addresses + EOA + verification (parallel)
   revalidate    Revalidate existing data for consistency (data-revalidate, DataRevalidator)
+  erc20-balances Fetch ERC-20 token balances for verified contracts via Etherscan API (sequential by default)
+  erc20-backfill Populate ERC-20 for one address (use ADDRESS=0x... NETWORK=ethereum)
+  erc20-backfill-all Seed ERC-20 balances across all networks (PER_NETWORK=100, TOKEN_LIMIT=100)
   all           Run complete scanner suite (unified + funds + revalidate)
 
 Modes:
@@ -465,6 +517,8 @@ Examples:
   NETWORK=ethereum $0 funds-high   # Update high-value funds on ethereum with ALL_FLAG
   NETWORK=ethereum $0 unified      # Run unified analysis for ethereum only
   NETWORK=ethereum $0 revalidate   # Run revalidation for ethereum only
+  NETWORK=ethereum $0 erc20-balances # Fetch ERC-20 balances for ethereum only
+  ERC20_PILOT_LIMIT=10 NETWORK=ethereum $0 erc20-balances # Pilot: 10 contracts only (test before scaling)
   NETWORK=polygon $0 unified       # Run unified analysis for polygon only
 
   # Alternative method (use correct parameter order)
@@ -486,6 +540,8 @@ Monitoring & Maintenance:
   $0 remove-unused-indexes    # Remove indexes that are never used (saves 1.5GB+ disk space)
   $0 remove-unused-indexes-dry # Preview unused index removal (dry run mode)
   $0 db-analyze               # Analyze database performance (read-only)
+  $0 db-reset                 # Preview database reset (dry run)
+  $0 db-reset-execute         # Reset database - delete all data, start fresh
   $0 db-cleanup               # Remove unused indexes and create optimized ones
   $0 db-normalize-addresses   # Analyze address normalization needs
   $0 db-normalize-addresses-dry # Dry run address normalization (preview only)
@@ -497,11 +553,24 @@ Environment Variables:
   HIGH_FUND_FLAG=true        Enable high-value address filtering (fund >= 100,000)
   FUND_UPDATE_MAX_BATCH=50000 Maximum batch size for fund updates
   ALL_FLAG=true              Enable processing all addresses (for funds-all mode)
+  DEFAULT_ETHERSCAN_KEYS     Required for Etherscan V2 (single key for all chains)
+  ERC20_BATCH_SIZE=2000      Contracts per ERC-20 balance run (default: 2000)
+  ERC20_PILOT_LIMIT=10       Pilot mode: process only N contracts (test before scaling)
+  ERC20_CONTRACT_LIMIT=N     Max contracts per run (overrides batch size when set)
+  ERC20_TOKEN_LIMIT=100      Max tokens per contract by rank (default: 100 = all tokens from JSON)
+  ERC20_MAX_AGE_DAYS=7       Refresh balances older than N days (default: 7)
+  ERC20_PARALLEL=1           Use parallel instead of sequential for erc20-balances
+  ERC20_API_DELAY_MS=400     Delay between Etherscan calls (default: 400ms = 2.5 calls/sec)
+  ERC20_INCLUDE_UNVERIFIED=1 Include unverified contracts (default: verified only)
+  PER_NETWORK=100            Contracts per network for erc20-backfill-all (default: 100)
+  TOKEN_LIMIT=100            Tokens per contract for erc20-backfill-all (default: 100)
+  NETWORKS=a,b,c             Comma-separated networks for erc20-backfill-all
 
 Available Core Scanners:
   - UnifiedScanner.js        Complete blockchain analysis pipeline
   - FundUpdater.js          Asset price and balance updates
   - DataRevalidator.js      Data consistency validation
+  - ERC20TokenBalanceScanner.js  ERC-20 token balances via Etherscan API
 EOF
             ;;
     esac

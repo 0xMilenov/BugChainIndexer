@@ -8,18 +8,23 @@ Add an A record for your domain:
 
 | Type | Name | Value | TTL |
 |------|------|-------|-----|
-| A | app | 91.98.235.181 | 300 |
+| A | app | 91.98.235.181 | 600 |
 
 Result: `app.visualisa.xyz` → your VM IP
 
 Verify: `dig app.visualisa.xyz +short` (should return the IP)
 
-### 2. Hetzner Firewall
+### 2. Hetzner Firewall (Required – Certbot fails without this)
 
-In **Hetzner Cloud Console** → Firewalls → your firewall:
+In **Hetzner Cloud Console** → Your project → **Firewalls**:
 
-- Allow **TCP 80** (HTTP)
-- Allow **TCP 443** (HTTPS)
+1. Select the firewall attached to your server (or create one)
+2. **Inbound rules** – add:
+   - **TCP 80** (HTTP) – required for Let's Encrypt verification
+   - **TCP 443** (HTTPS)
+3. Apply the firewall to your server
+
+If port 80 is blocked, Certbot will fail with "Timeout during connect (likely firewall problem)".
 
 ### 3. Services Running
 
@@ -45,6 +50,22 @@ This will:
 2. Configure nginx to proxy app.visualisa.xyz → port 3000
 3. Obtain Let's Encrypt SSL certificate
 4. Restart BugChainIndexer services
+
+---
+
+## Certbot Failed? "Timeout during connect (likely firewall problem)"
+
+**Cause:** Port 80 is blocked. Two places can block it:
+1. **Hetzner Cloud Firewall** – add inbound rules for TCP 80, TCP 443
+2. **UFW on the server** – Ubuntu's firewall blocks by default
+
+**Fix UFW (run on the VM):**
+```bash
+cd /home/claude/BugChainIndexer/deploy
+sudo ./fix-ufw-ports.sh
+```
+
+Then re-run certbot: `sudo certbot --nginx -d app.visualisa.xyz`
 
 ---
 

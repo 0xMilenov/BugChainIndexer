@@ -2,9 +2,10 @@
  * Test Gnosis Network with V2 API using specific API key
  */
 
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const axios = require('axios');
 
-const API_KEY = '964G8PEYWFX6MXG8IW9JMBFM9TP4UTW6VI';
+const API_KEY = process.env.DEFAULT_ETHERSCAN_KEYS?.split(',')[0] || process.env.ETHERSCAN_API_KEY || '';
 const GNOSIS_CHAIN_ID = 100;
 
 // Test contracts

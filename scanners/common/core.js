@@ -96,7 +96,11 @@ const ZERO_HASH = BLOCKCHAIN_CONSTANTS.ZERO_HASH;
 let dbPool;
 
 async function ensureDatabaseExists() {
-  const dbName = process.env.PGDATABASE || 'bugchain_indexer';
+  let dbName = process.env.PGDATABASE || 'bugchain_indexer';
+  if (process.env.DATABASE_URL) {
+    const m = process.env.DATABASE_URL.match(/\/([^/?]+)(?:\?|$)/);
+    if (m && m[1]) dbName = m[1];
+  }
   const adminPool = new Pool({
     user: process.env.PGUSER || 'postgres',
     host: process.env.PGHOST || 'localhost',
@@ -133,20 +137,38 @@ async function ensureDatabaseExists() {
   }
 }
 
+function getScannerPoolConfig() {
+  // Use same logic as backend db.js: DATABASE_URL first, then PGDATABASE
+  const connectionString = process.env.DATABASE_URL;
+  if (connectionString) {
+    return { connectionString };
+  }
+  const database = process.env.PGDATABASE || 'bugchain_indexer';
+  return {
+    user: process.env.PGUSER || 'postgres',
+    host: process.env.PGHOST || 'localhost',
+    database,
+    password: process.env.PGPASSWORD || '',
+    port: Number(process.env.PGPORT || 5432),
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
+  };
+}
+
 async function initializeDB() {
-  // First ensure the database exists
+  // First ensure the database exists (use PGDATABASE or extract from DATABASE_URL)
   await ensureDatabaseExists();
   
   if (!dbPool) {
-    dbPool = new Pool({
-      user: process.env.PGUSER || 'postgres',
-      host: process.env.PGHOST || 'localhost',
-      database: process.env.PGDATABASE || 'bugchain_indexer',
-      password: process.env.PGPASSWORD || '',
-      port: Number(process.env.PGPORT || 5432),
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
+    dbPool = new Pool(getScannerPoolConfig());
+    // Prevent unhandled pool errors (e.g. 57P01 admin shutdown) from crashing the process.
+    // See: https://github.com/brianc/node-postgres/issues/2762
+    dbPool.on('error', (err) => {
+      console.error('[DB] Pool error (connection may have been terminated):', err.message);
+      if (err.code === '57P01') {
+        console.error('[DB] PostgreSQL terminated connection (admin command). Consider restarting the scanner.');
+      }
     });
   }
   return dbPool.connect();
@@ -306,6 +328,9 @@ const globalAPILimiter = new APILimiter();
 
 // ====== ETHERSCAN ======
 const etherscanState = new Map();
+const etherscanSourceCodeCache = new Map();
+const etherscanCreationCache = new Map();
+const etherscanBlockTimestampCache = new Map();
 
 function initEtherscan(network, apiKeys) {
   const keys = Array.isArray(apiKeys) ? apiKeys : apiKeys.split(/[,\s]+/).filter(Boolean);
@@ -390,9 +415,10 @@ async function etherscanRequestInternal(network, params, maxRetries = 3) {
     throw new Error(`No Etherscan API keys configured for network: ${network}`);
   }
 
-  // Use network-specific explorer API URL if available, otherwise fall back to Etherscan v2 API
-  const baseURL = config.explorerApiUrl || 'https://api.etherscan.io/v2/api';
-  const useV2Api = !config.explorerApiUrl; // Only use v2 API if no network-specific URL
+  // Parameterized base URL for multi-network support.
+  // Defaults to Etherscan V2, but can be overridden globally via env.
+  const baseURL = process.env.ETHERSCAN_BASE_URL || 'https://api.etherscan.io/v2/api';
+  const useV2Api = true;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -402,9 +428,10 @@ async function etherscanRequestInternal(network, params, maxRetries = 3) {
         ? { ...cleanedParams, chainid: config.chainId, apikey }
         : { ...cleanedParams, apikey };
 
+      const timeoutMs = Number(process.env.ETHERSCAN_TIMEOUT_MS) || 60000;
       const response = await axios.get(baseURL, {
         params,
-        timeout: 20000
+        timeout: timeoutMs
       });
 
       // Handle proxy module differently (no status field)
@@ -479,6 +506,367 @@ async function etherscanRequest(network, params, maxRetries = 3) {
     network,
     description
   );
+}
+
+/**
+ * Get ERC-20 token balance for a contract via Etherscan tokenbalance API.
+ * @param {string} network - Network name (ethereum, arbitrum, etc.)
+ * @param {string} contractAddress - Address holding the tokens
+ * @param {string} tokenAddress - ERC-20 token contract address
+ * @returns {Promise<string>} Balance in smallest units (wei/satoshi)
+ */
+async function getTokenBalanceEtherscan(network, contractAddress, tokenAddress) {
+  const config = NETWORKS[network];
+  if (!config?.chainId) throw new Error(`No chainId for ${network}`);
+  const result = await etherscanRequest(network, {
+    module: 'account',
+    action: 'tokenbalance',
+    contractaddress: tokenAddress,
+    address: contractAddress,
+    tag: 'latest',
+    chainid: config.chainId
+  });
+  return String(result ?? '0');
+}
+
+function parseHexToInt(hexValue) {
+  if (!hexValue || typeof hexValue !== 'string') return null;
+  const parsed = parseInt(hexValue, 16);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseUnixToUtcIso(unixSeconds) {
+  if (!Number.isFinite(unixSeconds) || unixSeconds <= 0) return null;
+  return new Date(unixSeconds * 1000).toISOString();
+}
+
+function normalizeNullableAddress(address) {
+  if (!address || typeof address !== 'string') return null;
+  const normalized = address.trim().toLowerCase();
+  return normalized ? normalized : null;
+}
+
+function isRateLimitError(error) {
+  const message = String(error?.message || '').toLowerCase();
+  return (
+    message.includes('rate limit') ||
+    message.includes('max rate limit') ||
+    message.includes('too many requests') ||
+    message.includes('429')
+  );
+}
+
+function isTransientEtherscanError(error) {
+  const message = String(error?.message || '').toLowerCase();
+  return (
+    isRateLimitError(error) ||
+    message.includes('timeout') ||
+    message.includes('temporarily unavailable') ||
+    message.includes('network') ||
+    message.includes('econnreset') ||
+    message.includes('socket hang up')
+  );
+}
+
+async function callEtherscanWithBackoff(scanner, params, options = {}) {
+  const maxAttempts = options.maxAttempts || 4;
+  const baseDelayMs = options.baseDelayMs || 500;
+  let lastError;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await scanner.etherscanCall(params);
+    } catch (error) {
+      lastError = error;
+      if (attempt === maxAttempts || !isTransientEtherscanError(error)) {
+        throw error;
+      }
+      const delay = Math.min(baseDelayMs * (2 ** (attempt - 1)), 5000);
+      await sleep(delay);
+    }
+  }
+
+  throw lastError;
+}
+
+async function getSourceCodeCached(scanner, address) {
+  const normalizedAddress = normalizeNullableAddress(address);
+  if (!normalizedAddress) return null;
+
+  if (etherscanSourceCodeCache.has(normalizedAddress)) {
+    return etherscanSourceCodeCache.get(normalizedAddress);
+  }
+
+  const sourceResult = await callEtherscanWithBackoff(scanner, {
+    module: 'contract',
+    action: 'getsourcecode',
+    address: normalizedAddress
+  });
+
+  const sourceData = Array.isArray(sourceResult) && sourceResult.length > 0 ? sourceResult[0] : null;
+  etherscanSourceCodeCache.set(normalizedAddress, sourceData);
+  return sourceData;
+}
+
+/**
+ * Extract source code text from Etherscan getSourceCode response.
+ * Handles single-file (plain text) and multi-file (JSON-wrapped) formats.
+ * Formats: (1) plain Solidity, (2) {{ "sources": { "path.sol": { "content": "..." } } }}, (3) { "sources": { "path.sol": "..." } }
+ */
+function extractSourceCodeText(sourceData) {
+  const raw = sourceData?.SourceCode;
+  if (!raw || raw === '') return null;
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith('{')) return trimmed;
+
+  try {
+    let jsonStr = trimmed;
+    if (trimmed.startsWith('{{') && trimmed.endsWith('}}')) {
+      jsonStr = trimmed.slice(1, -1);
+    }
+    const parsed = JSON.parse(jsonStr);
+    const sources = parsed?.sources || parsed;
+    if (typeof sources !== 'object' || sources === null) return trimmed;
+
+    const parts = [];
+    for (const [path, val] of Object.entries(sources)) {
+      const content = typeof val === 'string' ? val : (val?.content || '');
+      if (content) {
+        parts.push(path ? `// File: ${path}\n${content}` : content);
+      }
+    }
+    return parts.length > 0 ? parts.join('\n\n') : trimmed;
+  } catch (_) {
+    return trimmed;
+  }
+}
+
+async function getContractCreationCached(scanner, address) {
+  const normalizedAddress = normalizeNullableAddress(address);
+  if (!normalizedAddress) return null;
+
+  if (etherscanCreationCache.has(normalizedAddress)) {
+    return etherscanCreationCache.get(normalizedAddress);
+  }
+
+  let creationResult = null;
+  try {
+    // Preferred shape (as requested): address
+    const response = await callEtherscanWithBackoff(scanner, {
+      module: 'contract',
+      action: 'getcontractcreation',
+      address: normalizedAddress
+    });
+    if (Array.isArray(response) && response.length > 0) {
+      creationResult = response[0];
+    }
+  } catch (error) {
+    // fallback parameter name used by some Etherscan variants
+    if (!isRateLimitError(error)) {
+      const response = await callEtherscanWithBackoff(scanner, {
+        module: 'contract',
+        action: 'getcontractcreation',
+        contractaddresses: normalizedAddress
+      });
+      if (Array.isArray(response) && response.length > 0) {
+        creationResult = response[0];
+      }
+    } else {
+      throw error;
+    }
+  }
+
+  etherscanCreationCache.set(normalizedAddress, creationResult);
+  return creationResult;
+}
+
+async function getBlockTimestampFromEtherscan(scanner, blockNumberHex) {
+  if (!blockNumberHex) return null;
+  const cacheKey = String(blockNumberHex).toLowerCase();
+  if (etherscanBlockTimestampCache.has(cacheKey)) {
+    return etherscanBlockTimestampCache.get(cacheKey);
+  }
+
+  const blockData = await callEtherscanWithBackoff(scanner, {
+    module: 'proxy',
+    action: 'eth_getBlockByNumber',
+    tag: blockNumberHex,
+    boolean: 'true'
+  });
+
+  if (!blockData || !blockData.timestamp) return null;
+  const timestamp = parseHexToInt(blockData.timestamp);
+  if (!timestamp) return null;
+  etherscanBlockTimestampCache.set(cacheKey, timestamp);
+  return timestamp;
+}
+
+async function resolveDeploymentData(scanner, address) {
+  const normalizedAddress = normalizeNullableAddress(address);
+  const fallbackResult = {
+    deployTxHash: null,
+    deployerAddress: null,
+    deployBlockNumber: null,
+    deployedAtTimestamp: null,
+    deployedAt: null,
+    confidence: 'heuristic'
+  };
+
+  if (!normalizedAddress) return fallbackResult;
+
+  try {
+    const creationData = await getContractCreationCached(scanner, normalizedAddress);
+    if (creationData?.txHash) {
+      const deployTxHash = creationData.txHash;
+      const deployerAddress = normalizeNullableAddress(creationData.contractCreator);
+
+      const txData = await callEtherscanWithBackoff(scanner, {
+        module: 'proxy',
+        action: 'eth_getTransactionByHash',
+        txhash: deployTxHash
+      });
+
+      const blockNumberHex = txData?.blockNumber || null;
+      const deployBlockNumber = parseHexToInt(blockNumberHex);
+      const deployedAtTimestamp = blockNumberHex
+        ? await getBlockTimestampFromEtherscan(scanner, blockNumberHex)
+        : null;
+      const deployedAt = parseUnixToUtcIso(deployedAtTimestamp);
+
+      return {
+        deployTxHash,
+        deployerAddress,
+        deployBlockNumber,
+        deployedAtTimestamp,
+        deployedAt,
+        confidence: 'precise'
+      };
+    }
+  } catch (error) {
+    if (!isRateLimitError(error)) {
+      // proceed to heuristic fallback
+    } else {
+      throw error;
+    }
+  }
+
+  // Heuristic fallback using earliest txlist record
+  try {
+    const txList = await callEtherscanWithBackoff(scanner, {
+      module: 'account',
+      action: 'txlist',
+      address: normalizedAddress,
+      startblock: 0,
+      endblock: 99999999,
+      sort: 'asc'
+    });
+
+    if (!Array.isArray(txList) || txList.length === 0) {
+      return fallbackResult;
+    }
+
+    const deploymentTx = txList.find(tx => {
+      const toField = (tx?.to || '').trim();
+      const contractAddressField = normalizeNullableAddress(tx?.contractAddress);
+      return toField === '' || contractAddressField === normalizedAddress;
+    }) || txList[0];
+
+    const deployedAtTimestamp = deploymentTx?.timeStamp ? parseInt(deploymentTx.timeStamp, 10) : null;
+    const deployBlockNumber = deploymentTx?.blockNumber ? parseInt(deploymentTx.blockNumber, 10) : null;
+
+    return {
+      deployTxHash: deploymentTx?.hash || null,
+      deployerAddress: normalizeNullableAddress(deploymentTx?.from),
+      deployBlockNumber: Number.isFinite(deployBlockNumber) ? deployBlockNumber : null,
+      deployedAtTimestamp: Number.isFinite(deployedAtTimestamp) ? deployedAtTimestamp : null,
+      deployedAt: parseUnixToUtcIso(Number.isFinite(deployedAtTimestamp) ? deployedAtTimestamp : null),
+      confidence: 'heuristic'
+    };
+  } catch (_) {
+    return fallbackResult;
+  }
+}
+
+async function getContractEtherscanEnrichment(scanner, address) {
+  const normalizedAddress = normalizeNullableAddress(address);
+  const fetchedAt = new Date().toISOString();
+  if (!normalizedAddress) {
+    return {
+      address: null,
+      contractName: null,
+      verified: false,
+      isProxy: false,
+      implementationAddress: null,
+      proxyContractName: null,
+      implementationContractName: null,
+      deployTxHash: null,
+      deployerAddress: null,
+      deployBlockNumber: null,
+      deployedAtTimestamp: null,
+      deployedAt: null,
+      confidence: 'heuristic',
+      fetchedAt
+    };
+  }
+
+  const sourceData = await getSourceCodeCached(scanner, normalizedAddress);
+  const proxyContractName = sourceData?.ContractName?.trim() || null;
+  const isProxy = sourceData?.Proxy === '1';
+  const implementationAddress = normalizeNullableAddress(sourceData?.Implementation);
+
+  let implementationContractName = null;
+  let implSourceData = null;
+  if (isProxy && implementationAddress) {
+    implSourceData = await getSourceCodeCached(scanner, implementationAddress);
+    implementationContractName = implSourceData?.ContractName?.trim() || null;
+  }
+
+  // Verification must only come from ContractName in getsourcecode.
+  const verified = Boolean(proxyContractName);
+  const canonicalName = (isProxy && implementationContractName) || proxyContractName || null;
+  const deploymentData = await resolveDeploymentData(scanner, normalizedAddress);
+
+  // For storage: use implementation source for proxies, otherwise direct contract source
+  const sourceDataForStorage = isProxy && implSourceData ? implSourceData : sourceData;
+  const sourceCode = sourceDataForStorage ? extractSourceCodeText(sourceDataForStorage) : null;
+  const compilerVersion = sourceDataForStorage?.CompilerVersion?.trim() || null;
+  const optimizationUsed = sourceDataForStorage?.OptimizationUsed || null;
+  const runs = sourceDataForStorage?.Runs ? parseInt(sourceDataForStorage.Runs, 10) : null;
+  const abi = sourceDataForStorage?.ABI || null;
+  const compilerType = sourceDataForStorage?.CompilerType?.trim() || null;
+  const evmVersion = sourceDataForStorage?.EVMVersion?.trim() || null;
+  const constructorArguments = sourceDataForStorage?.ConstructorArguments || null;
+  const library = sourceDataForStorage?.Library || null;
+  const contractFileName = sourceDataForStorage?.ContractFileName?.trim() || null;
+  const licenseType = sourceDataForStorage?.LicenseType || null;
+
+  return {
+    address: normalizedAddress,
+    contractName: verified ? canonicalName : null,
+    verified,
+    isProxy,
+    implementationAddress,
+    proxyContractName: proxyContractName || null,
+    implementationContractName: implementationContractName || null,
+    deployTxHash: deploymentData.deployTxHash,
+    deployerAddress: deploymentData.deployerAddress,
+    deployBlockNumber: deploymentData.deployBlockNumber,
+    deployedAtTimestamp: deploymentData.deployedAtTimestamp,
+    deployedAt: deploymentData.deployedAt,
+    confidence: deploymentData.confidence,
+    fetchedAt,
+    sourceCode,
+    abi,
+    compilerVersion,
+    optimizationUsed,
+    runs,
+    compilerType,
+    evmVersion,
+    constructorArguments,
+    library,
+    contractFileName,
+    licenseType
+  };
 }
 
 // ====== HTTP RPC CLIENT ======
@@ -1813,8 +2201,8 @@ async function getContractDeploymentTimeBatch(scanner, addresses) {
         }
       }
 
-      // Fallback: If no timestamp in Etherscan response, get it from blockchain
-      // Store txHash for later batch processing
+      // Fallback: If no timestamp in Etherscan response, get it from Etherscan proxy API
+      // Store txHash for later processing
       if (creation.txHash) {
         results.set(address, {
           ...result,
@@ -1831,7 +2219,11 @@ async function getContractDeploymentTimeBatch(scanner, addresses) {
     // Process transaction details one by one (can't batch eth_getTransactionByHash)
     for (const [address, data] of contractsWithTxHash) {
       try {
-        const txData = await scanner.alchemyClient.getTransactionByHash(data.txHash);
+        const txData = await scanner.etherscanCall({
+          module: 'proxy',
+          action: 'eth_getTransactionByHash',
+          txhash: data.txHash
+        });
 
         if (txData && txData.blockNumber) {
           results.set(address, { ...data, blockNumber: txData.blockNumber });
@@ -1858,7 +2250,12 @@ async function getContractDeploymentTimeBatch(scanner, addresses) {
     const blockTimestamps = new Map();
     for (const blockNumber of uniqueBlockNumbers) {
       try {
-        const blockData = await scanner.alchemyClient.getBlockByNumber(blockNumber, false);
+        const blockData = await scanner.etherscanCall({
+          module: 'proxy',
+          action: 'eth_getBlockByNumber',
+          tag: blockNumber,
+          boolean: 'true'
+        });
 
         if (blockData && blockData.timestamp) {
           blockTimestamps.set(blockNumber, parseInt(blockData.timestamp, 16));
@@ -1947,14 +2344,21 @@ async function getContractDeploymentTime(scanner, address) {
         }
       }
 
-      // Fallback: If no timestamp in Etherscan response, get it from blockchain
+      // Fallback: If no timestamp in Etherscan response, get it from Etherscan proxy API
       if (creation.txHash) {
-        // Get transaction details to get timestamp
-        const txData = await scanner.alchemyClient.getTransactionByHash(creation.txHash);
+        const txData = await scanner.etherscanCall({
+          module: 'proxy',
+          action: 'eth_getTransactionByHash',
+          txhash: creation.txHash
+        });
 
         if (txData && txData.blockNumber) {
-          // Get block details to get timestamp
-          const blockData = await scanner.alchemyClient.getBlockByNumber(txData.blockNumber, false);
+          const blockData = await scanner.etherscanCall({
+            module: 'proxy',
+            action: 'eth_getBlockByNumber',
+            tag: txData.blockNumber,
+            boolean: 'true'
+          });
 
           if (blockData && blockData.timestamp) {
             result.timestamp = parseInt(blockData.timestamp, 16);
@@ -2050,6 +2454,7 @@ module.exports = {
   initEtherscan,
   etherscanRequest,
   etherscanCall: etherscanRequest,  // Alias for compatibility
+  getTokenBalanceEtherscan,
   
   // HTTP RPC
   HttpRpcClient,
@@ -2065,6 +2470,10 @@ module.exports = {
   getContractDeploymentTime,
   getContractDeploymentTimeBatch,
   getContractNameWithProxy,
+  getContractEtherscanEnrichment,
+  extractSourceCodeText,
+  parseHexToInt,
+  parseUnixToUtcIso,
   
   // Batch operations
   batchOperation

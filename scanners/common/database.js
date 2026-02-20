@@ -10,12 +10,24 @@ async function ensureSchema(client) {
       address TEXT NOT NULL,
       code_hash TEXT,
       contract_name TEXT,
+      verified BOOLEAN NOT NULL DEFAULT false,
+      is_proxy BOOLEAN NOT NULL DEFAULT false,
+      implementation_address TEXT,
+      proxy_contract_name TEXT,
+      implementation_contract_name TEXT,
+      deploy_tx_hash TEXT,
+      deployer_address TEXT,
+      deploy_block_number BIGINT,
+      deployed_at_timestamp BIGINT,
+      deployed_at TEXT,
+      confidence TEXT,
+      fetched_at TEXT,
       deployed BIGINT,
       last_updated BIGINT,
       network TEXT NOT NULL,
       first_seen BIGINT,
       tags TEXT[] DEFAULT '{}',
-      fund BIGINT DEFAULT 0,
+      fund NUMERIC(78, 0) DEFAULT 0,
       last_fund_updated BIGINT DEFAULT 0,
       name_checked BOOLEAN NOT NULL DEFAULT false,
       name_checked_at BIGINT NOT NULL DEFAULT 0,
@@ -84,7 +96,37 @@ async function ensureSchema(client) {
     `CREATE INDEX IF NOT EXISTS idx_tokens_price_updated ON tokens(network, price_updated)`,
     `CREATE INDEX IF NOT EXISTS idx_token_metadata_cache_updated ON token_metadata_cache(network, last_updated)`,
     `CREATE INDEX IF NOT EXISTS idx_symbol_prices_symbol ON symbol_prices(LOWER(symbol))`,
-    `CREATE INDEX IF NOT EXISTS idx_log_density_stats_updated ON network_log_density_stats(last_updated DESC)`
+    `CREATE INDEX IF NOT EXISTS idx_log_density_stats_updated ON network_log_density_stats(last_updated DESC)`,
+
+    // Contract source code storage for verified contracts (code search)
+    `CREATE TABLE IF NOT EXISTS contract_sources (
+      address TEXT NOT NULL,
+      network TEXT NOT NULL,
+      source_code TEXT NOT NULL,
+      source_code_hash TEXT,
+      compiler_version TEXT,
+      optimization_used TEXT,
+      runs INTEGER,
+      fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (address, network),
+      FOREIGN KEY (address, network) REFERENCES addresses(address, network) ON DELETE CASCADE
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_contract_sources_network ON contract_sources(network)`,
+
+    // ERC-20 token balances for verified contracts (Etherscan tokenbalance API)
+    `CREATE TABLE IF NOT EXISTS contract_token_balances (
+      address TEXT NOT NULL,
+      network TEXT NOT NULL,
+      token_address TEXT NOT NULL,
+      symbol TEXT NOT NULL,
+      decimals INTEGER NOT NULL,
+      balance_wei NUMERIC(78, 0) NOT NULL,
+      last_updated BIGINT NOT NULL,
+      PRIMARY KEY (address, network, token_address),
+      FOREIGN KEY (address, network) REFERENCES addresses(address, network) ON DELETE CASCADE
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_ctb_network ON contract_token_balances(network)`,
+    `CREATE INDEX IF NOT EXISTS idx_ctb_last_updated ON contract_token_balances(network, last_updated)`
   ];
 
   for (const schema of schemas) {
@@ -94,33 +136,204 @@ async function ensureSchema(client) {
       console.error('Schema creation failed:', error.message);
     }
   }
-  
+
+  // Column-type migration for existing deployments:
+  // fund used to be BIGINT, which overflows on large balances (common on Ethereum).
+  // NUMERIC(78,0) safely stores uint256-sized integer amounts.
+  try {
+    await client.query(`
+      ALTER TABLE addresses ADD COLUMN IF NOT EXISTS verified BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE addresses ADD COLUMN IF NOT EXISTS is_proxy BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE addresses ADD COLUMN IF NOT EXISTS implementation_address TEXT;
+      ALTER TABLE addresses ADD COLUMN IF NOT EXISTS proxy_contract_name TEXT;
+      ALTER TABLE addresses ADD COLUMN IF NOT EXISTS implementation_contract_name TEXT;
+      ALTER TABLE addresses ADD COLUMN IF NOT EXISTS deploy_tx_hash TEXT;
+      ALTER TABLE addresses ADD COLUMN IF NOT EXISTS deployer_address TEXT;
+      ALTER TABLE addresses ADD COLUMN IF NOT EXISTS deploy_block_number BIGINT;
+      ALTER TABLE addresses ADD COLUMN IF NOT EXISTS deployed_at_timestamp BIGINT;
+      ALTER TABLE addresses ADD COLUMN IF NOT EXISTS deployed_at TEXT;
+      ALTER TABLE addresses ADD COLUMN IF NOT EXISTS confidence TEXT;
+      ALTER TABLE addresses ADD COLUMN IF NOT EXISTS fetched_at TEXT;
+    `);
+  } catch (error) {
+    console.error('Address enrichment column migration warning:', error.message);
+  }
+  try {
+    await client.query(`
+      ALTER TABLE addresses
+      ALTER COLUMN fund TYPE NUMERIC(78, 0)
+      USING fund::NUMERIC
+    `);
+  } catch (error) {
+    // Ignore no-op/compatible-type errors to keep ensureSchema idempotent.
+    const msg = String(error.message || '');
+    if (!msg.includes('cannot be cast automatically') &&
+        !msg.includes('already')) {
+      console.error('Fund column migration warning:', error.message);
+    }
+  }
+  try {
+    await client.query(`
+      ALTER TABLE addresses
+      ALTER COLUMN fund SET DEFAULT 0
+    `);
+  } catch (error) {
+    console.error('Fund default migration warning:', error.message);
+  }
+  try {
+    await client.query(`
+      ALTER TABLE addresses ADD COLUMN IF NOT EXISTS native_balance NUMERIC(78, 0) DEFAULT 0
+    `);
+  } catch (error) {
+    console.error('Native balance column migration warning:', error.message);
+  }
+
+  // contract_sources column migration (abi, contract_file_name, etc.)
+  try {
+    await client.query(`
+      ALTER TABLE contract_sources ADD COLUMN IF NOT EXISTS abi TEXT;
+      ALTER TABLE contract_sources ADD COLUMN IF NOT EXISTS contract_file_name TEXT;
+      ALTER TABLE contract_sources ADD COLUMN IF NOT EXISTS compiler_type TEXT;
+      ALTER TABLE contract_sources ADD COLUMN IF NOT EXISTS evm_version TEXT;
+      ALTER TABLE contract_sources ADD COLUMN IF NOT EXISTS constructor_arguments TEXT;
+      ALTER TABLE contract_sources ADD COLUMN IF NOT EXISTS library TEXT;
+      ALTER TABLE contract_sources ADD COLUMN IF NOT EXISTS license_type TEXT;
+    `);
+  } catch (error) {
+    console.error('contract_sources column migration warning:', error.message);
+  }
+
+  // pg_trgm extension for code similarity search (may require superuser)
+  try {
+    await client.query('CREATE EXTENSION IF NOT EXISTS pg_trgm');
+  } catch (error) {
+    console.warn('pg_trgm extension not available (code search may be limited):', error.message);
+  }
+
+  // GIN index for contract source code search (create after table exists)
+  try {
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_contract_sources_source_trgm
+      ON contract_sources USING gin (source_code gin_trgm_ops)
+    `);
+  } catch (error) {
+    console.warn('contract_sources trigram index creation skipped:', error.message);
+  }
+
   console.log('Database schema ensured');
+}
+
+// ====== CONTRACT SOURCES ======
+async function batchUpsertContractSources(client, sources, options = {}) {
+  if (sources.length === 0) return { rowCount: 0 };
+
+  const batchSize = options.batchSize || 50;
+  let totalRowCount = 0;
+
+  for (let i = 0; i < sources.length; i += batchSize) {
+    const batch = sources.slice(i, i + batchSize);
+    const values = [];
+    const params = [];
+    let paramIndex = 1;
+
+    for (const s of batch) {
+      if (!s.sourceCode || !s.address || !s.network) continue;
+      const rowParams = [
+        s.address,
+        s.network,
+        s.sourceCode,
+        s.sourceCodeHash || null,
+        s.compilerVersion || null,
+        s.optimizationUsed || null,
+        s.runs != null ? s.runs : null,
+        s.abi || null,
+        s.contractFileName || null,
+        s.compilerType || null,
+        s.evmVersion || null,
+        s.constructorArguments || null,
+        s.library || null,
+        s.licenseType || null
+      ];
+      const placeholders = rowParams.map(() => `$${paramIndex++}`).join(', ');
+      values.push(`(${placeholders})`);
+      params.push(...rowParams);
+    }
+
+    if (values.length === 0) continue;
+
+    const query = `
+      INSERT INTO contract_sources (
+        address, network, source_code, source_code_hash,
+        compiler_version, optimization_used, runs,
+        abi, contract_file_name, compiler_type, evm_version,
+        constructor_arguments, library, license_type
+      ) VALUES ${values.join(', ')}
+      ON CONFLICT (address, network) DO UPDATE SET
+        source_code = EXCLUDED.source_code,
+        source_code_hash = EXCLUDED.source_code_hash,
+        compiler_version = EXCLUDED.compiler_version,
+        optimization_used = EXCLUDED.optimization_used,
+        runs = EXCLUDED.runs,
+        abi = EXCLUDED.abi,
+        contract_file_name = EXCLUDED.contract_file_name,
+        compiler_type = EXCLUDED.compiler_type,
+        evm_version = EXCLUDED.evm_version,
+        constructor_arguments = EXCLUDED.constructor_arguments,
+        library = EXCLUDED.library,
+        license_type = EXCLUDED.license_type,
+        fetched_at = CURRENT_TIMESTAMP
+    `;
+    const result = await client.query(query, params);
+    totalRowCount += result.rowCount;
+  }
+
+  return { rowCount: totalRowCount };
 }
 
 // ====== BASIC OPERATIONS ======
 async function upsertAddress(client, data) {
   const query = `
     INSERT INTO addresses (
-      address, code_hash, contract_name, deployed,
+      address, code_hash, contract_name, verified, is_proxy, implementation_address,
+      proxy_contract_name, implementation_contract_name, deploy_tx_hash, deployer_address,
+      deploy_block_number, deployed_at_timestamp, deployed_at, confidence, fetched_at, deployed,
       last_updated, network, first_seen, tags,
-      fund, last_fund_updated, name_checked, name_checked_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      fund, last_fund_updated, name_checked, name_checked_at, native_balance
+    ) VALUES (
+      $1, $2, $3, $4, $5, $6,
+      $7, $8, $9, $10,
+      $11, $12, $13, $14, $15, $16,
+      $17, $18, $19, $20,
+      $21, $22, $23, $24, $25
+    )
     ON CONFLICT (address, network) DO UPDATE SET
       code_hash = $2,
       contract_name = $3,
-      deployed = $4,
-      last_updated = $5,
-      first_seen = COALESCE(addresses.first_seen, $7),
+      verified = $4,
+      is_proxy = $5,
+      implementation_address = $6,
+      proxy_contract_name = $7,
+      implementation_contract_name = $8,
+      deploy_tx_hash = $9,
+      deployer_address = $10,
+      deploy_block_number = $11,
+      deployed_at_timestamp = $12,
+      deployed_at = $13,
+      confidence = $14,
+      fetched_at = $15,
+      deployed = $16,
+      last_updated = $17,
+      first_seen = COALESCE(addresses.first_seen, $19),
       tags = CASE
-        WHEN $8 IS NOT NULL AND array_length($8, 1) > 0
-        THEN $8
+        WHEN $20 IS NOT NULL AND array_length($20, 1) > 0
+        THEN $20
         ELSE addresses.tags
       END,
-      fund = $9,
-      last_fund_updated = $10,
-      name_checked = $11,
-      name_checked_at = $12
+      fund = $21,
+      last_fund_updated = $22,
+      name_checked = $23,
+      name_checked_at = $24,
+      native_balance = $25
   `;
   
   const now = Math.floor(Date.now() / 1000);
@@ -129,6 +342,18 @@ async function upsertAddress(client, data) {
     data.address,
     data.codeHash,
     data.contractName,
+    data.verified || false,
+    data.isProxy || false,
+    data.implementationAddress || null,
+    data.proxyContractName || null,
+    data.implementationContractName || null,
+    data.deployTxHash || null,
+    data.deployerAddress || null,
+    data.deployBlockNumber || null,
+    data.deployedAtTimestamp || null,
+    data.deployedAt || null,
+    data.confidence || null,
+    data.fetchedAt || null,
     // IMPORTANT: Keep deployed as null if not provided or invalid
     // Never use current time as default for deployed field
     (data.deployed && data.deployed > 0) ? data.deployed : null,
@@ -139,8 +364,40 @@ async function upsertAddress(client, data) {
     data.fund || 0,
     data.lastFundUpdated || 0,
     data.nameChecked || false,
-    data.nameCheckedAt || 0
+    data.nameCheckedAt || 0,
+    data.nativeBalance || 0
   ]);
+}
+
+/**
+ * Update only fund-related fields (fund, last_fund_updated, native_balance).
+ * Use this for FundUpdater to avoid overwriting verified, contract_name, etc.
+ */
+async function batchUpdateFunds(client, updates, options = {}) {
+  if (updates.length === 0) return { rowCount: 0 };
+  const batchSize = options.batchSize || 500;
+  let totalRowCount = 0;
+  for (let i = 0; i < updates.length; i += batchSize) {
+    const batch = updates.slice(i, i + batchSize);
+    const addrs = batch.map(b => b.address);
+    const nets = batch.map(b => b.network);
+    const funds = batch.map(b => b.fund ?? 0);
+    const lastFunds = batch.map(b => b.lastFundUpdated ?? 0);
+    const natives = batch.map(b => b.nativeBalance ?? 0);
+    const r = await client.query(`
+      UPDATE addresses a SET
+        fund = u.fund,
+        last_fund_updated = u.last_fund_updated,
+        native_balance = u.native_balance
+      FROM (
+        SELECT * FROM unnest($1::text[], $2::text[], $3::numeric[], $4::bigint[], $5::numeric[])
+        AS t(addr, net, fund, last_fund_updated, native_balance)
+      ) u(addr, net, fund, last_fund_updated, native_balance)
+      WHERE a.address = u.addr AND a.network = u.net
+    `, [addrs, nets, funds, lastFunds, natives]);
+    totalRowCount += r.rowCount;
+  }
+  return { rowCount: totalRowCount };
 }
 
 async function batchUpsertAddresses(client, addresses, options = {}) {
@@ -174,6 +431,18 @@ async function batchUpsertAddresses(client, addresses, options = {}) {
         data.address,
         data.codeHash || null,
         data.contractName || null,
+        data.verified || false,
+        data.isProxy || false,
+        data.implementationAddress || null,
+        data.proxyContractName || null,
+        data.implementationContractName || null,
+        data.deployTxHash || null,
+        data.deployerAddress || null,
+        data.deployBlockNumber || null,
+        data.deployedAtTimestamp || null,
+        data.deployedAt || null,
+        data.confidence || null,
+        data.fetchedAt || null,
         // IMPORTANT: Keep deployed as null if not provided or invalid
         // Never use current time as default for deployed field
         (data.deployed && data.deployed > 0) ? data.deployed : null,
@@ -184,7 +453,8 @@ async function batchUpsertAddresses(client, addresses, options = {}) {
         data.fund || 0,
         data.lastFundUpdated || 0,
         data.nameChecked || false,
-        data.nameCheckedAt || 0
+        data.nameCheckedAt || 0,
+        data.nativeBalance || 0
       ];
       
       const placeholders = rowParams.map(() => `$${paramIndex++}`).join(', ');
@@ -194,9 +464,11 @@ async function batchUpsertAddresses(client, addresses, options = {}) {
     
     const query = `
       INSERT INTO addresses (
-        address, code_hash, contract_name, deployed,
+        address, code_hash, contract_name, verified, is_proxy, implementation_address,
+        proxy_contract_name, implementation_contract_name, deploy_tx_hash, deployer_address,
+        deploy_block_number, deployed_at_timestamp, deployed_at, confidence, fetched_at, deployed,
         last_updated, network, first_seen, tags,
-        fund, last_fund_updated, name_checked, name_checked_at
+        fund, last_fund_updated, name_checked, name_checked_at, native_balance
       ) VALUES ${values.join(', ')}
       ON CONFLICT (address, network) DO UPDATE SET
         -- Update with new value, but keep existing if new is null (protection)
@@ -207,6 +479,48 @@ async function batchUpsertAddresses(client, addresses, options = {}) {
         contract_name = CASE
           WHEN EXCLUDED.contract_name IS NOT NULL THEN EXCLUDED.contract_name
           ELSE addresses.contract_name
+        END,
+        verified = EXCLUDED.verified,
+        is_proxy = EXCLUDED.is_proxy,
+        implementation_address = CASE
+          WHEN EXCLUDED.implementation_address IS NOT NULL THEN EXCLUDED.implementation_address
+          ELSE addresses.implementation_address
+        END,
+        proxy_contract_name = CASE
+          WHEN EXCLUDED.proxy_contract_name IS NOT NULL THEN EXCLUDED.proxy_contract_name
+          ELSE addresses.proxy_contract_name
+        END,
+        implementation_contract_name = CASE
+          WHEN EXCLUDED.implementation_contract_name IS NOT NULL THEN EXCLUDED.implementation_contract_name
+          ELSE addresses.implementation_contract_name
+        END,
+        deploy_tx_hash = CASE
+          WHEN EXCLUDED.deploy_tx_hash IS NOT NULL THEN EXCLUDED.deploy_tx_hash
+          ELSE addresses.deploy_tx_hash
+        END,
+        deployer_address = CASE
+          WHEN EXCLUDED.deployer_address IS NOT NULL THEN EXCLUDED.deployer_address
+          ELSE addresses.deployer_address
+        END,
+        deploy_block_number = CASE
+          WHEN EXCLUDED.deploy_block_number IS NOT NULL THEN EXCLUDED.deploy_block_number
+          ELSE addresses.deploy_block_number
+        END,
+        deployed_at_timestamp = CASE
+          WHEN EXCLUDED.deployed_at_timestamp IS NOT NULL THEN EXCLUDED.deployed_at_timestamp
+          ELSE addresses.deployed_at_timestamp
+        END,
+        deployed_at = CASE
+          WHEN EXCLUDED.deployed_at IS NOT NULL THEN EXCLUDED.deployed_at
+          ELSE addresses.deployed_at
+        END,
+        confidence = CASE
+          WHEN EXCLUDED.confidence IS NOT NULL THEN EXCLUDED.confidence
+          ELSE addresses.confidence
+        END,
+        fetched_at = CASE
+          WHEN EXCLUDED.fetched_at IS NOT NULL THEN EXCLUDED.fetched_at
+          ELSE addresses.fetched_at
         END,
         deployed = CASE
           WHEN EXCLUDED.deployed IS NOT NULL THEN EXCLUDED.deployed
@@ -222,7 +536,8 @@ async function batchUpsertAddresses(client, addresses, options = {}) {
         fund = EXCLUDED.fund,
         last_fund_updated = EXCLUDED.last_fund_updated,
         name_checked = EXCLUDED.name_checked,
-        name_checked_at = EXCLUDED.name_checked_at
+        name_checked_at = EXCLUDED.name_checked_at,
+        native_balance = EXCLUDED.native_balance
     `;
     
     const result = await client.query(query, params);
@@ -261,6 +576,18 @@ async function optimizedBatchUpsert(client, addresses, options = {}) {
           data.address,
           data.codeHash || null,
           data.contractName || null,
+          data.verified || false,
+          data.isProxy || false,
+          data.implementationAddress || null,
+          data.proxyContractName || null,
+          data.implementationContractName || null,
+          data.deployTxHash || null,
+          data.deployerAddress || null,
+          data.deployBlockNumber || null,
+          data.deployedAtTimestamp || null,
+          data.deployedAt || null,
+          data.confidence || null,
+          data.fetchedAt || null,
           data.deployed || null,
           data.lastUpdated || now,
           data.network,
@@ -269,7 +596,8 @@ async function optimizedBatchUpsert(client, addresses, options = {}) {
           data.fund || 0,
           data.lastFundUpdated || 0,
           data.nameChecked || false,
-          data.nameCheckedAt || 0
+          data.nameCheckedAt || 0,
+          data.nativeBalance || 0
         ];
         
         const placeholders = rowParams.map(() => `$${paramIndex++}`).join(',');
@@ -279,13 +607,27 @@ async function optimizedBatchUpsert(client, addresses, options = {}) {
       
       const query = `
         INSERT INTO addresses (
-          address, code_hash, contract_name, deployed,
+          address, code_hash, contract_name, verified, is_proxy, implementation_address,
+          proxy_contract_name, implementation_contract_name, deploy_tx_hash, deployer_address,
+          deploy_block_number, deployed_at_timestamp, deployed_at, confidence, fetched_at, deployed,
           last_updated, network, first_seen, tags,
-          fund, last_fund_updated, name_checked, name_checked_at
+          fund, last_fund_updated, name_checked, name_checked_at, native_balance
         ) VALUES ${values.join(',')}
         ON CONFLICT (address, network) DO UPDATE SET
           code_hash = COALESCE(EXCLUDED.code_hash, addresses.code_hash),
           contract_name = COALESCE(EXCLUDED.contract_name, addresses.contract_name),
+          verified = EXCLUDED.verified,
+          is_proxy = EXCLUDED.is_proxy,
+          implementation_address = COALESCE(EXCLUDED.implementation_address, addresses.implementation_address),
+          proxy_contract_name = COALESCE(EXCLUDED.proxy_contract_name, addresses.proxy_contract_name),
+          implementation_contract_name = COALESCE(EXCLUDED.implementation_contract_name, addresses.implementation_contract_name),
+          deploy_tx_hash = COALESCE(EXCLUDED.deploy_tx_hash, addresses.deploy_tx_hash),
+          deployer_address = COALESCE(EXCLUDED.deployer_address, addresses.deployer_address),
+          deploy_block_number = COALESCE(EXCLUDED.deploy_block_number, addresses.deploy_block_number),
+          deployed_at_timestamp = COALESCE(EXCLUDED.deployed_at_timestamp, addresses.deployed_at_timestamp),
+          deployed_at = COALESCE(EXCLUDED.deployed_at, addresses.deployed_at),
+          confidence = COALESCE(EXCLUDED.confidence, addresses.confidence),
+          fetched_at = COALESCE(EXCLUDED.fetched_at, addresses.fetched_at),
           deployed = COALESCE(EXCLUDED.deployed, addresses.deployed),
           last_updated = COALESCE(EXCLUDED.last_updated, addresses.last_updated),
           first_seen = COALESCE(EXCLUDED.first_seen, addresses.first_seen),
@@ -297,7 +639,8 @@ async function optimizedBatchUpsert(client, addresses, options = {}) {
           fund = COALESCE(EXCLUDED.fund, addresses.fund),
           last_fund_updated = COALESCE(EXCLUDED.last_fund_updated, addresses.last_fund_updated),
           name_checked = COALESCE(EXCLUDED.name_checked, addresses.name_checked),
-          name_checked_at = COALESCE(EXCLUDED.name_checked_at, addresses.name_checked_at)
+          name_checked_at = COALESCE(EXCLUDED.name_checked_at, addresses.name_checked_at),
+          native_balance = EXCLUDED.native_balance
       `;
       
       const result = await client.query(query, params);
@@ -875,9 +1218,11 @@ async function getTokenStats(client, network = null) {
 module.exports = {
   // Schema management
   ensureSchema,
-  
+
   // Basic operations
   batchUpsertAddresses,
+  batchUpdateFunds,
+  batchUpsertContractSources,
   optimizedBatchUpsert,
   
   // Index management

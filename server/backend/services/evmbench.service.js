@@ -77,9 +77,9 @@ async function startAuditJob(sourceCode, contractFileName, openaiKey, model = DE
 }
 
 /**
- * Get evmbench job status.
+ * Get evmbench job status (full job response for progress display).
  * @param {string} jobId - evmbench job UUID
- * @returns {Promise<{ status: string, result?: object, error?: string }>}
+ * @returns {Promise<{ status: string, result?: object, error?: string, model?: string, file_name?: string, created_at?: string, started_at?: string, finished_at?: string, queue_position?: number }>}
  */
 async function getJobStatus(jobId) {
   const response = await fetch(`${EVMBENCH_API_URL}/v1/jobs/${jobId}`, {
@@ -96,6 +96,12 @@ async function getJobStatus(jobId) {
     status: data.status,
     result: data.result ?? undefined,
     error: data.error ?? undefined,
+    model: data.model,
+    file_name: data.file_name,
+    created_at: data.created_at,
+    started_at: data.started_at,
+    finished_at: data.finished_at,
+    queue_position: data.queue_position,
   };
 }
 

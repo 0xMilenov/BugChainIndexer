@@ -1,0 +1,13 @@
+[
+  {"rank": 1, "name": "USDe", "symbol": "USDe", "address": "0x5d3a1ff2b6bab83b63cd9ad0787074081a52ef34", "decimals": 18},
+  {"rank": 2, "name": "KelpDao Restaked ETH", "symbol": "rsETH", "address": "0xc3eacf0612346366db554c991d7858716db09f58", "decimals": 18},
+  {"rank": 3, "name": "Cap USD", "symbol": "CUSD", "address": "0xcccc62962d17b8914c62d74ffb843d73b2a3cccc", "decimals": 18},
+  {"rank": 4, "name": "MegaUSD", "symbol": "USDm", "address": "0xfafddbb3fc7688494971a79cc65dca3ef82079e7", "decimals": 6},
+  {"rank": 5, "name": "Bitcoin", "symbol": "BTC.b", "address": "0xb0f70c0bd6fd87dbeb7c10dc692a2a6106817072", "decimals": 8},
+  {"rank": 6, "name": "Renzo Restaked ETH", "symbol": "ezETH", "address": "0x09601a65e7de7bc8a19813d263dd9e98bfdc3c57", "decimals": 18},
+  {"rank": 7, "name": "Staked Cap USD", "symbol": "STCUSD", "address": "0x88887be419578051ff9f4eb6c858a951921d8888", "decimals": 18},
+  {"rank": 8, "name": "Staked USDe", "symbol": "sUSDe", "address": "0x211cc4dd073734da055fbf44a2b4667d5e5fe5d2", "decimals": 18},
+  {"rank": 9, "name": "USDT0", "symbol": "USDT0", "address": "0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb", "decimals": 6},
+  {"rank": 10, "name": "Wrapped Ether", "symbol": "WETH", "address": "0x4200000000000000000000000000000000000006", "decimals": 18},
+  {"rank": 11, "name": "Wrapped liquid staked Ether 2.0", "symbol": "wstETH", "address": "0x601ac63637933d88285a025c685ac4e9a92a98da", "decimals": 18}
+]

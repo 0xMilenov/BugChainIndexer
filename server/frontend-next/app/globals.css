@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+/* Hacker theme - dark by default */
+:root {
+  --bg-primary: #0a0a0f;
+  --bg-secondary: #12121a;
+  --bg-tertiary: #1a1a24;
+  --accent-cyan: #00ff9d;
+  --accent-cyan-dim: #00cc7d;
+  --accent-soft: #6ee7b7;
+  --accent-amber: #ffb800;
+  --text-primary: #e4e4e7;
+  --text-muted: #71717a;
+  --border: #27272a;
+  --focus-ring: 0 0 0 2px rgba(0, 255, 157, 0.3);
+}
+
+@theme inline {
+  --color-bg-primary: #0a0a0f;
+  --color-bg-secondary: #12121a;
+  --color-bg-tertiary: #1a1a24;
+  --color-accent: #00ff9d;
+  --color-accent-dim: #00cc7d;
+  --color-accent-soft: #6ee7b7;
+  --color-accent-amber: #ffb800;
+  --color-text-muted: #71717a;
+  --color-border: #27272a;
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-sans);
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Custom scrollbar - hacker style */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Focus ring */
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Skeleton loading animation */
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-secondary) 25%,
+    var(--bg-tertiary) 50%,
+    var(--bg-secondary) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+/* Skip link for accessibility */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 50;
+}
+.skip-link:focus {
+  left: 10px;
+  top: 10px;
+  background: var(--accent-cyan);
+  color: var(--bg-primary);
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+/* Grid overlay for hacker aesthetic */
+.bg-grid-overlay {
+  background-image:
+    linear-gradient(rgba(0, 255, 157, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 157, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Glow effect */
+.glow-cyan {
+  box-shadow: 0 0 20px rgba(0, 255, 157, 0.15);
+}
+.glow-cyan-hover:hover {
+  box-shadow: 0 0 24px rgba(0, 255, 157, 0.25);
+}

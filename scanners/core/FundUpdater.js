@@ -7,7 +7,7 @@ const Scanner = require('../common/Scanner');
 const fs = require('fs');
 const path = require('path');
 // Token addresses loaded from network config
-const { batchUpsertAddresses, normalizeAddress } = require('../common');
+const { batchUpdateFunds, normalizeAddress } = require('../common');
 const { CONFIG } = require('../config/networks.js');
 const TokenPriceCache = require('../common/TokenPriceCache');
 
@@ -167,12 +167,6 @@ class FundUpdater extends Scanner {
     
     return addresses;
   }
-
-
-  // [REMOVED] Unused functions:
-  // - getTokenAddressesFromDatabase() -> tokens loaded from tokens/{network}.json file
-  // - fetchTokenPrices() -> prices fetched from symbol_prices table
-  // - fetchPortfolioWithAlchemy() -> using BalanceHelper contract for batch processing
 
   /**
    * Fetch and update token prices using Alchemy Prices API (by symbol)
@@ -607,13 +601,14 @@ class FundUpdater extends Scanner {
           address: normalizeAddress(address),
           network: this.network,
           fund: finalFund,
-          lastFundUpdated: this.currentTime
+          lastFundUpdated: this.currentTime,
+          nativeBalance: nativeBalance
         };
       });
 
-      // Batch database updates
+      // Batch database updates (use batchUpdateFunds to avoid overwriting verified, contract_name, etc.)
       if (updates.length > 0) {
-        await batchUpsertAddresses(this.db, updates, { batchSize: 250 });
+        await batchUpdateFunds(this.db, updates, { batchSize: 250 });
       }
 
       return updates.length;

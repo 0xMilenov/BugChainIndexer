@@ -2,9 +2,10 @@
  * Test Avalanche API - Dedicated vs V2
  */
 
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const axios = require('axios');
 
-const API_KEY = '964G8PEYWFX6MXG8IW9JMBFM9TP4UTW6VI';
+const API_KEY = process.env.DEFAULT_ETHERSCAN_KEYS?.split(',')[0] || process.env.ETHERSCAN_API_KEY || '';
 const AVALANCHE_CHAIN_ID = 43114;
 
 const TEST_CONTRACTS = [

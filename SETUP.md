@@ -228,6 +228,7 @@ cd scanners
 This creates the following schedule:
 - **Unified Analysis**: Every 4 hours
 - **Fund Updates**: Every 6 hours
+- **ERC-20 Token Balances**: Every 2 hours at 2,6,10,14,18,22 UTC (`0 2,6,10,14,18,22 * * *`) - quiet times, avoids unified (0,4,8,12,16,20)
 - **Data Validation**: Weekly (Sunday 2 AM)
 - **Database Optimization**: Daily maintenance
 
@@ -245,7 +246,21 @@ crontab -l
 # Test individual cron scripts
 ./cron/cron-unified.sh      # Test unified pipeline
 ./cron/cron-funds.sh        # Test fund updates
+./cron/cron-erc20-balances.sh  # Test ERC-20 token balance updates
 ./cron/cron-revalidate.sh   # Test data validation
+```
+
+### ERC-20 Token Balances (Pilot Testing)
+Before scaling to all contracts, run a pilot with 10 contracts:
+```bash
+# Pilot: 10 contracts on ethereum only (test before scaling)
+ERC20_PILOT_LIMIT=10 NETWORK=ethereum ./run.sh erc20-balances
+
+# Verify in DB
+echo "SELECT COUNT(*) FROM contract_token_balances;" | psql $PGDATABASE
+
+# If successful, run full batch (sequential across networks)
+./run.sh erc20-balances
 ```
 
 ## 🔧 Advanced Configuration
@@ -308,9 +323,9 @@ npm start
 ```
 
 ### Frontend (Optional)
-The server includes a fast web interface at `/server/frontend/index.html`
+The server includes a Next.js web interface at `server/frontend-next/`
 
-Access at: `https://localhost` (HTTPS on port 443)
+Access at: `https://localhost` (HTTPS on port 443) or `http://localhost:3000` (dev)
 
 **Performance Features:**
 - Sub-second page load (<1s, 96% improvement)

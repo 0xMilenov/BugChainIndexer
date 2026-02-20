@@ -1,4 +1,8 @@
 require('dotenv').config();
+// Load scanners env for DEFAULT_ETHERSCAN_KEYS (required for addContract)
+const path = require('path');
+const scannersEnv = path.join(__dirname, '..', '..', 'scanners', '.env');
+require('dotenv').config({ path: scannersEnv });
 const fs = require('fs');
 const https = require('https');
 const http = require('http');

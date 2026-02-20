@@ -17,10 +17,6 @@ class TokenPriceCache {
     });
   }
 
-  // [REMOVED] Unused functions that used token_price_cache table:
-  // - getCachedPrices() - was for address-based caching
-  // - updatePrices() - was for updating address-based cache
-
   /**
    * Fetch token prices for given symbols
    * @param {string[]} symbols - Array of token symbols

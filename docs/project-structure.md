@@ -35,9 +35,7 @@ common/
 ├── alchemyRpc.js          # Alchemy RPC client (includes Prices API)
 ├── TokenPriceCache.js     # Token price caching system
 ├── addressUtils.js        # EIP-55 address validation and normalization
-├── chunkOptimizer.js      # Batch size optimization
-├── suiRpc.js              # Sui blockchain RPC client
-└── suiBatchBalances.js    # Sui batch balance queries
+└── chunkOptimizer.js      # Batch size optimization
 ```
 
 **Key Features:**
@@ -53,8 +51,7 @@ core/
 ├── UnifiedScanner.js      # Main analysis pipeline (5-in-1)
 ├── FundUpdater.js         # Asset tracker (uses Advisory Locks)
 ├── DataRevalidator.js     # Data validation and reclassification
-├── SuiTransferScanner.js  # Sui blockchain transfer scanner
-└── SuiFundUpdater.js      # Sui blockchain asset updater
+└── ERC20TokenBalanceScanner.js  # ERC-20 token balances via Etherscan API
 ```
 
 **UnifiedScanner.js** - 5-in-1 integrated pipeline:
@@ -104,9 +101,13 @@ tokens/
 ├── scroll.json
 ├── mantle.json
 ├── opbnb.json
-├── unichain.json
-├── berachain.json
-├── sui.json
+├── polygon-zkevm.json
+├── arbitrum-nova.json
+├── celo.json
+├── cronos.json
+├── moonbeam.json
+├── moonriver.json
+├── megaeth.json
 └── ... (18 networks total, 1,254 tokens)
 ```
 
@@ -149,14 +150,13 @@ cron/
 
 ```
 tests/
-├── test-blockberry-packages.js
-├── test-sui-batch-balances.js
-├── test-sui-fund-updater.js
-├── test-sui-package.js
-├── test-sui-real-address.js
-├── test-sui-source-code.js
-├── test-sui-token-balance.js
-└── test-sui-transfer-scanner-updated.js
+├── test-datarevalidator.js
+├── test-scanner-integration.js
+├── test-fundupdater-alchemy.js
+├── test-avalanche-api.js
+├── test-gnosis-v2-api.js
+├── test-rpc-comprehensive.js
+└── ... (46 test files for scanners, networks, API)
 ```
 
 #### scanners/migrations/ - Database Migrations
@@ -255,11 +255,15 @@ GET /networkCounts
 - CORS support
 - HTTPS (port 443)
 
-#### server/frontend/ - Web Interface
+#### server/frontend-next/ - Web Interface
 
 ```
-frontend/
-└── index.html                 # Single page application
+frontend-next/
+├── app/                      # Next.js App Router pages
+├── components/               # React components (filters, results, UI)
+├── hooks/                    # useSearchContracts, useBookmarks, useNativePrices
+├── lib/                      # API client, constants, utils
+└── context/                  # FilterContext, ToastContext
 ```
 
 **Key Features:**
@@ -271,7 +275,6 @@ frontend/
 **Performance Improvements:**
 - Page load: 25s → under 1s
 - Multi-network queries: 19s → 0.09s
-- Removed highlightNetworksWithData (23s blocking call)
 
 #### server/services/ - Systemd Services
 
@@ -498,7 +501,7 @@ idx_token_price_cache_updated
 - Berachain
 
 ### Experimental Support
-- Sui (separate scanners: SuiTransferScanner, SuiFundUpdater)
+- (None currently - EVM networks only)
 
 ---
 

@@ -351,8 +351,12 @@ const getAlchemyUrl = (network) => {
     'mantle': 'mantle-mainnet',  // Mantle
     'arbitrum-nova': 'arbnova-mainnet',  // Arbitrum Nova
     'moonbeam': 'moonbeam-mainnet',  // Moonbeam
+    'moonriver': 'moonriver-mainnet',  // Moonriver
     'gnosis': 'gnosis-mainnet',  // Gnosis (xDAI)
-    'celo': 'celo-mainnet'  // Celo
+    'celo': 'celo-mainnet',  // Celo
+    'cronos': 'cronos-mainnet',  // Cronos
+    'opbnb': 'opbnb-mainnet',  // opBNB
+    'megaeth': 'megaeth-mainnet'  // MegaETH Mainnet
   };
   
   const alchemyNetwork = networkMap[network];
@@ -824,6 +828,157 @@ const ADDITIONAL_NETWORKS = {
       premium: 10000     // All Other Chains: 10000 blocks
     },
     // Berachain has low log density (5-20 logs/block)
+    logsOptimization: 'low-density'
+  },
+
+  'arbitrum-nova': {
+    chainId: 42170,
+    name: 'Arbitrum Nova',
+    alchemyNetwork: 'arbnova-mainnet',
+    rpcUrls: envArray('ARBITRUM_NOVA_RPC_URL', [
+      getAlchemyUrl('arbitrum-nova'),
+      'https://nova.arbitrum.io/rpc',
+      'https://arbitrum-nova-rpc.publicnode.com',
+      'https://arbitrum-nova.drpc.org',
+      'https://1rpc.io/arb-nova'
+    ].filter(Boolean)),
+    contractValidator: '0x235a064473515789e2781B051bbd9e24AFb46DAc',
+    nativeCurrency: 'ETH',
+    BalanceHelper: '0xeAbB01920C41e1C010ba74628996EEA65Df03550',
+    maxLogsBlockRange: { free: 10, premium: 10000 },
+    logsOptimization: 'low-density'
+  },
+
+  celo: {
+    chainId: 42220,
+    name: 'Celo Mainnet',
+    alchemyNetwork: 'celo-mainnet',
+    rpcUrls: envArray('CELO_RPC_URL', [
+      getAlchemyUrl('celo'),
+      'https://forno.celo.org',
+      'https://celo.drpc.org',
+      'https://1rpc.io/celo',
+      'https://celo-mainnet-rpc.publicnode.com'
+    ].filter(Boolean)),
+    contractValidator: '0x235a064473515789e2781B051bbd9e24AFb46DAc',
+    nativeCurrency: 'CELO',
+    BalanceHelper: '0xeAbB01920C41e1C010ba74628996EEA65Df03550',
+    maxLogsBlockRange: { free: 10, premium: 10000 },
+    logsOptimization: 'medium-density'
+  },
+
+  cronos: {
+    chainId: 25,
+    name: 'Cronos',
+    alchemyNetwork: 'cronos-mainnet',
+    rpcUrls: envArray('CRONOS_RPC_URL', [
+      getAlchemyUrl('cronos'),
+      'https://evm.cronos.org',
+      'https://cronos-evm.publicnode.com',
+      'https://cronos.drpc.org',
+      'https://1rpc.io/cro'
+    ].filter(Boolean)),
+    contractValidator: '0x235a064473515789e2781B051bbd9e24AFb46DAc',
+    nativeCurrency: 'CRO',
+    BalanceHelper: '0xeAbB01920C41e1C010ba74628996EEA65Df03550',
+    maxLogsBlockRange: { free: 10, premium: 10000 },
+    logsOptimization: 'medium-density'
+  },
+
+  moonbeam: {
+    chainId: 1284,
+    name: 'Moonbeam',
+    alchemyNetwork: 'moonbeam-mainnet',
+    rpcUrls: envArray('MOONBEAM_RPC_URL', [
+      getAlchemyUrl('moonbeam'),
+      'https://moonbeam.drpc.org',
+      'https://1rpc.io/glmr',
+      'https://moonbeam-rpc.dwellir.com',
+      'https://moonbeam.publicnode.com'
+    ].filter(Boolean)),
+    contractValidator: '0x235a064473515789e2781B051bbd9e24AFb46DAc',
+    nativeCurrency: 'GLMR',
+    BalanceHelper: '0xeAbB01920C41e1C010ba74628996EEA65Df03550',
+    maxLogsBlockRange: { free: 10, premium: 10000 },
+    logsOptimization: 'low-density'
+  },
+
+  moonriver: {
+    chainId: 1285,
+    name: 'Moonriver',
+    alchemyNetwork: 'moonriver-mainnet',
+    rpcUrls: envArray('MOONRIVER_RPC_URL', [
+      getAlchemyUrl('moonriver'),
+      'https://moonriver.drpc.org',
+      'https://1rpc.io/movr',
+      'https://moonriver-rpc.dwellir.com',
+      'https://moonriver.publicnode.com'
+    ].filter(Boolean)),
+    contractValidator: '0x235a064473515789e2781B051bbd9e24AFb46DAc',
+    nativeCurrency: 'MOVR',
+    BalanceHelper: '0xeAbB01920C41e1C010ba74628996EEA65Df03550',
+    maxLogsBlockRange: { free: 10, premium: 10000 },
+    logsOptimization: 'low-density'
+  },
+
+  opbnb: {
+    chainId: 204,
+    name: 'opBNB',
+    alchemyNetwork: 'opbnb-mainnet',
+    rpcUrls: envArray('OPBNB_RPC_URL', [
+      getAlchemyUrl('opbnb'),
+      'https://opbnb-mainnet-rpc.bnbchain.org',
+      'https://opbnb.drpc.org',
+      'https://1rpc.io/opbnb',
+      'https://opbnb-mainnet.publicnode.com'
+    ].filter(Boolean)),
+    contractValidator: '0x235a064473515789e2781B051bbd9e24AFb46DAc',
+    nativeCurrency: 'BNB',
+    BalanceHelper: '0xeAbB01920C41e1C010ba74628996EEA65Df03550',
+    maxLogsBlockRange: { free: 10, premium: 10000 },
+    logsOptimization: 'medium-density'
+  },
+
+  'polygon-zkevm': {
+    chainId: 1101,
+    name: 'Polygon zkEVM',
+    alchemyNetwork: 'polygon-zkevm-mainnet',
+    rpcUrls: envArray('POLYGON_ZKEVM_RPC_URL', [
+      getAlchemyUrl('polygon-zkevm'),
+      'https://zkevm-rpc.com',
+      'https://polygon-zkevm.drpc.org',
+      'https://1rpc.io/zkevm',
+      'https://polygon-zkevm-bor-rpc.publicnode.com'
+    ].filter(Boolean)),
+    contractValidator: '0x235a064473515789e2781B051bbd9e24AFb46DAc',
+    nativeCurrency: 'ETH',
+    BalanceHelper: '0xeAbB01920C41e1C010ba74628996EEA65Df03550',
+    maxLogsBlockRange: { free: 10, premium: 10000 },
+    logsOptimization: 'low-density'
+  },
+
+  megaeth: {
+    chainId: 4326,
+    name: 'MegaETH Mainnet',
+    alchemyNetwork: 'megaeth-mainnet',
+    // MegaETH uses Etherscan v2 API - avoids separate API key requirement
+    // explorerApiUrl: 'https://api.mega.etherscan.io/api',
+
+    rpcUrls: envArray('MEGAETH_RPC_URL', [
+      getAlchemyUrl('megaeth'),
+      'https://mainnet.megaeth.com/rpc',
+      'https://megaeth.drpc.org',
+      'https://1rpc.io/megaeth',
+      'https://megaeth-rpc.publicnode.com'
+    ].filter(Boolean)),
+    // No contractValidator on MegaETH - scanner uses individual eth_getCode (correct contract detection)
+    nativeCurrency: 'ETH',
+    BalanceHelper: '0x6F4A97C44669a74Ee6b6EE95D2cD6C4803F6b384', 
+    maxLogsBlockRange: {
+      free: 10,
+      premium: 10000     // All Other Chains: 10000 blocks
+    },
+    // MegaETH has low log density (5-20 logs/block)
     logsOptimization: 'low-density'
   },
 

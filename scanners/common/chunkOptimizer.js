@@ -65,10 +65,10 @@ class ChunkSizeOptimizer {
     // Operation-type-specific defaults based on gas costs
     const defaults = {
       'erc20': {
-        // ~150k gas per holder, 900M / 150k = ~6,000 max
-        initial: 100,
-        max: 500,
-        recommended: 250,
+        // ~150k gas per holder, 900M / 150k = ~6,000 max; 10×99 in 150ms → room to scale
+        initial: 250,
+        max: 1000,
+        recommended: 500,
         confidence: 0
       },
       'native-balance': {

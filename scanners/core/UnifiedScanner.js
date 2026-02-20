@@ -7,6 +7,7 @@
 const Scanner = require('../common/Scanner');
 const { 
   batchUpsertAddresses, 
+  batchUpsertContractSources,
   normalizeAddress, 
   normalizeAddressArray,
   BATCH_SIZES, 
@@ -61,6 +62,23 @@ class UnifiedScanner extends Scanner {
       errors: 0
     };
 
+    // Prevent multiple concurrent verification loops from overwhelming Etherscan.
+    this.contractVerificationMutex = Promise.resolve();
+
+  }
+
+  async withContractVerificationLock(work) {
+    const previous = this.contractVerificationMutex;
+    let release;
+    this.contractVerificationMutex = new Promise((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      return await work();
+    } finally {
+      release();
+    }
   }
 
   /**
@@ -203,7 +221,11 @@ class UnifiedScanner extends Scanner {
     try {
       // Get all existing contract data in a single query
       const deploymentQuery = `
-        SELECT address, deployed, code_hash, contract_name, name_checked
+        SELECT
+          address, deployed, code_hash, contract_name, name_checked,
+          verified, is_proxy, implementation_address, proxy_contract_name,
+          implementation_contract_name, deploy_tx_hash, deployer_address,
+          deploy_block_number, deployed_at_timestamp, deployed_at, confidence, fetched_at
         FROM addresses
         WHERE address = ANY($1)
         AND network = $2
@@ -216,7 +238,19 @@ class UnifiedScanner extends Scanner {
           deployed: row.deployed,
           codeHash: row.code_hash,
           contractName: row.contract_name,
-          nameChecked: row.name_checked
+          nameChecked: row.name_checked,
+          verified: row.verified,
+          isProxy: row.is_proxy,
+          implementationAddress: row.implementation_address,
+          proxyContractName: row.proxy_contract_name,
+          implementationContractName: row.implementation_contract_name,
+          deployTxHash: row.deploy_tx_hash,
+          deployerAddress: row.deployer_address,
+          deployBlockNumber: row.deploy_block_number,
+          deployedAtTimestamp: row.deployed_at_timestamp,
+          deployedAt: row.deployed_at,
+          confidence: row.confidence,
+          fetchedAt: row.fetched_at
         });
       }
       
@@ -307,7 +341,19 @@ class UnifiedScanner extends Scanner {
             needsDeploymentTime: needsDeploymentTime || false,
             // Include cached verification data to skip already verified contracts
             nameChecked: cached?.nameChecked || false,
-            contractName: cached?.contractName || null
+            contractName: cached?.contractName || null,
+            verified: cached?.verified || false,
+            isProxy: cached?.isProxy || false,
+            implementationAddress: cached?.implementationAddress || null,
+            proxyContractName: cached?.proxyContractName || null,
+            implementationContractName: cached?.implementationContractName || null,
+            deployTxHash: cached?.deployTxHash || null,
+            deployerAddress: cached?.deployerAddress || null,
+            deployBlockNumber: cached?.deployBlockNumber || null,
+            deployedAtTimestamp: cached?.deployedAtTimestamp || null,
+            deployedAt: cached?.deployedAt || null,
+            confidence: cached?.confidence || null,
+            fetchedAt: cached?.fetchedAt || null
           });
         } else {
           // Unknown type - skip completely to avoid uncertain data
@@ -403,9 +449,20 @@ class UnifiedScanner extends Scanner {
   async verifyContracts(contracts = []) {
     if (contracts.length === 0) return [];
 
-    // Filter out contracts that are already verified (cached)
-    const needsVerification = contracts.filter(c => !c.nameChecked);
-    const alreadyVerified = contracts.filter(c => c.nameChecked);
+    // Re-enrich contracts when cache is incomplete, stale, or previously failed.
+    const needsEnrichment = (contract) => {
+      const hasNameCheck = Boolean(contract.nameChecked);
+      const hasDeployment = Boolean(
+        (contract.deployedAtTimestamp && contract.deployedAtTimestamp > 0) ||
+        (contract.deployTime && contract.deployTime > 0) ||
+        contract.deployTxHash
+      );
+      const hasFreshFetchMarker = Boolean(contract.fetchedAt);
+      const transientFailure = Boolean(contract.lastEnrichmentError);
+      return !hasNameCheck || !hasDeployment || !hasFreshFetchMarker || transientFailure;
+    };
+    const needsVerification = contracts.filter(needsEnrichment);
+    const alreadyVerified = contracts.filter(c => !needsEnrichment(c));
 
     this.log(`🔍 Contracts: ${contracts.length} total, ${alreadyVerified.length} cached, ${needsVerification.length} need verification`);
 
@@ -413,13 +470,24 @@ class UnifiedScanner extends Scanner {
     const verifiedContracts = alreadyVerified.map(c => ({
       address: c.address,
       network: this.network,
-      verified: true,
-      contractName: c.contractName || 'Unknown',
-      codeHash: c.codeHash,
-      deployTime: c.deployTime || null,  // Include existing deployTime from cache
-      needsDeploymentTime: !c.deployTime || c.deployTime <= 0,  // Flag if deployment time is missing
-      sourceCode: null, // Not stored in cache
-      abi: null, // Not stored in cache
+      verified: c.verified || false,
+      contractName: c.contractName || null,
+      isProxy: c.isProxy || false,
+      implementationAddress: c.implementationAddress || null,
+      proxyContractName: c.proxyContractName || null,
+      implementationContractName: c.implementationContractName || null,
+      deployTxHash: c.deployTxHash || null,
+      deployerAddress: c.deployerAddress || null,
+      deployBlockNumber: c.deployBlockNumber || null,
+      deployedAtTimestamp: c.deployedAtTimestamp || c.deployTime || null,
+      deployedAt: c.deployedAt || (c.deployTime ? new Date(c.deployTime * 1000).toISOString() : null),
+      confidence: c.confidence || null,
+      fetchedAt: c.fetchedAt || null,
+      codeHash: c.codeHash || null,
+      deployTime: c.deployTime || c.deployedAtTimestamp || null,
+      needsDeploymentTime: false,
+      sourceCode: null,
+      abi: null,
       compilerVersion: null,
       optimization: false,
       runs: 0,
@@ -427,8 +495,8 @@ class UnifiedScanner extends Scanner {
       evmVersion: null,
       library: null,
       licenseType: null,
-      proxy: false,
-      implementation: null,
+      proxy: c.isProxy || false,
+      implementation: c.implementationAddress || null,
       swarmSource: null,
       nameChecked: true,
       nameCheckedAt: this.currentTime || Math.floor(Date.now() / 1000),
@@ -436,81 +504,61 @@ class UnifiedScanner extends Scanner {
     }));
 
     if (alreadyVerified.length > 0) {
-      this.log(`✅ Using ${alreadyVerified.length} cached verified contracts`);
+      this.log(`✅ Using ${alreadyVerified.length} cached verification records`);
     }
 
-    // If all contracts are cached, return early
     if (needsVerification.length === 0) {
-      this.log(`📊 All contracts already verified (from cache)`);
+      this.log('📊 All contracts already checked (from cache)');
       return verifiedContracts;
     }
 
-    this.log(`🔍 Verifying ${needsVerification.length} new contracts with batch processing...`);
+    this.log(`🔍 Enriching ${needsVerification.length} contracts with Etherscan metadata...`);
+    const batchSize = 5;
+    const { getContractEtherscanEnrichment } = require('../common');
 
-    const batchSize = 5; // Process 5 contracts concurrently (Etherscan rate limit: 5/sec)
-    const { getContractNameWithProxy } = require('../common');
-    
-    // Process in batches for better performance (only unverified contracts)
     for (let i = 0; i < needsVerification.length; i += batchSize) {
       const batch = needsVerification.slice(i, i + batchSize);
       const batchNum = Math.floor(i / batchSize) + 1;
       const totalBatches = Math.ceil(needsVerification.length / batchSize);
-      
-      this.log(`📦 Processing verification batch ${batchNum}/${totalBatches} (${batch.length} contracts)`);
-      
-      // Create promises for parallel verification
+      this.log(`📦 Processing enrichment batch ${batchNum}/${totalBatches} (${batch.length} contracts)`);
+
       const batchPromises = batch.map(async (contract) => {
         const contractAddr = contract.address || contract;
-        
         try {
-          const result = await this.etherscanCall({
-            module: 'contract',
-            action: 'getsourcecode',
-            address: contractAddr
-          });
-          
-          if (!result || !Array.isArray(result) || result.length === 0) {
-            return {
-              address: contractAddr,
-              network: this.network,
-              verified: false,
-              error: 'Invalid API response'
-            };
-          }
-          
-          const sourceData = result[0];
-          if (!sourceData.SourceCode || sourceData.SourceCode === '') {
-            return {
-              address: contractAddr,
-              network: this.network,
-              verified: false,
-              error: 'Source code not verified'
-            };
-          }
-          
-          // Get contract name with proxy resolution
-          const finalContractName = await getContractNameWithProxy(this, contractAddr, sourceData);
-          
+          const enrichment = await getContractEtherscanEnrichment(this, contractAddr);
           return {
             address: contractAddr,
             network: this.network,
-            verified: true,
-            contractName: finalContractName || sourceData.ContractName || 'Unknown',
-            codeHash: contract.codeHash || null,  // Preserve codeHash from input
-            deployTime: null,  // Will be fetched separately by fetchDeploymentTimesAsync
-            needsDeploymentTime: true,  // Flag that this contract needs deployment time
-            sourceCode: sourceData.SourceCode,
-            abi: sourceData.ABI ? JSON.parse(sourceData.ABI) : null,
-            compilerVersion: sourceData.CompilerVersion || null,
-            optimization: sourceData.OptimizationUsed === '1',
-            runs: parseInt(sourceData.Runs) || 0,
-            constructorArguments: sourceData.ConstructorArguments || null,
-            evmVersion: sourceData.EVMVersion || 'default',
-            library: sourceData.Library || null,
-            licenseType: sourceData.LicenseType || null,
-            proxy: sourceData.Proxy === '1',
-            implementation: sourceData.Implementation || null,
-            swarmSource: sourceData.SwarmSource || null,
+            verified: enrichment.verified,
+            contractName: enrichment.contractName,
+            isProxy: enrichment.isProxy,
+            implementationAddress: enrichment.implementationAddress,
+            proxyContractName: enrichment.proxyContractName,
+            implementationContractName: enrichment.implementationContractName,
+            deployTxHash: enrichment.deployTxHash,
+            deployerAddress: enrichment.deployerAddress,
+            deployBlockNumber: enrichment.deployBlockNumber,
+            deployedAtTimestamp: enrichment.deployedAtTimestamp,
+            deployedAt: enrichment.deployedAt,
+            confidence: enrichment.confidence,
+            fetchedAt: enrichment.fetchedAt,
+            codeHash: contract.codeHash || null,
+            deployTime: enrichment.deployedAtTimestamp || null,
+            needsDeploymentTime: false,
+            sourceCode: enrichment.sourceCode || null,
+            abi: enrichment.abi || null,
+            compilerVersion: enrichment.compilerVersion || null,
+            optimization: enrichment.optimizationUsed || false,
+            runs: enrichment.runs != null ? enrichment.runs : 0,
+            constructorArguments: enrichment.constructorArguments || null,
+            evmVersion: enrichment.evmVersion || null,
+            library: enrichment.library || null,
+            licenseType: enrichment.licenseType || null,
+            compilerType: enrichment.compilerType || null,
+            contractFileName: enrichment.contractFileName || null,
+            proxy: enrichment.isProxy,
+            implementation: enrichment.implementationAddress,
+            swarmSource: null,
             nameChecked: true,
             nameCheckedAt: this.currentTime || Math.floor(Date.now() / 1000),
             lastUpdated: this.currentTime || Math.floor(Date.now() / 1000)
@@ -520,66 +568,71 @@ class UnifiedScanner extends Scanner {
             address: contractAddr,
             network: this.network,
             verified: false,
+            contractName: null,
+            isProxy: false,
+            implementationAddress: null,
+            proxyContractName: null,
+            implementationContractName: null,
+            deployTxHash: null,
+            deployerAddress: null,
+            deployBlockNumber: null,
+            deployedAtTimestamp: null,
+            deployedAt: null,
+            confidence: null,
+            fetchedAt: null,
+            codeHash: null,
+            deployTime: null,
+            needsDeploymentTime: false,
+            sourceCode: null,
+            abi: null,
+            compilerVersion: null,
+            optimization: false,
+            runs: 0,
+            constructorArguments: null,
+            evmVersion: null,
+            library: null,
+            licenseType: null,
+            proxy: false,
+            implementation: null,
+            swarmSource: null,
+            nameChecked: false,
+            nameCheckedAt: 0,
+            lastUpdated: this.currentTime || Math.floor(Date.now() / 1000),
             error: error.message
           };
         }
       });
-      
-      // Wait for all promises in batch to complete
+
       const batchResults = await Promise.allSettled(batchPromises);
-      
-      // Process batch results
       for (const result of batchResults) {
         if (result.status === 'fulfilled') {
-          const contractData = result.value;
-          
-          if (contractData.verified) {
-            verifiedContracts.push(contractData);
-            this.log(`✅ Verified: ${contractData.address} (${contractData.contractName})`);
-          } else {
-            // Push unverified contract with default values
-            const unverifiedContract = {
-              address: contractData.address,
-              network: this.network,
-              verified: false,
-              contractName: null,
-              codeHash: null,
-              deployTime: null,
-              needsDeploymentTime: false,  // Don't fetch deployment time for unverified contracts
-              sourceCode: null,
-              abi: null,
-              compilerVersion: null,
-              optimization: false,
-              runs: 0,
-              constructorArguments: null,
-              evmVersion: null,
-              library: null,
-              licenseType: null,
-              proxy: false,
-              implementation: null,
-              swarmSource: null,
-              nameChecked: false,
-              nameCheckedAt: 0,
-              lastUpdated: this.currentTime || Math.floor(Date.now() / 1000)
-            };
-            
-            verifiedContracts.push(unverifiedContract);
-            
-            if (contractData.error && !contractData.error.includes('Source code not verified')) {
-              this.log(`⚠️ ${contractData.address}: ${contractData.error}`, 'warn');
-            }
+          verifiedContracts.push(result.value);
+          if (result.value.verified) {
+            this.log(`✅ Verified: ${result.value.address} (${result.value.contractName || 'Unnamed'})`);
+          } else if (result.value.error) {
+            this.log(`⚠️ ${result.value.address}: ${result.value.error}`, 'warn');
           }
         } else {
-          // Handle rejected promise - add as unverified
           const contractAddr = batch[batchResults.indexOf(result)].address || batch[batchResults.indexOf(result)];
           verifiedContracts.push({
             address: contractAddr,
             network: this.network,
             verified: false,
             contractName: null,
+            isProxy: false,
+            implementationAddress: null,
+            proxyContractName: null,
+            implementationContractName: null,
+            deployTxHash: null,
+            deployerAddress: null,
+            deployBlockNumber: null,
+            deployedAtTimestamp: null,
+            deployedAt: null,
+            confidence: null,
+            fetchedAt: null,
             codeHash: null,
             deployTime: null,
-            needsDeploymentTime: false,  // Don't fetch deployment time for failed contracts
+            needsDeploymentTime: false,
             sourceCode: null,
             abi: null,
             compilerVersion: null,
@@ -596,49 +649,35 @@ class UnifiedScanner extends Scanner {
             nameCheckedAt: 0,
             lastUpdated: this.currentTime || Math.floor(Date.now() / 1000)
           });
-          
-          this.log(`❌ Verification failed for contract: ${result.reason}`, 'error');
+          this.log(`❌ Enrichment failed for contract: ${result.reason}`, 'error');
         }
       }
-      
-      // Delay between batches to respect rate limits (5 requests/sec) (skip if using proxy)
+
       const useEtherscanProxy = process.env.USE_ETHERSCAN_PROXY === 'true';
       if (!useEtherscanProxy && i + batchSize < needsVerification.length) {
-        await this.sleep(1000); // 1 second delay between batches for safety
+        await this.sleep(1000);
       }
     }
 
     const verified = verifiedContracts.filter(c => c.verified).length;
-    this.log(`📊 Verification complete: ${verified}/${contracts.length} verified (${alreadyVerified.length} from cache, ${needsVerification.length} newly verified)`);
-    
+    this.log(`📊 Enrichment complete: ${verified}/${contracts.length} verified (${alreadyVerified.length} cached, ${needsVerification.length} newly checked)`);
+
     this.stats.contractsFound = contracts.length;
     this.stats.contractsVerified = verified;
     this.stats.contractsUnverified = contracts.length - verified;
-    
+
     return verifiedContracts;
   }
 
   async storeResults(eoas, verifiedContracts, selfDestructed = []) {
-    this.log(`Storing ${eoas.length + verifiedContracts.length + selfDestructed.length} addresses...`);
+    // Only store verified contracts WITH source code - skip EOAs, unverified, and those without source
+    const verifiedOnly = verifiedContracts.filter(c => c.verified === true);
+    const withSource = verifiedOnly.filter(c => c.sourceCode != null && c.sourceCode.length > 0);
+    const skippedNoSource = verifiedOnly.length - withSource.length;
+    this.log(`Storing ${withSource.length} verified contracts with source (skipping ${eoas.length} EOAs, ${verifiedContracts.length - verifiedOnly.length} unverified, ${skippedNoSource} verified-but-no-source, ${selfDestructed.length} self-destroyed)...`);
 
-    // Prepare EOA data with normalized addresses
-    const eoaData = eoas.map(eoa => ({
-      address: normalizeAddress(eoa.address),
-      network: this.network,
-      codeHash: null,
-      deployed: null,
-      tags: ['EOA'],
-      contractName: null,
-      lastUpdated: this.currentTime,
-      firstSeen: this.currentTime,
-      fund: 0,
-      lastFundUpdated: 0,
-      nameChecked: false,
-      nameCheckedAt: 0
-    }));
-
-    // Prepare contract data with normalized addresses and balance information
-    const contractData = verifiedContracts.map(contract => {
+    // Prepare contract data - only those with source code
+    const contractData = withSource.map(contract => {
       // Convert BigInt balance to string for database storage
       const balanceValue = contract.balance ? contract.balance.toString() : '0';
 
@@ -649,46 +688,64 @@ class UnifiedScanner extends Scanner {
         // IMPORTANT: Keep deployed as null if we couldn't get valid deployment time
         // Never use currentTime as a fallback for deployed field
         deployed: (contract.deployTime && contract.deployTime > 0) ? contract.deployTime : null,
+        verified: contract.verified || false,
+        isProxy: contract.isProxy || false,
+        implementationAddress: contract.implementationAddress || null,
+        proxyContractName: contract.proxyContractName || null,
+        implementationContractName: contract.implementationContractName || null,
+        deployTxHash: contract.deployTxHash || null,
+        deployerAddress: contract.deployerAddress || null,
+        deployBlockNumber: contract.deployBlockNumber || null,
+        deployedAtTimestamp: contract.deployedAtTimestamp || null,
+        deployedAt: contract.deployedAt || null,
+        confidence: contract.confidence || null,
+        fetchedAt: contract.fetchedAt || null,
         tags: contract.verified ? ['Contract', 'Verified'] : ['Contract', 'Unverified'],
         contractName: contract.contractName,
         lastUpdated: this.currentTime,
         firstSeen: this.currentTime,
         fund: balanceValue,
         lastFundUpdated: this.currentTime,
-        nameChecked: contract.verified || false,
-        nameCheckedAt: contract.verified ? this.currentTime : 0
+        nativeBalance: balanceValue,
+        nameChecked: contract.nameChecked !== undefined ? contract.nameChecked : (contract.verified || false),
+        nameCheckedAt: contract.nameCheckedAt || (contract.verified ? this.currentTime : 0)
       };
     });
 
-    // Prepare self-destroyed contract data
-    const selfDestroyedData = selfDestructed.map(item => ({
-      address: normalizeAddress(item.address),
-      network: this.network,
-      codeHash: item.codeHash, // Keep original code hash for reference
-      deployed: null,
-      tags: item.tags || ['Contract', 'SelfDestroyed'],
-      contractName: item.contractName || 'Self-Destroyed Contract',
-      lastUpdated: this.currentTime,
-      firstSeen: this.currentTime,
-      fund: 0,
-      lastFundUpdated: 0,
-      nameChecked: true,
-      nameCheckedAt: this.currentTime
-    }));
+    // Batch insert verified contracts only (no EOAs, no unverified, no self-destroyed)
+    const allData = [...contractData];
 
-    // Batch insert all data
-    const allData = [...eoaData, ...contractData, ...selfDestroyedData];
-    
     if (allData.length > 0) {
       await batchUpsertAddresses(this.db, allData, { batchSize: 250 }); // Smaller batch for complex data with more fields
     }
-    
-    this.log(`✅ Stored: ${eoaData.length} EOAs, ${contractData.length} contracts, ${selfDestroyedData.length} self-destroyed`);
-    
+
+    // Store source code (withSource already filtered)
+    const sourcesToStore = withSource.map(c => ({
+        address: normalizeAddress(c.address),
+        network: this.network,
+        sourceCode: c.sourceCode,
+        compilerVersion: c.compilerVersion || null,
+        optimizationUsed: c.optimization != null ? String(c.optimization) : null,
+        runs: c.runs != null ? c.runs : null,
+        abi: c.abi || null,
+        contractFileName: c.contractFileName || null,
+        compilerType: c.compilerType || null,
+        evmVersion: c.evmVersion || null,
+        constructorArguments: c.constructorArguments || null,
+        library: c.library || null,
+        licenseType: c.licenseType || null
+      }));
+    if (sourcesToStore.length > 0) {
+      await batchUpsertContractSources(this.db, sourcesToStore, { batchSize: 50 });
+      this.log(`📄 Stored source code for ${sourcesToStore.length} contracts`);
+    }
+
+    this.log(`✅ Stored: ${contractData.length} verified contracts (with source)`);
+
     return {
-      eoasStored: eoaData.length,
+      eoasStored: 0,
       contractsStored: contractData.length,
-      selfDestroyedStored: selfDestroyedData.length,
+      selfDestroyedStored: 0,
       totalStored: allData.length
     };
   }
@@ -1285,6 +1342,9 @@ class UnifiedScanner extends Scanner {
       // Perform EOA filtering and contract detection
       const { eoas, contracts } = await this.performEOAFiltering(newAddresses);
 
+      // Skip EOA persistence - we only store verified contracts with source code
+      // if (eoas.length > 0) { await this.storeResults(eoas, []); }
+
       // OPTIMIZATION: Check balances first, then verify only contracts with funds
       let verifiedContracts = [];
       let contractsWithBalance = [];
@@ -1307,8 +1367,13 @@ class UnifiedScanner extends Scanner {
         // Get balances for all contracts using BalanceHelper contract
         const contractAddresses = contracts.map(c => c.address);
 
-        // Get native token balances
-        const nativeBalances = await this.getNativeBalances(contractAddresses);
+        let nativeBalances = [];
+        try {
+          nativeBalances = await this.getNativeBalances(contractAddresses);
+        } catch (error) {
+          this.log(`⚠️ Native balance check failed (BalanceHelper may not be deployed): ${error.message}`, 'warn');
+          this.log(`📦 Will store all ${contracts.length} contracts as unverified`);
+        }
 
         // Get ERC20 token balances
         let erc20BalancesMap = new Map();
@@ -1329,7 +1394,7 @@ class UnifiedScanner extends Scanner {
           const contract = contracts[i];
           const address = contract.address.toLowerCase();
 
-          // Check native balance
+          // Check native balance (empty array when BalanceHelper failed)
           const nativeBalanceStr = nativeBalances[i] || '0';
           const nativeBalance = BigInt(nativeBalanceStr);
 
@@ -1351,24 +1416,42 @@ class UnifiedScanner extends Scanner {
 
         // Only process contracts with balance > 0
         if (contractsWithFunds.length > 0) {
-          // Verify contracts with funds
+          // Skip unverified persistence - we only store verified contracts
+          // Verify contracts in smaller chunks and persist each chunk immediately.
           this.log(`🔍 Verifying ${contractsWithFunds.length} contracts with funds (skipping ${contractsWithoutFunds.length} zero-balance contracts)`);
-          verifiedContracts = await this.verifyContracts(contractsWithFunds);
-          
-          // Fetch deployment times for verified contracts (MUST await before storing)
-          await this.fetchDeploymentTimesAsync(verifiedContracts);
+          await this.withContractVerificationLock(async () => {
+            const verifyChunkSize = 25;
+            for (let i = 0; i < contractsWithFunds.length; i += verifyChunkSize) {
+              const verifyChunk = contractsWithFunds.slice(i, i + verifyChunkSize);
+              const verifiedChunk = await this.verifyContracts(verifyChunk);
+              if (verifiedChunk.length > 0) {
+                await this.storeResults([], verifiedChunk);
+                verifiedContracts.push(...verifiedChunk);
+              }
+            }
+          });
         }
 
-        // Only store contracts with balance (skip zero-balance contracts)
+        // Run Etherscan enrichment for zero-balance contracts too (names, verification status)
+        // Zero-balance contracts were previously stored unverified; now they get verifyContracts
         contractsWithBalance = verifiedContracts;
 
         if (contractsWithoutFunds.length > 0) {
-          this.log(`⏭️  Skipping DB storage for ${contractsWithoutFunds.length} zero-balance contracts`);
+          this.log(`🔍 Verifying ${contractsWithoutFunds.length} zero-balance contracts (Etherscan enrichment)`);
+          await this.withContractVerificationLock(async () => {
+            const verifyChunkSize = 25;
+            for (let i = 0; i < contractsWithoutFunds.length; i += verifyChunkSize) {
+              const verifyChunk = contractsWithoutFunds.slice(i, i + verifyChunkSize);
+              const verifiedChunk = await this.verifyContracts(verifyChunk);
+              if (verifiedChunk.length > 0) {
+                const withBalance = verifiedChunk.map(c => ({ ...c, balance: c.balance ?? 0n }));
+                await this.storeResults([], withBalance);
+                contractsWithBalance = [...contractsWithBalance, ...withBalance];
+              }
+            }
+          });
         }
       }
-
-      // Store results with balance information
-      await this.storeResults(eoas, contractsWithBalance);
 
       this.log(`✅ Batch ${batchNum}: ${eoas.length} EOAs, ${contractsWithBalance.length} contracts (${verifiedContracts.length} verified)`);
 

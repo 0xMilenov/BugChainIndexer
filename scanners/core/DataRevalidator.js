@@ -7,6 +7,7 @@ const Scanner = require('../common/Scanner');
 const UnifiedScanner = require('./UnifiedScanner');
 const {
   batchUpsertAddresses,
+  batchUpsertContractSources,
   normalizeAddress,
   BLOCKCHAIN_CONSTANTS
 } = require('../common');
@@ -166,84 +167,121 @@ class DataRevalidator extends Scanner {
         await this.unifiedScanner.fetchDeploymentTimesAsync(contracts);
       }
 
-      // Step 5.5: Fetch contract metadata (names) from Etherscan
+      // Step 5.5: Fetch contract metadata (names, source) from Etherscan
       if (contracts.length > 0) {
         this.log(`  📝 Fetching contract metadata for ${contracts.length} contracts...`);
         const verifiedContracts = await this.unifiedScanner.verifyContracts(contracts.map(c => c.address));
 
-        // Create a map of verified contract names
-        const contractNameMap = new Map();
+        // Build map: address -> contract (for codeHash, deployTime)
+        const contractByAddr = new Map(contracts.map(c => [c.address.toLowerCase(), c]));
+
+        // Step 6: Prepare updates - only verified contracts WITH source code
+        const updates = [];
+        const sourcesToStore = [];
+        const toDelete = []; // unverified or verified without source
+
         for (const verified of verifiedContracts) {
-          if (verified.contractName) {
-            contractNameMap.set(verified.address, verified.contractName);
+          const addr = verified.address?.toLowerCase();
+          const contract = contractByAddr.get(addr);
+          const hasSource = verified.sourceCode != null && verified.sourceCode.length > 0;
+
+          if (!verified.verified || !verified.contractName) {
+            toDelete.push(normalizeAddress(verified.address));
+            continue;
           }
+          if (!hasSource) {
+            toDelete.push(normalizeAddress(verified.address));
+            continue;
+          }
+
+          updates.push({
+            address: normalizeAddress(verified.address),
+            network: this.network,
+            tags: ['Contract', 'Verified'],
+            codeHash: contract?.codeHash || null,
+            deployed: contract?.deployTime || null,
+            contractName: verified.contractName || null,
+            nameChecked: true,
+            nameCheckedAt: this.currentTime,
+            lastUpdated: this.currentTime,
+            firstSeen: this.currentTime,
+            verified: true,
+            isProxy: verified.isProxy || false,
+            implementationAddress: verified.implementationAddress || null,
+            proxyContractName: verified.proxyContractName || null,
+            implementationContractName: verified.implementationContractName || null,
+            deployTxHash: verified.deployTxHash || null,
+            deployerAddress: verified.deployerAddress || null,
+            deployBlockNumber: verified.deployBlockNumber || null,
+            deployedAtTimestamp: verified.deployedAtTimestamp || null,
+            deployedAt: verified.deployedAt || null,
+            confidence: verified.confidence || null,
+            fetchedAt: verified.fetchedAt || null,
+            fund: 0,
+            lastFundUpdated: this.currentTime
+          });
+          sourcesToStore.push({
+            address: normalizeAddress(verified.address),
+            network: this.network,
+            sourceCode: verified.sourceCode,
+            compilerVersion: verified.compilerVersion || null,
+            optimizationUsed: verified.optimizationUsed != null ? String(verified.optimizationUsed) : null,
+            runs: verified.runs != null ? verified.runs : null,
+            abi: verified.abi || null,
+            contractFileName: verified.contractFileName || null,
+            compilerType: verified.compilerType || null,
+            evmVersion: verified.evmVersion || null,
+            constructorArguments: verified.constructorArguments || null,
+            library: verified.library || null,
+            licenseType: verified.licenseType || null
+          });
         }
 
-        // Update contract objects with names
+        // Add contracts not in verifiedContracts (unverified) to delete list
+        const verifiedAddrs = new Set(verifiedContracts.map(v => normalizeAddress(v.address)));
         for (const contract of contracts) {
-          if (contractNameMap.has(contract.address)) {
-            contract.contractName = contractNameMap.get(contract.address);
-            contract.verified = true;
-          }
+          const addr = normalizeAddress(contract.address);
+          if (!verifiedAddrs.has(addr)) toDelete.push(addr);
         }
 
-        this.log(`  ✅ Found metadata for ${contractNameMap.size}/${contracts.length} contracts`);
-      }
+        this.log(`  ✅ Verified with source: ${updates.length}, to delete: ${toDelete.length}`);
 
-      // Step 6: Prepare updates for DB
-      const updates = [];
+        // Delete EOAs
+        if (eoas.length > 0) {
+          const eoaAddresses = eoas.map(e => normalizeAddress(e.address));
+          await this.queryDB(
+            'DELETE FROM addresses WHERE address = ANY($1) AND network = $2',
+            [eoaAddresses, this.network]
+          );
+          this.log(`  🗑️ Deleted ${eoas.length} EOAs`);
+        }
 
-      // Add EOAs
-      for (const eoa of eoas) {
-        updates.push({
-          address: normalizeAddress(eoa.address),
-          network: this.network,
-          tags: ['EOA'],
-          codeHash: null,
-          deployed: null,
-          contractName: null,
-          nameChecked: false,
-          nameCheckedAt: 0,
-          lastUpdated: this.currentTime
-        });
-      }
+        // Delete unverified and verified-without-source
+        if (toDelete.length > 0) {
+          await this.queryDB(
+            'DELETE FROM addresses WHERE address = ANY($1) AND network = $2',
+            [toDelete, this.network]
+          );
+          this.log(`  🗑️ Deleted ${toDelete.length} contracts (unverified or no source)`);
+        }
 
-      // Add Contracts
-      for (const contract of contracts) {
-        const hasName = contract.contractName && contract.verified;
-        updates.push({
-          address: normalizeAddress(contract.address),
-          network: this.network,
-          tags: hasName ? ['Contract', 'Verified'] : ['Contract', 'Unverified'],
-          codeHash: contract.codeHash,
-          deployed: contract.deployTime,
-          contractName: contract.contractName || null,
-          nameChecked: hasName,
-          nameCheckedAt: hasName ? this.currentTime : 0,
-          lastUpdated: this.currentTime
-        });
-      }
-
-      // Add SelfDestructed
-      for (const sd of selfDestructed) {
-        updates.push({
-          address: normalizeAddress(sd.address),
-          network: this.network,
-          tags: sd.tags,
-          codeHash: sd.codeHash,
-          deployed: null,
-          contractName: sd.contractName || null,
-          nameChecked: true,
-          nameCheckedAt: this.currentTime,
-          lastUpdated: this.currentTime
-        });
-      }
-
-      // Step 7: Update database
-      if (updates.length > 0) {
-        this.log(`  💾 Updating ${updates.length} addresses in database...`);
-        await batchUpsertAddresses(this.db, updates, { batchSize: 1000 });
-        this.log(`  ✅ Batch update complete`);
+        // Step 7: Update database - addresses and source
+        if (updates.length > 0) {
+          this.log(`  💾 Updating ${updates.length} addresses with source...`);
+          await batchUpsertAddresses(this.db, updates, { batchSize: 1000 });
+          await batchUpsertContractSources(this.db, sourcesToStore, { batchSize: 50 });
+          this.log(`  ✅ Batch update complete`);
+        }
+      } else {
+        // No contracts - still delete EOAs
+        if (eoas.length > 0) {
+          const eoaAddresses = eoas.map(e => normalizeAddress(e.address));
+          await this.queryDB(
+            'DELETE FROM addresses WHERE address = ANY($1) AND network = $2',
+            [eoaAddresses, this.network]
+          );
+          this.log(`  🗑️ Deleted ${eoas.length} EOAs`);
+        }
       }
 
       totalProcessed += batch.length;
