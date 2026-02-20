@@ -1,442 +1,259 @@
 # BugChainIndexer
 
-> **Multi-blockchain contract analysis and indexing system**
+> **Multi-blockchain contract analysis and indexing system with AI-powered security audits**
 
-🌐 **Live Platform**: [https://bugchain.xyz/](https://bugchain.xyz/)
+**By VISUALISA**
 
-BugChainIndexer is a comprehensive blockchain analysis platform that monitors, analyzes, and indexes contract data across 14 blockchain networks (12 active). The system uses Alchemy API for reliable data access and features an optimized backend delivering sub-second response times.
+BugChainIndexer is a comprehensive blockchain analysis platform that monitors, analyzes, and indexes contract data across 14+ blockchain networks. It features an optimized backend with sub-second response times, ERC-20 balance tracking, contract bookmarks, and **AI-powered security audits** via [evmbench](https://github.com/paradigmxyz/evmbench) integration.
+
+---
 
 ## ✨ Key Features
 
-### 🔍 **Multi-Chain Analysis**
-- **14 Blockchain Networks** (12 Active): Ethereum, BSC, Polygon, Arbitrum, Optimism, Base, Avalanche, Gnosis, Linea, Scroll, Mantle, opBNB, Unichain, Berachain
+### 🔍 Multi-Chain Analysis
+- **14+ Blockchain Networks**: Ethereum, BSC, Polygon, Arbitrum, Optimism, Base, Avalanche, Gnosis, Linea, Scroll, Mantle, opBNB, Unichain, Berachain
 - **Unified Processing**: Single codebase handles all networks with consistent data structures
-- **Parallel Execution**: Process multiple networks simultaneously for maximum efficiency
-- **Network-Specific Token Decimals**: Accurate decimals for tokens across all networks
+- **Parallel Execution**: Process multiple networks simultaneously
+- **Network-Specific Token Decimals**: 1,254+ tokens across 18 networks
 
-### 🚀 **High-Performance Scanning**
-- **50,000+ addresses/hour**: Revolutionary processing speed per network
+### 🤖 AI-Powered Security Audits (evmbench)
+- **One-Click AI Audits**: Run AI security analysis on any verified contract from the UI
+- **evmbench Integration**: Uses [paradigmxyz/evmbench](https://github.com/paradigmxyz/evmbench) as a submodule
+- **Manual & Automated Reports**: Support for manual audit notes and evmbench job results
+- **OpenAI Integration**: Users provide their own API key; keys are sent directly to evmbench and not stored
+
+### 🚀 High-Performance Scanning
+- **50,000+ addresses/hour** per network
 - **5-in-1 Pipeline**: Transfer events → Address filtering → EOA detection → Contract verification → Database storage
-- **Smart Batching**: Dynamic batch sizing with 300-1000 addresses per contract call
-- **80%+ Efficiency Gain**: Massive improvement over traditional individual scanners
-- **Unified Alchemy RPC**: All RPC calls (getLogs, eth_call, eth_getTransactionByHash, etc.) use Alchemy for reliability
-- **Optimized Deployment Time Fetching**: Uses Alchemy API for eth_getTransactionByHash and eth_getBlockByNumber
+- **UnifiedScanner**: Main pipeline with ERC-20 balance checking
+- **FundUpdater**: Portfolio tracking with PostgreSQL advisory locks
+- **ERC20TokenBalanceScanner**: ERC-20 balances for verified contracts
+- **DataRevalidator**: Data validation and reclassification
 
-### 💰 **Asset & Fund Tracking**
-- **BalanceHelper Contracts**: Batch balance queries using on-chain contracts (550M gas limit optimized)
+### 💰 Asset & Fund Tracking
+- **BalanceHelper Contracts**: Batch balance queries (550M gas limit optimized)
 - **Alchemy Prices API**: Real-time token prices with 7-day update cycle
-- **Accurate Token Decimals**: Network-specific decimals from tokens files (not DB)
-- **Multi-Network Support**: Portfolio tracking across 14 blockchain networks
-- **PostgreSQL Advisory Locks**: Concurrent-safe fund updates across multiple networks
-- **ERC20 Balance Checking**: UnifiedScanner includes contracts with token holdings
-- **Dynamic Batch Sizing**: Adaptive chunk sizes (50-1000 addresses) based on performance
-- **Multi-level Fallback**: Full chunk → half chunk → individual calls for reliability
+- **PostgreSQL Advisory Locks**: Concurrent-safe fund updates
+- **Dynamic Batch Sizing**: Adaptive chunk sizes (50-1000 addresses)
 
-### 🗄️ **Advanced Database Management**
-- **PostgreSQL Optimization**: 455x performance improvement with partial indexes
-- **Smart Caching**: 4-hour network counts cache eliminates expensive queries
-- **Query Optimization**: Intelligent count queries with fast path for network filters
-- **Automated Maintenance**: Daily/weekly/monthly optimization schedules
-- **Real-time Monitoring**: Query performance analysis and recommendations
+### 🌐 Fast Backend API
+- **Sub-second Response**: Optimized queries with composite indexes
+- **4-Hour Network Counts Cache**: Eliminates expensive GROUP BY queries
+- **REST API**: Filtering, pagination, contract details, bookmarks, audit reports
+- **Source Code Search**: Full-text search across verified contract sources
 
-### 🌐 **Fast Backend API**
-- **Sub-second Response**: Page loads in <1s (96% improvement from 25s)
-- **Optimized Queries**: Composite indexes for fund/deployed/address sorting
-- **Smart Count Strategy**:
-  * Fast path: Use cached network counts (0.09s)
-  * Skip count: Avoid full scans for 10+ networks
-  * Exact count: Run COUNT(*) only when needed
-- **REST API**: Clean endpoints for filtering, statistics, and network counts
+### 📋 Contract Management
+- **Add Contract**: Manually add contracts by address and network
+- **Bookmarks**: Save and manage favorite contracts
+- **Audit Reports**: View AI audit results, manual reports, and recon data
+- **Contract Details**: Verified source, deployment info, token balances
 
-### 🤖 **Intelligent Automation**
-- **Cron Integration**: Fully automated scanning with customizable schedules
-- **Lock Management**: Prevents duplicate processes with file-based locking
-- **Error Recovery**: Robust error handling with automatic retries
-- **Log Management**: Comprehensive logging with automatic cleanup
-
-### 📊 **Data Validation & Quality**
-- **EIP-55 Checksum**: Uses ethers.getAddress() for proper address validation
-- **Address Normalization**: Consistent lowercase formatting with checksum verification
-- **Contract Classification**: Automatic EOA vs Contract detection
-- **Source Code Verification**: Etherscan API integration for contract metadata
-- **Duplicate Prevention**: Advanced deduplication and data integrity checks
-
-### 🔧 **Developer-Friendly Tools**
-- **Modular Architecture**: Clean separation of concerns with reusable components
-- **Comprehensive Testing**: Built-in test suite for Alchemy API integration
-- **Flexible Configuration**: Environment-based settings with intelligent defaults
-- **API Proxy Support**: Centralized API management with parallel processing
+---
 
 ## 🏗️ Architecture
 
 ```
 BugChainIndexer/
 ├── scanners/                      # Core blockchain analysis engine
-│   ├── common/                    # Shared utilities and base classes
-│   │   ├── core.js                # Core blockchain functions with Alchemy integration
-│   │   ├── database.js            # PostgreSQL operations
-│   │   ├── Scanner.js             # Base scanner with dual RPC clients
-│   │   ├── alchemyRpc.js          # Alchemy RPC client with Prices API support
-│   │   ├── TokenPriceCache.js     # Token price fetching (price only)
-│   │   └── addressUtils.js        # EIP-55 address validation
-│   ├── core/                      # Scanner implementations
-│   │   ├── UnifiedScanner.js      # Main pipeline with ERC20 balance checking
-│   │   ├── FundUpdater.js         # Portfolio tracker with advisory locks
-│   │   └── DataRevalidator.js     # Data validation and tagging
-│   ├── tokens/                    # Token configurations (18 networks)
-│   │   ├── ethereum.json          # 99 tokens with decimals
-│   │   ├── binance.json           # 100 tokens with decimals
-│   │   └── ...                    # 16 more networks (1,254 total)
-│   └── config/
-│       └── networks.js            # Network configurations (18 active)
+│   ├── common/                    # Shared utilities (core.js, database.js, alchemyRpc.js)
+│   ├── core/                      # UnifiedScanner, FundUpdater, DataRevalidator, ERC20TokenBalanceScanner
+│   ├── config/networks.js         # 18 network configurations
+│   ├── tokens/                    # Token configs (ethereum.json, binance.json, ...)
+│   ├── cron/                      # Cron scripts for automation
+│   └── run.sh                     # Main scanner runner
 ├── server/
-│   ├── backend/                   # REST API backend
-│   │   └── services/
-│   │       └── address.service.js # Optimized query service
-│   ├── frontend/                  # Web interface
-│   │   └── index.html             # Optimized UI (no blocking calls)
-│   └── etherscan-proxy-server/    # Centralized Etherscan API proxy
+│   ├── backend/                   # Express.js REST API
+│   │   ├── controllers/           # address, bookmark
+│   │   ├── services/              # address, bookmark, addContract, evmbench, db
+│   │   └── routes/public.js       # API routes
+│   ├── frontend-next/             # Next.js 16 web interface
+│   └── services/                  # systemd units + install script
+├── evmbench-main/                 # Git submodule (paradigmxyz/evmbench)
+│   └── backend/                   # Docker: FastAPI, RabbitMQ, Postgres, workers
+├── contract/                      # BalanceHelper & validator contracts (Foundry)
+├── deploy.sh                      # Deployment script
+├── run-local-ui.sh                # Local dev: backend + frontend
 └── docs/                          # Documentation
 ```
+
+---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- Node.js (v16+)
+- Node.js (v18+)
 - PostgreSQL (v12+)
+- Docker & Docker Compose (for evmbench)
 - Alchemy API key
-- Etherscan API keys for blockchain explorers
+- Etherscan API keys
 
-### 1. Clone and Install
+### 1. Clone with Submodule
 
 ```bash
-git clone <repository-url>
-cd BugChainIndexer/scanners
-npm install
+git clone --recurse-submodules https://github.com/0xMilenov/BugChainIndexer.git
+cd BugChainIndexer
+```
+
+Or, if already cloned:
+
+```bash
+git submodule update --init --recursive
 ```
 
 ### 2. Configure Environment
 
 ```bash
-cp .env.example .env
-# Edit .env with your API keys and database settings
+# Scanners
+cp scanners/.env.example scanners/.env
+
+# Backend
+cp server/backend/.env_example server/backend/.env
+
+# Frontend (optional)
+cp server/frontend-next/.env.example server/frontend-next/.env
+
+# evmbench (for AI audits)
+cp evmbench-main/backend/.env.example evmbench-main/backend/.env
 ```
 
-**Required Environment Variables:**
+**Required variables:**
+- `scanners/.env`: `PGDATABASE`, `PGUSER`, `PGPASSWORD`, `DEFAULT_ETHERSCAN_KEYS`, `ALCHEMY_API_KEY`
+- `server/backend/.env`: `DATABASE_URL`, `EVMBENCH_API_URL=http://127.0.0.1:1337`, `PORT=8000`
+- `evmbench-main/backend/.env`: `POSTGRES_PASSWORD`, `RABBITMQ_PASSWORD`, `SECRETS_TOKEN_RO`, `SECRETS_TOKEN_WO`
+
+### 3. Install & Run
+
 ```bash
-# Alchemy API (required for FundUpdater)
-ALCHEMY_API_KEY=your_alchemy_key
+# Scanners
+cd scanners && npm install && cd ..
 
-# Etherscan API keys
-DEFAULT_ETHERSCAN_KEYS=key1,key2,key3
+# Backend
+cd server/backend && npm install && cd ../..
 
-# Database
-PGDATABASE=bugchain_indexer
-PGUSER=postgres
-PGPASSWORD=your_password
+# Frontend
+cd server/frontend-next && npm install && npm run build && cd ../..
+
+# Start evmbench (Docker)
+cd evmbench-main/backend && docker compose up -d --build && cd ../..
+
+# Start backend + frontend (local dev)
+./run-local-ui.sh start
 ```
 
-### 3. Set up Database
-
-```bash
-# BugChainIndexer automatically creates the database!
-# Just ensure PostgreSQL is running and configure .env
-
-# The system will automatically create:
-# - addresses table with optimized indexes
-# - token_metadata_cache table (30-day TTL)
-# - token_price_cache table (4-hour TTL)
-```
+- **Backend**: http://localhost:8000
+- **Frontend**: http://localhost:3000
+- **evmbench API**: http://127.0.0.1:1337 (internal)
 
 ### 4. Run Scanner
 
 ```bash
-# Analyze single network (RECOMMENDED METHOD)
-NETWORK=ethereum ./run.sh unified
-
-# Alternative method with correct parameter order
-./run.sh unified auto ethereum
-
-# Analyze all networks in parallel
-./run.sh unified parallel
-
-# Update asset prices and balances (uses Alchemy API)
-NETWORK=ethereum ./run.sh funds
-
-# Validate existing data
-./run.sh revalidate
+cd scanners
+NETWORK=ethereum ./run.sh unified    # Single network
+./run.sh unified parallel            # All networks
+NETWORK=ethereum ./run.sh funds     # Update balances
+./run.sh erc20-balances             # ERC-20 balances
 ```
 
-### 5. Start Backend API
+---
+
+## 🚢 Deployment
+
+### Using deploy.sh
 
 ```bash
-cd server/backend
-npm install
-npm start  # Starts HTTPS server on port 443
+./deploy.sh
 ```
 
-## 🌐 Supported Networks
+This script:
+1. Pulls latest code and submodules
+2. Starts evmbench Docker stack
+3. Installs backend/frontend deps and builds
+4. Restarts BugChainIndexer services (systemd or run-local-ui)
 
-**14 Configured Networks (12 Active in run.sh):**
-
-✅ **Fully Operational (Active in run.sh):**
-- **Tier 1**: Ethereum, Binance Smart Chain, Polygon
-- **Tier 2**: Arbitrum, Optimism, Base
-- **Tier 3**: Avalanche, Gnosis, Linea, Scroll, Mantle, opBNB
-
-✅ **Configured (Available but not in default run.sh):**
-- Unichain, Berachain
-
-**Network Support:**
-- All networks have Alchemy API integration
-- BalanceHelper contracts deployed on all active networks
-- Network-specific RPC fallbacks for reliability
-
-## 📊 Performance Metrics
-
-### Frontend Performance
-- **Page Load**: 25s → <1s (96% improvement)
-- **Multi-network Query**: 19s → 0.09s (99.5% improvement)
-- **Network Counts API**: 23s → <0.1s with 4-hour cache
-- **Single Network Query**: <0.02s with cache hit
-
-### Scanner Performance
-- **Processing Speed**: ~50,000 addresses/hour per network
-- **Efficiency Gain**: 80%+ improvement over individual scanners
-- **Database Optimization**: 455x performance boost in data validation
-- **Architecture**: Unified 5-in-1 analysis pipeline
-
-### Backend Optimizations
-- **Composite Index**: (fund DESC, deployed DESC, address ASC) for fast sorting
-- **Cached Counts**: 4-hour TTL eliminates 23s GROUP BY queries
-- **Smart Query Strategy**: Fast path uses cache, skip count for 10+ networks
-- **No Blocking Calls**: Removed highlightNetworksWithData from frontend
-
-## 🏭 Components
-
-### Scanners
-High-performance blockchain analysis engine with Alchemy API integration.
-- **UnifiedScanner**: Main analysis pipeline with ERC20 balance checking
-- **FundUpdater**: Portfolio tracking with PostgreSQL advisory locks and network-specific decimals
-- **DataRevalidator**: Validates and updates addresses with incomplete data
-
-**Key Features:**
-- Network-specific token decimals (1,254 tokens across 18 networks)
-- PostgreSQL advisory locks prevent concurrent update conflicts
-- ERC20 balance checking includes contracts with token holdings
-- Accurate fund calculations using tokens file decimals (not DB)
-- Simplified DataRevalidator with unified reclassification logic
-
-### Backend Server
-Express.js REST API with PostgreSQL database.
-- Optimized queries with composite indexes
-- 4-hour network counts cache
-- Advanced filtering and pagination
-- Real-time contract and address data
-
-### Frontend
-Fast web interface with no blocking API calls.
-- Instant page load (removed 23s highlightNetworksWithData)
-- Advanced filtering (address, name, time, fund, networks)
-- Pagination with cursor-based navigation
-
-### API Proxy Server
-High-performance centralized Etherscan API management.
-- **Parallel Processing**: 4 concurrent requests with multiple API keys
-- **Address Normalization**: Automatic format validation and correction
-- **Per-Key Rate Limiting**: Independent 5 req/s limit per API key
-
-## 🔧 Configuration
-
-### API Keys Required
+### Systemd (Production)
 
 ```bash
-# Alchemy API (required for FundUpdater)
-ALCHEMY_API_KEY=your_alchemy_key
-
-# Optional: Use Alchemy proxy for better performance
-USE_ALCHEMY_PROXY=true
-ALCHEMY_PROXY_URL=http://localhost:3002
-
-# Blockchain explorer APIs (required for scanners)
-DEFAULT_ETHERSCAN_KEYS=key1,key2,key3
-
-# Etherscan proxy server
-USE_ETHERSCAN_PROXY=true
-ETHERSCAN_PROXY_URL=http://localhost:3000
+sudo server/services/install-systemd.sh
+systemctl start evmbench bugchain-backend bugchain-frontend
 ```
 
-### Database Settings
+Services start on boot in order: **evmbench** → **bugchain-backend** → **bugchain-frontend**.
 
-```bash
-PGHOST=localhost
-PGPORT=5432
-PGDATABASE=bugchain_indexer
-PGUSER=indexer_user
-PGPASSWORD=secure_password
-```
+See [docs/EVMBENCH_SETUP.md](docs/EVMBENCH_SETUP.md) for evmbench configuration details.
 
-### Scanner Options
+---
 
-```bash
-TIMEDELAY_HOURS=4              # Analysis time window
-FUNDUPDATEDELAY=7              # Fund update delay (days)
-TIMEOUT_SECONDS=7200           # Script timeout
+## 🔍 API Endpoints
 
-# FundUpdater options
-FUND_UPDATE_MAX_BATCH=50000    # Max addresses per batch
-ALL_FLAG=true                  # Update all addresses (ignore delay)
-HIGH_FUND_FLAG=true            # Target high-value addresses (100K+)
-```
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/health` | Health check |
+| GET | `/getAddressesByFilter` | Addresses with filters (networks, address, contractName, fund, deployed, cursor) |
+| GET | `/getContractCount` | Contract count |
+| GET | `/networkCounts` | Network statistics (4-hour cache) |
+| GET | `/nativePrices` | Native token prices |
+| GET | `/contract/:network/:address` | Contract details |
+| GET | `/contract/:network/:address/reports` | Audit reports |
+| POST | `/contract/:network/:address/audit/start` | Start evmbench AI audit |
+| POST | `/contract/:network/:address/audit/manual` | Save manual audit |
+| POST | `/addContract` | Add contract manually |
+| GET/POST | `/searchByCode` | Source code search |
+| GET/POST | `/bookmarks` | Get/add bookmarks |
+| DELETE | `/bookmarks/:network/:address` | Remove bookmark |
+
+---
 
 ## 🤖 Automation
-
-Set up automated scanning with cron:
 
 ```bash
 cd scanners/cron
 ./setup-cron.sh --auto-setup
 ```
 
-**Default Schedule:**
-- **Unified Analysis**: Every 4 hours
-- **Fund Updates**: Every 6 hours
-- **Data Validation**: Weekly (Sundays 2 AM)
-- **Database Optimization**: Daily maintenance
+**Default schedule:**
+- Unified analysis: Every 4 hours
+- Fund updates: Every 6 hours
+- ERC-20 balances: Every 2 hours (off-peak)
+- Data validation: Weekly (Sunday 2 AM)
+- DB optimization: Daily
+
+---
 
 ## 📈 Database Optimization
 
-Built-in database optimization tools for high-performance operations:
-
 ```bash
-# Daily optimization (fast)
-./run.sh db-optimize-fast
-
-# Weekly maintenance (with VACUUM)
-./run.sh db-optimize
-
-# Monthly large database optimization (10GB+)
-./run.sh db-optimize-large
-
-# Performance analysis
-./run.sh db-analyze
+cd scanners
+./run.sh db-optimize-fast    # Daily (fast)
+./run.sh db-optimize         # Weekly (with VACUUM)
+./run.sh db-optimize-large   # Monthly (10GB+)
+./run.sh db-analyze          # Performance analysis
 ```
 
-**Key Indexes Created:**
-- `idx_addresses_api_sort_optimal`: (fund DESC, deployed DESC, address ASC)
-- `idx_addresses_address_prefix`: Address prefix search with text_pattern_ops
-- `idx_token_metadata_cache_updated`: Metadata cache lookup
-- `idx_token_price_cache_updated`: Price cache lookup
-
-## 🔍 API Usage
-
-### Backend API Endpoints
-
-**Base URL:** `https://api.bugchain.xyz`
-
-```bash
-# Get addresses with filtering
-GET /getAddressesByFilter?limit=50&includeTotal=true&networks=ethereum,polygon
-
-# Query Parameters:
-# - limit: Results per page (1-200, default 50)
-# - includeTotal: Calculate total count (default false)
-# - networks: Comma-separated network list
-# - address: Address search (exact or prefix)
-# - contractName: Contract name search
-# - deployedFrom/deployedTo: Unix timestamp range
-# - fundFrom/fundTo: USD value range
-# - cursor: Pagination cursor (from previous response)
-
-# Get contract count
-GET /getContractCount
-
-# Get network statistics (4-hour cache)
-GET /networkCounts
-```
-
-### Performance Tips
-- Use `includeTotal=false` for fastest queries (0.09s)
-- With 10+ networks, totalCount is automatically skipped
-- Network-only filters use fast cache path (0.09s vs 19s)
-- Address/name filters trigger exact count (slower but accurate)
+---
 
 ## 📋 Requirements
 
-### System Requirements
-- **RAM**: 4GB+ (8GB+ recommended for parallel processing)
-- **Storage**: 50GB+ for database (grows with usage)
-- **Network**: Stable internet for RPC and API calls
+- **RAM**: 4GB+ (8GB+ for parallel processing)
+- **Storage**: 50GB+ for database
+- **Docker**: For evmbench AI audits
 
-### API Limits
-- **Alchemy API**: Varies by plan (Growth: 330 CU/sec)
-- **Etherscan**: 5 calls/second (free), 10k calls/day
-- **RPC**: Varies by provider (failover supported)
-
-## 🛠️ Development
-
-### Adding New Networks
-
-1. Check Alchemy API support for the network
-2. Add network config to `scanners/config/networks.js`:
-```javascript
-{
-  network: 'newchain',
-  rpc: ['https://rpc.newchain.com'],
-  etherscanUrl: 'https://api.newchain.com/api',
-  alchemyNetwork: 'newchain-mainnet',  // Required for FundUpdater
-  contractValidator: '0x...'  // Optional
-}
-```
-3. Add tokens to `scanners/tokens/newchain.json` (for FundUpdater)
-4. Test with `NETWORK=newchain ./run.sh unified`
-
-### Testing
-
-```bash
-# Test Alchemy API integration
-cd scanners
-node tests/test-fundupdater-alchemy.js
-
-# Test scanner functionality
-NETWORK=ethereum ./run.sh unified auto
-```
-
-## 🔄 Migration Notes
-
-### Moralis → Alchemy Migration
-This version has migrated from Moralis to Alchemy API:
-- **Removed**: Moralis SDK dependencies
-- **Added**: Alchemy Data API v1 for token balances and metadata
-- **Added**: Token price caching (7-day TTL)
-- **Improved**: Address validation with ethers.getAddress()
-- **Optimized**: Contract deployment time fetching via Alchemy RPC (eth_getTransactionByHash, eth_getBlockByNumber)
-- **Performance**: 99.5% improvement in multi-network queries
-
-### Breaking Changes
-- Networks without Alchemy support removed (Cronos, Moonriver, etc.)
-- `MORALIS_API_KEY` replaced with `ALCHEMY_API_KEY`
-- FundUpdater now requires Alchemy API key
+---
 
 ## 📝 License
 
-MIT License - see LICENSE file for details.
+MIT License - see [LICENSE](LICENSE) for details.
+
+---
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit changes (`git commit -m 'Add amazing feature'`)
 4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request
-
-## 📞 Support
-
-- **Documentation**: See individual component READMEs
-- **Performance**: Built-in monitoring and optimization tools
-- **API Status**: Check Alchemy and Etherscan status pages
+5. Open a Pull Request
 
 ---
 
-**Built for scale. Optimized for performance. Ready for production.**
+**By VISUALISA · Built for scale · Optimized for performance**
