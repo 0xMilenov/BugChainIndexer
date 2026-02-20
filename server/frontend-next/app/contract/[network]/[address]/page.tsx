@@ -14,7 +14,7 @@ import { useNativePrices } from "@/hooks/useNativePrices";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { useShowToast } from "@/context/ToastContext";
 import { EXPLORER_MAP, TX_EXPLORER_MAP, NETWORK_COLORS } from "@/lib/constants";
-import { ArrowLeft, ExternalLink, ShieldCheck, Bug, Bookmark, BookmarkCheck } from "lucide-react";
+import { ArrowLeft, ShieldCheck, Bug, Bookmark, BookmarkCheck } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { AuditModal } from "@/components/AuditModal";
 import { AuditProgressModal } from "@/components/AuditProgressModal";
@@ -28,6 +28,9 @@ function getContractName(c: ContractDetail): string {
   const name = c?.contract_name?.trim();
   return name || "Unnamed Contract";
 }
+
+const ACTION_BUTTON_BASE =
+  "flex items-center justify-center gap-1.5 w-full min-w-0 h-full min-h-[2.75rem] rounded-lg border border-border bg-bg-tertiary px-3 text-sm font-medium text-text-primary transition hover:border-accent/40 hover:bg-accent/10 overflow-hidden";
 
 export default function ContractDetailPage() {
   const params = useParams();
@@ -307,22 +310,23 @@ export default function ContractDetailPage() {
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-4 font-mono text-sm">
                   <span className="text-text-muted">Address:</span>
-                  <span className="text-text-primary">{contract.address}</span>
-                  {explorerUrl && (
+                  {explorerUrl ? (
                     <a
                       href={explorerUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-accent hover:text-accent-dim hover:underline"
+                      className="text-accent hover:text-accent-dim hover:underline"
                     >
-                      <ExternalLink className="h-3 w-3" />
-                      View on explorer
+                      {contract.address}
                     </a>
+                  ) : (
+                    <span className="text-text-primary">{contract.address}</span>
                   )}
                 </div>
               </div>
-              <div className="flex flex-shrink-0 flex-col gap-2">
-                <div className="flex gap-3">
+              <div className="flex flex-shrink-0 w-[520px] min-w-[520px] overflow-hidden">
+                <div className="grid h-[96px] grid-cols-3 grid-rows-2 gap-2 w-full min-w-0">
+                  <div className="min-w-0 min-h-0 overflow-hidden h-full">
                   <button
                     type="button"
                     onClick={async () => {
@@ -338,16 +342,18 @@ export default function ContractDetailPage() {
                         showToast?.("Failed to update bookmark.", "error");
                       }
                     }}
-                    className="inline-flex items-center gap-2 rounded-lg border border-border bg-bg-tertiary px-4 py-2 text-sm font-medium text-text-primary transition hover:border-accent/40 hover:bg-accent/10"
+                    className={ACTION_BUTTON_BASE}
                     aria-label={isBookmarked(address, network) ? "Remove bookmark" : "Add bookmark"}
                   >
                     {isBookmarked(address, network) ? (
-                      <BookmarkCheck className="h-4 w-4 fill-accent text-accent" />
+                      <BookmarkCheck className="h-4 w-4 flex-shrink-0 fill-accent text-accent" />
                     ) : (
-                      <Bookmark className="h-4 w-4" />
+                      <Bookmark className="h-4 w-4 flex-shrink-0" />
                     )}
-                    {isBookmarked(address, network) ? "Bookmarked" : "Bookmark"}
+                    <span className="truncate">{isBookmarked(address, network) ? "Bookmarked" : "Bookmark"}</span>
                   </button>
+                  </div>
+                  <div className="min-w-0 min-h-0 overflow-hidden h-full">
                   <button
                     type="button"
                     onClick={() => {
@@ -361,47 +367,52 @@ export default function ContractDetailPage() {
                     }}
                     className={
                       auditReport?.status === "completed"
-                        ? "inline-flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/20 px-4 py-2 text-sm font-medium text-emerald-400 transition hover:border-emerald-500/60 hover:bg-emerald-500/30"
-                        : "inline-flex items-center gap-2 rounded-lg border border-border bg-bg-tertiary px-4 py-2 text-sm font-medium text-text-primary transition hover:border-accent/40 hover:bg-accent/10"
+                        ? `${ACTION_BUTTON_BASE} border-emerald-500/40 bg-emerald-500/20 text-emerald-400 hover:border-emerald-500/60 hover:bg-emerald-500/30`
+                        : ACTION_BUTTON_BASE
                     }
                   >
-                    <ShieldCheck className="h-4 w-4" />
-                    {auditReport?.status === "pending"
-                      ? "In progress..."
-                      : "AI Audit"}
+                    <ShieldCheck className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">{auditReport?.status === "pending" ? "In progress..." : "AI Audit"}</span>
                   </button>
+                  </div>
+                  <div className="min-w-0 min-h-0 overflow-hidden h-full">
                   <button
                     type="button"
-                    className="inline-flex items-center gap-2 rounded-lg border border-border bg-bg-tertiary px-4 py-2 text-sm font-medium text-text-primary transition hover:border-accent/40 hover:bg-accent/10"
+                    className={ACTION_BUTTON_BASE}
                     disabled
                     title="Coming soon"
                   >
-                    <Bug className="h-4 w-4" />
-                    Get Recon
+                    <Bug className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">Get Recon</span>
                   </button>
-                </div>
-                <div className="flex gap-3">
+                  </div>
+                  <div className="min-w-0 min-h-0 overflow-hidden h-full">
                   <button
                     type="button"
                     onClick={() => setImportEvmbenchModalOpen(true)}
-                    className="inline-flex items-center gap-2 rounded-lg border border-border/60 bg-bg-tertiary/80 px-3 py-1.5 text-xs font-medium text-text-muted transition hover:border-accent/40 hover:bg-accent/10 hover:text-text-primary"
+                    className={ACTION_BUTTON_BASE}
                   >
-                    Import evmbench Job
+                    <span className="truncate">Add evmbench Job</span>
                   </button>
+                  </div>
+                  <div className="min-w-0 min-h-0 overflow-hidden h-full">
                   <button
                     type="button"
                     onClick={() => setManualAuditModalOpen(true)}
-                    className="inline-flex items-center gap-2 rounded-lg border border-border/60 bg-bg-tertiary/80 px-3 py-1.5 text-xs font-medium text-text-muted transition hover:border-accent/40 hover:bg-accent/10 hover:text-text-primary"
+                    className={ACTION_BUTTON_BASE}
                   >
-                    Add Manual AI Audit
+                    <span className="truncate">Add Manual AI Audit</span>
                   </button>
+                  </div>
+                  <div className="min-w-0 min-h-0 overflow-hidden h-full">
                   <button
                     type="button"
                     onClick={() => setManualReconModalOpen(true)}
-                    className="inline-flex items-center gap-2 rounded-lg border border-border/60 bg-bg-tertiary/80 px-3 py-1.5 text-xs font-medium text-text-muted transition hover:border-accent/40 hover:bg-accent/10 hover:text-text-primary"
+                    className={ACTION_BUTTON_BASE}
                   >
-                    Add Manual Recon
+                    <span className="truncate">Add Manual Recon</span>
                   </button>
+                  </div>
                 </div>
               </div>
             </div>
