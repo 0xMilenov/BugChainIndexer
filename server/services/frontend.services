@@ -1,13 +1,15 @@
 [Unit]
-Description=Python HTTP Server for Onchain Scanner
+Description=Next.js Frontend for BugChain Indexer
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 -m http.server 8080 -d /root/BugChainIndexer/server/frontend/
-WorkingDirectory=/root/BugChainIndexer/server/frontend/
+WorkingDirectory=/home/claude/BugChainIndexer/server/frontend-next
+ExecStart=/usr/bin/npm run start
 Restart=on-failure
 User=root
+Environment=PORT=3000
+Environment=NODE_ENV=production
 
 [Install]
 WantedBy=multi-user.target

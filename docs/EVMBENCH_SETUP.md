@@ -2,13 +2,13 @@
 
 ## Status
 
-evmbench is configured and running on this server.
+evmbench is configured and running on this server as a git submodule (paradigmxyz/evmbench).
 
 ## Quick Commands
 
 ```bash
-# Start evmbench (from evmbench-main/backend)
-cd /home/claude/evmbench-main/backend
+# Start evmbench (from BugChainIndexer root)
+cd /home/claude/BugChainIndexer/evmbench-main/backend
 docker compose up -d
 
 # Stop evmbench
@@ -29,8 +29,9 @@ docker compose ps
 
 ## After Server Reboot
 
-1. Start evmbench: `cd evmbench-main/backend && docker compose up -d`
-2. BugChainIndexer backend will connect automatically when it runs
+With systemd installed: evmbench starts automatically before bugchain-backend.
+
+Manual: `cd BugChainIndexer/evmbench-main/backend && docker compose up -d`
 
 ## Data Persistence
 

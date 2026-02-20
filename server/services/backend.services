@@ -1,10 +1,10 @@
 [Unit]
-Description=My Node.js App
-After=network.target
+Description=BugChainIndexer Backend API
+After=network.target evmbench.service
 
 [Service]
 ExecStart=/usr/bin/node index.js
-WorkingDirectory=/root/BugChainIndexer/server/backend
+WorkingDirectory=/home/claude/BugChainIndexer/server/backend
 Restart=always
 RestartSec=10
 User=root
