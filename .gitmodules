@@ -1,0 +1,3 @@
+[submodule "evmbench-main"]
+	path = evmbench-main
+	url = https://github.com/paradigmxyz/evmbench
