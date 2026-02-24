@@ -16,7 +16,8 @@ cd "$ROOT"
 cd server/backend && npm ci --omit=dev && cd "$ROOT"
 cd server/frontend-next && npm ci --omit=dev && npm run build && cd "$ROOT"
 
-# 4. Restart BugChainIndexer services (systemd if installed, else run-local-ui)
+# 4. Ensure PostgreSQL is running, then restart BugChainIndexer services (systemd if installed, else run-local-ui)
+systemctl start postgresql 2>/dev/null || true
 if systemctl is-active --quiet bugchain-backend 2>/dev/null; then
   systemctl restart bugchain-backend bugchain-frontend
 else

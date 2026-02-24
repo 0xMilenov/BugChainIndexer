@@ -1,6 +1,7 @@
 [Unit]
 Description=BugChainIndexer Backend API
-After=network.target evmbench.service
+After=network.target postgresql.service evmbench.service
+Wants=postgresql.service
 
 [Service]
 ExecStart=/usr/bin/node index.js
