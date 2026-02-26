@@ -1,9 +1,20 @@
+const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 // Load scanners env for DEFAULT_ETHERSCAN_KEYS (required for addContract)
-const path = require('path');
 const scannersEnv = path.join(__dirname, '..', '..', 'scanners', '.env');
 require('dotenv').config({ path: scannersEnv });
-const fs = require('fs');
+// Load .env.local LAST so it always overrides (FRONTEND_URL, GITHUB_* for local dev)
+const envLocal = path.join(__dirname, '.env.local');
+if (fs.existsSync(envLocal)) {
+  require('dotenv').config({ path: envLocal, override: true });
+}
+// run-local-ui.sh uses port 8005; force OAuth callback to localhost so login doesn't redirect to production
+const httpPort = Number(process.env.PORT || process.env.HTTP_PORT || 8000);
+if (httpPort === 8005) {
+  const frontendPort = process.env.FRONTEND_PORT || '3001';
+  process.env.FRONTEND_URL = `http://localhost:${frontendPort}`;
+}
 const https = require('https');
 const http = require('http');
 const app = require('./app');

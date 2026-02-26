@@ -2,16 +2,15 @@
 
 import { useCallback, useEffect, useState, useRef } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { getContract, getContractReports, startAudit, importEvmbenchJob, saveManualAuditReport, saveManualReconReport } from "@/lib/api";
+import { useParams, useRouter } from "next/navigation";
+import { getContract, getContractReports, startAudit, importEvmbenchJob, saveManualAuditReport, saveManualReconReport, scaffoldRecon } from "@/lib/api";
 import type { ContractDetail, AuditReport, FuzzReport, EvmbenchJob } from "@/lib/api";
 import type { Contract } from "@/types/contract";
 import { formatContractDate, formatFund } from "@/lib/contract-utils";
 import { Erc20BalancesDisplay } from "@/components/results/Erc20BalancesDisplay";
 import { useNativePrices } from "@/hooks/useNativePrices";
 import { useBookmarks } from "@/hooks/useBookmarks";
+import { useAuth } from "@/context/AuthContext";
 import { useShowToast } from "@/context/ToastContext";
 import { EXPLORER_MAP, TX_EXPLORER_MAP, NETWORK_COLORS } from "@/lib/constants";
 import { ArrowLeft, ShieldCheck, Bug, Bookmark, BookmarkCheck } from "lucide-react";
@@ -22,6 +21,7 @@ import { AuditResultsModal } from "@/components/AuditResultsModal";
 import { ImportEvmbenchJobModal } from "@/components/ImportEvmbenchJobModal";
 import { VulnerabilityCard } from "@/components/VulnerabilityCard";
 import { ManualReportModal } from "@/components/ManualReportModal";
+import { Header } from "@/components/Header";
 import ReactMarkdown from "react-markdown";
 
 function getContractName(c: ContractDetail): string {
@@ -52,9 +52,12 @@ export default function ContractDetailPage() {
   const [manualReconModalOpen, setManualReconModalOpen] = useState(false);
   const [manualAuditLoading, setManualAuditLoading] = useState(false);
   const [manualReconLoading, setManualReconLoading] = useState(false);
+  const [scaffoldReconLoading, setScaffoldReconLoading] = useState(false);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const nativePrices = useNativePrices();
-  const { saveBookmark, removeBookmark, isBookmarked } = useBookmarks();
+  const router = useRouter();
+  const { bookmarks, saveBookmark, removeBookmark, isBookmarked } = useBookmarks();
+  const { user } = useAuth();
   const showToast = useShowToast();
 
   const fetchReports = useCallback(async () => {
@@ -170,13 +173,42 @@ export default function ContractDetailPage() {
     }
   }, [address, network]);
 
+  const handleGetRecon = useCallback(async () => {
+    if (!address || !network) return;
+    if (!user) {
+      showToast?.("Sign in with GitHub to use Get Recon.", "error");
+      return;
+    }
+    if (!contract?.source_code) {
+      showToast?.("No source code available for this contract.", "error");
+      return;
+    }
+    setScaffoldReconLoading(true);
+    try {
+      const result = await scaffoldRecon(address, network);
+      if (result.ok && result.repoUrl) {
+        showToast?.("Recon repo created successfully.", "success");
+        await fetchContract();
+        window.open(result.repoUrl, "_blank");
+      } else {
+        showToast?.(result.error || "Failed to create repo.", "error");
+      }
+    } catch (err) {
+      showToast?.(err instanceof Error ? err.message : "Failed to create Recon repo.", "error");
+    } finally {
+      setScaffoldReconLoading(false);
+    }
+  }, [address, network, user, contract?.source_code, showToast, fetchContract]);
+
   useEffect(() => {
     fetchContract();
   }, [fetchContract]);
 
   if (!address || !network) {
     return (
-      <div className="min-h-screen bg-bg-primary p-6">
+      <div className="min-h-screen bg-bg-primary">
+        <Header onShowBookmarks={() => router.push("/")} bookmarkCount={bookmarks.length} />
+        <div className="p-6">
         <Link
           href="/"
           className="inline-flex items-center gap-2 text-accent hover:text-accent-dim hover:underline mb-6"
@@ -185,13 +217,16 @@ export default function ContractDetailPage() {
           Back to search
         </Link>
         <p className="text-text-muted">Invalid contract address or network.</p>
+        </div>
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-bg-primary p-6">
+      <div className="min-h-screen bg-bg-primary">
+        <Header onShowBookmarks={() => router.push("/")} bookmarkCount={bookmarks.length} />
+        <div className="p-6">
         <Link
           href="/"
           className="inline-flex items-center gap-2 text-accent hover:text-accent-dim hover:underline mb-6"
@@ -204,6 +239,7 @@ export default function ContractDetailPage() {
           <div className="h-4 w-full skeleton rounded" />
           <div className="h-4 w-3/4 skeleton rounded" />
         </div>
+        </div>
       </div>
     );
   }
@@ -213,7 +249,9 @@ export default function ContractDetailPage() {
       error ||
       "Contract not found. The contract may not be indexed yet, or the backend may be unreachable.";
     return (
-      <div className="min-h-screen bg-bg-primary p-6">
+      <div className="min-h-screen bg-bg-primary">
+        <Header onShowBookmarks={() => router.push("/")} bookmarkCount={bookmarks.length} />
+        <div className="p-6">
         <Link
           href="/"
           className="inline-flex items-center gap-2 text-accent hover:text-accent-dim hover:underline mb-6"
@@ -223,8 +261,9 @@ export default function ContractDetailPage() {
         </Link>
         <p className="text-red-400">{message}</p>
         <p className="mt-2 text-sm text-text-muted">
-          Ensure the backend is running on port 8000 and the contract exists in the database.
+          Ensure the backend is running and the contract exists in the database.
         </p>
+        </div>
       </div>
     );
   }
@@ -242,6 +281,10 @@ export default function ContractDetailPage() {
 
   return (
     <div className="min-h-screen bg-bg-primary bg-grid-overlay">
+      <Header
+        onShowBookmarks={() => router.push("/")}
+        bookmarkCount={bookmarks.length}
+      />
       <AuditModal
         open={auditModalOpen}
         onClose={() => setAuditModalOpen(false)}
@@ -378,12 +421,36 @@ export default function ContractDetailPage() {
                   <div className="min-w-0 min-h-0 overflow-hidden h-full">
                   <button
                     type="button"
-                    className={ACTION_BUTTON_BASE}
-                    disabled
-                    title="Coming soon"
+                    onClick={
+                      contract?.getrecon && contract?.getrecon_url
+                        ? () => window.open(contract.getrecon_url!, "_blank")
+                        : handleGetRecon
+                    }
+                    disabled={
+                      scaffoldReconLoading ||
+                      (!contract?.getrecon && !contract?.source_code)
+                    }
+                    className={
+                      contract?.getrecon && contract?.getrecon_url
+                        ? `${ACTION_BUTTON_BASE} border-emerald-500/40 bg-emerald-500/20 text-emerald-400 hover:border-emerald-500/60 hover:bg-emerald-500/30`
+                        : ACTION_BUTTON_BASE
+                    }
+                    title={
+                      contract?.getrecon && contract?.getrecon_url
+                        ? "Open Recon repo"
+                        : !contract?.source_code
+                          ? "No source code"
+                          : "Create GitHub repo with source code"
+                    }
                   >
                     <Bug className="h-4 w-4 flex-shrink-0" />
-                    <span className="truncate">Get Recon</span>
+                    <span className="truncate">
+                      {scaffoldReconLoading
+                        ? "Creating..."
+                        : contract?.getrecon && contract?.getrecon_url
+                          ? "View Recon"
+                          : "Get Recon"}
+                    </span>
                   </button>
                   </div>
                   <div className="min-w-0 min-h-0 overflow-hidden h-full">
@@ -472,7 +539,7 @@ export default function ContractDetailPage() {
               <div>
                 <div className="text-xs text-text-muted uppercase">ERC-20 Tokens</div>
                 <div className="text-sm">
-                  <Erc20BalancesDisplay balances={contract.erc20_balances} />
+                  <Erc20BalancesDisplay balances={Array.isArray(contract.erc20_balances) ? contract.erc20_balances : undefined} />
                 </div>
               </div>
             </div>
@@ -487,21 +554,9 @@ export default function ContractDetailPage() {
                 </h2>
               </div>
               <div className="overflow-x-auto">
-                <SyntaxHighlighter
-                  language="javascript"
-                  style={oneDark}
-                  customStyle={{
-                    margin: 0,
-                    padding: "1rem",
-                    background: "var(--bg-secondary)",
-                    fontSize: "0.75rem",
-                    lineHeight: 1.5,
-                  }}
-                  codeTagProps={{ style: { fontFamily: "var(--font-geist-sans)" } }}
-                  showLineNumbers
-                >
-                  {contract.source_code}
-                </SyntaxHighlighter>
+                <pre className="m-0 p-4 text-xs leading-relaxed overflow-x-auto bg-bg-secondary font-mono text-text-primary whitespace-pre">
+                  <code>{contract.source_code}</code>
+                </pre>
               </div>
             </div>
           )}
@@ -561,7 +616,7 @@ export default function ContractDetailPage() {
                 )}
                 {auditReport.status === "completed" &&
                   !auditReport.report_json?.manual &&
-                  auditReport.report_json?.vulnerabilities && (
+                  Array.isArray(auditReport.report_json?.vulnerabilities) && (
                     <div className="space-y-3">
                       {auditReport.report_json.vulnerabilities.length === 0 ? (
                         <p className="text-text-muted text-sm">

@@ -101,7 +101,7 @@ export interface Erc20BalanceWithValue {
 
 /** Sort balances by value (largest first), return with computed values. */
 export function getSortedErc20Balances(balances: Erc20Balance[] | undefined): Erc20BalanceWithValue[] {
-  if (!balances?.length) return [];
+  if (!Array.isArray(balances) || !balances.length) return [];
   return balances
     .map((b) => ({
       ...b,
@@ -115,7 +115,7 @@ export function formatErc20Balances(
   balances: Erc20Balance[] | undefined,
   maxShow = 5
 ): string {
-  if (!balances?.length) return "-";
+  if (!Array.isArray(balances) || !balances.length) return "-";
   const parts = balances.slice(0, maxShow).map((b) => {
     const val = weiToDisplay(b.balance, b.decimals ?? 18);
     return `${b.symbol}: ${val.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;

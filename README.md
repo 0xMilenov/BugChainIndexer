@@ -124,6 +124,14 @@ cp evmbench-main/backend/.env.example evmbench-main/backend/.env
 - `server/backend/.env`: `DATABASE_URL`, `EVMBENCH_API_URL=http://127.0.0.1:1337`, `PORT=8000`
 - `evmbench-main/backend/.env`: `POSTGRES_PASSWORD`, `RABBITMQ_PASSWORD`, `SECRETS_TOKEN_RO`, `SECRETS_TOKEN_WO`
 
+**GitHub OAuth (optional, for "Log in with GitHub"):**
+1. Create an OAuth app at [github.com/settings/applications/new](https://github.com/settings/applications/new)
+2. Set **Authorization callback URL** to `http://localhost:3000/auth/github/callback` (or your frontend URL + `/auth/github/callback`)
+3. Add `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `AUTH_JWT_SECRET`, and `FRONTEND_URL` to `server/backend/.env`
+4. Restart the backend. If not configured, clicking "Log in" shows a setup guide at `/auth/setup`.
+
+**Local OAuth testing:** See [docs/LOCAL-AUTH-SETUP.md](docs/LOCAL-AUTH-SETUP.md) for using `.env.local` to test auth locally alongside production config.
+
 ### 3. Install & Run
 
 ```bash

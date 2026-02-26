@@ -2,7 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { SlidersHorizontal, Bookmark } from "lucide-react";
+import { SlidersHorizontal, Bookmark, LogIn } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { AuthStatus } from "./AuthStatus";
+
+const getLoginHref = () => "/auth/github";
 
 interface HeaderProps {
   onToggleFilters?: () => void;
@@ -13,6 +17,8 @@ interface HeaderProps {
 }
 
 export function Header({ onToggleFilters, sidebarOpen, filterBadgeCount, onShowBookmarks, bookmarkCount = 0 }: HeaderProps) {
+  const { user, authConfigured } = useAuth();
+  const loginHref = getLoginHref();
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-bg-primary/95 backdrop-blur-md shadow-cyan-500/5">
       <div className="mx-auto px-4 sm:px-6">
@@ -44,11 +50,23 @@ export function Header({ onToggleFilters, sidebarOpen, filterBadgeCount, onShowB
               VISUALISA
             </h1>
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-nowrap shrink-0">
+            {user ? (
+              <AuthStatus />
+            ) : (
+              <Link
+                href={loginHref}
+                className="flex items-center gap-1 px-3 py-1 rounded-md transition relative bg-bg-secondary text-text-muted hover:bg-bg-tertiary hover:text-accent flex-shrink-0"
+                aria-label={authConfigured ? "Log in with GitHub" : "Setup GitHub OAuth"}
+              >
+                <LogIn className="h-4 w-4" />
+                <span>Log in</span>
+              </Link>
+            )}
             {onShowBookmarks && (
               <button
                 onClick={onShowBookmarks}
-                className="flex items-center gap-1 px-3 py-1 rounded-md transition relative bg-bg-secondary text-text-muted hover:bg-bg-tertiary hover:text-accent"
+                className="flex items-center gap-1 px-3 py-1 rounded-md transition relative bg-bg-secondary text-text-muted hover:bg-bg-tertiary hover:text-accent flex-shrink-0"
                 aria-label="Show bookmarks"
               >
                 <Bookmark className="h-4 w-4" />

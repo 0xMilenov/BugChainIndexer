@@ -47,6 +47,9 @@ pool.on('connect', () => {});
       ALTER TABLE addresses ADD COLUMN IF NOT EXISTS getrecon BOOLEAN DEFAULT false
     `);
     await pool.query(`
+      ALTER TABLE addresses ADD COLUMN IF NOT EXISTS getrecon_url TEXT
+    `);
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS audit_reports (
         id SERIAL PRIMARY KEY,
         address TEXT NOT NULL,
@@ -85,6 +88,14 @@ pool.on('connect', () => {});
         contract_name TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(address, network)
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS github_tokens (
+        user_id TEXT PRIMARY KEY,
+        access_token_encrypted TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
   } catch (e) {

@@ -76,7 +76,7 @@ export function AuditResultsModal({
           )}
           {auditReport?.status === "completed" &&
             !auditReport.report_json?.manual &&
-            auditReport.report_json?.vulnerabilities && (
+            Array.isArray(auditReport.report_json?.vulnerabilities) && (
               <div className="space-y-3">
                 {auditReport.report_json.vulnerabilities.length === 0 ? (
                   <p className="text-text-muted text-sm">

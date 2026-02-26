@@ -151,48 +151,72 @@ exports.getAddressesByFilter = async (filters = {}) => {
 
   // Determine ORDER BY clause based on sortBy parameter
   // Use native_balance (wei) for fund sort - fund column has mixed semantics (wei from UnifiedScanner, USD from FundUpdater)
+  // Use a. prefix for main query to avoid ambiguity with ar_audited (address, network)
   let orderByClause;
+  let orderByClauseOuter; // for hideUnnamed outer query (no a. prefix)
   if (sortBy === 'first_seen') {
-    orderByClause = 'ORDER BY first_seen DESC NULLS LAST, address ASC';
+    orderByClause = 'ORDER BY a.first_seen DESC NULLS LAST, a.address ASC';
+    orderByClauseOuter = 'ORDER BY first_seen DESC NULLS LAST, address ASC';
   } else {
-    // Sort by native balance (consistent wei values) to show contracts with most native balance first
-    orderByClause = 'ORDER BY COALESCE(native_balance, 0)::numeric DESC NULLS LAST, deployed DESC NULLS LAST, address ASC';
+    orderByClause = 'ORDER BY COALESCE(a.native_balance, 0)::numeric DESC NULLS LAST, a.deployed DESC NULLS LAST, a.address ASC';
+    orderByClauseOuter = 'ORDER BY COALESCE(native_balance, 0)::numeric DESC NULLS LAST, deployed DESC NULLS LAST, address ASC';
   }
 
   // Build SQL based on hideUnnamed flag (only verified contracts)
   let dataSql;
   const selectColumns = `
-      address, contract_name, deployed, fund, native_balance, network, first_seen,
-      verified, is_proxy, implementation_address, proxy_contract_name,
-      implementation_contract_name, deploy_tx_hash, deployer_address,
-      deploy_block_number, deployed_at_timestamp, deployed_at, confidence, fetched_at,
-      COALESCE(evmbench, false) AS evmbench, COALESCE(getrecon, false) AS getrecon
+      a.address, a.contract_name, a.deployed, a.fund, a.native_balance, a.network, a.first_seen,
+      a.verified, a.is_proxy, a.implementation_address, a.proxy_contract_name,
+      a.implementation_contract_name, a.deploy_tx_hash, a.deployer_address,
+      a.deploy_block_number, a.deployed_at_timestamp, a.deployed_at, a.confidence, a.fetched_at,
+      (COALESCE(a.evmbench, false) OR ar_audited.address IS NOT NULL) AS evmbench,
+      COALESCE(a.getrecon, false) AS getrecon
   `;
+  const auditJoin = `
+    LEFT JOIN (
+      SELECT DISTINCT LOWER(address) AS address, LOWER(network) AS network
+      FROM audit_reports WHERE status = 'completed'
+    ) ar_audited ON LOWER(ar_audited.address) = LOWER(a.address) AND LOWER(ar_audited.network) = LOWER(a.network)
+  `;
+  const baseWhere = CONTRACT_LIST_WHERE.replace(/addresses\./g, 'a.');
+  // Qualify buildWhere columns with a. to avoid ambiguity with ar_audited (address, network)
+  const whereQualified = whereSql
+    ? ('AND ' + whereSql.replace('WHERE ', '')
+        .replace(/\bdeployed\b/g, 'a.deployed')
+        .replace(/\bfund\b/g, 'a.fund')
+        .replace(/\bnetwork\b/g, 'a.network')
+        .replace(/\baddress\b/g, 'a.address')
+        .replace(/\bcontract_name\b/g, 'a.contract_name')
+        .replace(/\bnative_balance\b/g, 'a.native_balance')
+        .replace(/\bfirst_seen\b/g, 'a.first_seen'))
+    : '';
   if (hideUnnamed) {
     // Use DISTINCT ON directly from addresses so enrichment columns are available.
     dataSql = `
       SELECT ${selectColumns}
       FROM (
-        SELECT DISTINCT ON (contract_name)
+        SELECT DISTINCT ON (a.contract_name)
           ${selectColumns}
-        FROM addresses
+        FROM addresses a
+        ${auditJoin}
         WHERE
-          ${CONTRACT_LIST_WHERE}
-          AND contract_name IS NOT NULL
-          AND BTRIM(contract_name) != ''
-          ${whereSql ? 'AND ' + whereSql.replace('WHERE ', '') : ''}
-        ORDER BY contract_name, first_seen DESC NULLS LAST
+          ${baseWhere}
+          AND a.contract_name IS NOT NULL
+          AND BTRIM(a.contract_name) != ''
+          ${whereQualified}
+        ORDER BY a.contract_name, a.first_seen DESC NULLS LAST
       ) AS deduped_contracts
-      ${orderByClause}
+      ${orderByClauseOuter}
       LIMIT ${take + 1}
     `;
   } else {
     dataSql = `
       SELECT ${selectColumns}
-      FROM addresses
+      FROM addresses a
+      ${auditJoin}
       WHERE
-        ${CONTRACT_LIST_WHERE}
-        ${whereSql ? 'AND ' + whereSql.replace('WHERE ', '') : ''}
+        ${baseWhere}
+        ${whereQualified}
       ${orderByClause}
       LIMIT ${take + 1}
     `;
@@ -563,7 +587,9 @@ exports.getContractByAddress = async (address, network) => {
       a.proxy_contract_name, a.implementation_contract_name,
       a.deploy_tx_hash, a.deployer_address, a.deploy_block_number,
       a.deployed_at_timestamp, a.deployed_at, a.confidence, a.fetched_at,
-      COALESCE(a.evmbench, false) AS evmbench, COALESCE(a.getrecon, false) AS getrecon,
+      (COALESCE(a.evmbench, false) OR EXISTS (SELECT 1 FROM audit_reports ar WHERE LOWER(ar.address) = LOWER(a.address) AND LOWER(ar.network) = LOWER(a.network) AND ar.status = 'completed')) AS evmbench,
+      COALESCE(a.getrecon, false) AS getrecon,
+      a.getrecon_url,
       cs.source_code, cs.source_code_hash, cs.compiler_version, cs.optimization_used,
       cs.runs, cs.abi, cs.contract_file_name, cs.compiler_type, cs.evm_version,
       cs.constructor_arguments, cs.library, cs.license_type
@@ -722,6 +748,10 @@ exports.getContractReports = async (address, network) => {
             [JSON.stringify(jobStatus.result || {}), auditReport.id]
           );
         }
+        await pool.query(
+          `UPDATE addresses SET evmbench = true WHERE LOWER(address) = $1 AND LOWER(network) = $2`,
+          [auditReport.address, auditReport.network]
+        );
         auditReport = {
           ...auditReport,
           status: 'completed',
@@ -900,6 +930,17 @@ exports.saveManualReconReport = async (address, network, markdown) => {
   );
 
   return { ok: true, fuzzReport };
+};
+
+exports.setGetReconUrl = async (address, network, repoUrl) => {
+  ensureDbUrl();
+  const addr = String(address || '').trim().toLowerCase();
+  const net = String(network || '').trim().toLowerCase();
+  if (!addr || !net) return;
+  await pool.query(
+    `UPDATE addresses SET getrecon = true, getrecon_url = $3 WHERE LOWER(address) = $1 AND LOWER(network) = $2`,
+    [addr, net, repoUrl || null]
+  );
 };
 
 exports.searchByCode = async (opts = {}) => {

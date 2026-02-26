@@ -2,11 +2,7 @@ import type { SearchResponse } from "@/types/contract";
 
 const getBaseUrl = () => {
   if (typeof window === "undefined") return "";
-  // Use explicit API URL when set (e.g. backend on different port)
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL;
-  }
-  // Same origin: Next.js rewrites proxy /getAddressesByFilter etc. to backend
+  // Always use same-origin /api/* so cookies (session) are sent. Next.js rewrites proxy to backend.
   return "";
 };
 
@@ -161,6 +157,8 @@ export interface ContractDetail {
   library?: string;
   license_type?: string;
   erc20_balances?: Array<{ symbol: string; balance: string; decimals?: number }>;
+  getrecon?: boolean;
+  getrecon_url?: string;
 }
 
 export interface GetContractResponse {
@@ -397,6 +395,30 @@ export async function saveManualReconReport(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ markdown: markdown.trim() }),
+  });
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data?.error || `HTTP ${resp.status}`);
+  return data;
+}
+
+export interface ScaffoldReconResponse {
+  ok: boolean;
+  repoUrl?: string;
+  error?: string;
+}
+
+export async function scaffoldRecon(
+  address: string,
+  network: string
+): Promise<ScaffoldReconResponse> {
+  const base = getBaseUrl();
+  const encAddr = encodeURIComponent(address);
+  const encNet = encodeURIComponent(network);
+  const url = base ? `${base}/contract/${encNet}/${encAddr}/recon/scaffold` : `/api/contract/${encNet}/${encAddr}/recon/scaffold`;
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
   });
   const data = await resp.json();
   if (!resp.ok) throw new Error(data?.error || `HTTP ${resp.status}`);

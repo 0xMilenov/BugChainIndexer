@@ -1,12 +1,16 @@
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const { pool } = require('./services/db');
 
 const app = express();
 
+const FRONTEND_URL = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+
 // basic middleware
-app.use(cors());
+app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 app.use(express.json());
+app.use(cookieParser());
 
 // health check
 app.get('/health', async (req, res) => {
@@ -21,7 +25,9 @@ app.get('/health', async (req, res) => {
 });
 
 // routes
+const authRoutes = require('./routes/auth');
 const publicRoutes = require('./routes/public');
+app.use('/auth', authRoutes);
 app.use('/', publicRoutes);
 
 // 404 handler for unknown routes

@@ -9,8 +9,10 @@ LOG_DIR="$STATE_DIR/logs"
 BACKEND_PID_FILE="$STATE_DIR/backend.pid"
 FRONTEND_PID_FILE="$STATE_DIR/frontend.pid"
 
-BACKEND_PORT="${BACKEND_PORT:-8000}"
-FRONTEND_PORT="${FRONTEND_PORT:-3000}"
+# Use 8005 for backend to avoid conflicts with production/stray processes on 8000
+# Use 3001 for frontend so 3000 stays free for production
+BACKEND_PORT="${BACKEND_PORT:-8005}"
+FRONTEND_PORT="${FRONTEND_PORT:-3001}"
 
 mkdir -p "$LOG_DIR"
 
@@ -35,10 +37,23 @@ start_backend() {
     return
   fi
 
+  # Free the backend port so we bind to it (avoids stray processes from manual runs)
+  if command -v fuser &>/dev/null && fuser "$BACKEND_PORT"/tcp &>/dev/null; then
+    echo "Freeing port $BACKEND_PORT..."
+    fuser -k "$BACKEND_PORT"/tcp 2>/dev/null || true
+    sleep 1
+  fi
+
   echo "Starting backend on port $BACKEND_PORT..."
   (
     cd "$BACKEND_DIR"
-    PORT="$BACKEND_PORT" nohup npm start > "$LOG_DIR/backend.log" 2>&1 &
+    # Source .env.local so dev GitHub OAuth (client_id/secret) and FRONTEND_URL override production .env
+    if [[ -f .env.local ]]; then
+      set -a
+      source .env.local
+      set +a
+    fi
+    FRONTEND_URL="http://localhost:${FRONTEND_PORT}" FRONTEND_PORT="$FRONTEND_PORT" PORT="$BACKEND_PORT" SKIP_OAUTH_STATE_CHECK=1 nohup npm start > "$LOG_DIR/backend.log" 2>&1 &
     echo $! > "$BACKEND_PID_FILE"
   )
   echo "Backend started (PID $(cat "$BACKEND_PID_FILE"))"
@@ -51,14 +66,33 @@ start_frontend() {
     return
   fi
 
+  # Free the frontend port (avoids conflicts with stray processes)
+  if command -v fuser &>/dev/null && fuser "$FRONTEND_PORT"/tcp &>/dev/null; then
+    echo "Freeing port $FRONTEND_PORT..."
+    fuser -k "$FRONTEND_PORT"/tcp 2>/dev/null || true
+    sleep 2
+    # Retry if port still in use
+    if fuser "$FRONTEND_PORT"/tcp &>/dev/null; then
+      sleep 2
+      fuser -k "$FRONTEND_PORT"/tcp 2>/dev/null || true
+      sleep 1
+    fi
+  fi
+
   echo "Starting Next.js frontend on port $FRONTEND_PORT..."
   (
     cd "$FRONTEND_DIR"
-    # Use production server if build exists (after deploy), else dev
-    if [[ -d .next ]]; then
-      PORT="$FRONTEND_PORT" nohup npm run start > "$LOG_DIR/frontend.log" 2>&1 &
+    # Point to local backend so auth uses dev OAuth (localhost callback)
+    # Always use dev mode for local runs: better error reporting, HMR, and avoids
+    # production-only client-side crashes. Set USE_PROD=1 to use production build.
+    if [[ "${USE_PROD:-0}" == "1" ]] && [[ -d .next ]]; then
+      env NEXT_PUBLIC_API_URL="http://localhost:${BACKEND_PORT}" \
+          NEXT_PUBLIC_APP_URL="http://localhost:${FRONTEND_PORT}" \
+          PORT="$FRONTEND_PORT" nohup npm run start > "$LOG_DIR/frontend.log" 2>&1 &
     else
-      PORT="$FRONTEND_PORT" nohup npm run dev > "$LOG_DIR/frontend.log" 2>&1 &
+      env NEXT_PUBLIC_API_URL="http://localhost:${BACKEND_PORT}" \
+          NEXT_PUBLIC_APP_URL="http://localhost:${FRONTEND_PORT}" \
+          PORT="$FRONTEND_PORT" nohup npm run dev > "$LOG_DIR/frontend.log" 2>&1 &
     fi
     echo $! > "$FRONTEND_PID_FILE"
   )

@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/results/EmptyState";
 import { ErrorState } from "@/components/results/ErrorState";
 import { Pagination } from "@/components/results/Pagination";
 import { FilterProvider, useFilters } from "@/context/FilterContext";
+import { useAuth } from "@/context/AuthContext";
 import { useShowToast } from "@/context/ToastContext";
 import { useSearchContracts } from "@/hooks/useSearchContracts";
 import { useBookmarks } from "@/hooks/useBookmarks";
@@ -49,6 +50,22 @@ function SearchPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const showToast = useShowToast();
+  const { refreshAuth } = useAuth();
+
+  useEffect(() => {
+    const authError = searchParams.get("auth_error");
+    if (authError) {
+      router.replace(`/auth/error?message=${encodeURIComponent(authError)}`);
+    }
+  }, [searchParams, router]);
+
+  // After OAuth success, we land with ?from=oauth; refresh auth and clear the URL
+  useEffect(() => {
+    if (searchParams.get("from") === "oauth") {
+      refreshAuth().then(() => router.replace("/", { scroll: false }));
+    }
+  }, [searchParams, refreshAuth, router]);
+
   const {
     filters,
     clearFilters,

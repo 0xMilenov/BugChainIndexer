@@ -1,6 +1,23 @@
 const service = require('../services/address.service');
 const addContractService = require('../services/addContract.service');
+const authService = require('../services/auth.service');
+const githubService = require('../services/github.service');
 const { parseNumber, parseStringArray, parseBool, decodeCursor } = require('../utils/parsers');
+
+function sanitizeRepoName(s) {
+  return String(s || '')
+    .replace(/[^a-zA-Z0-9-_]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .toLowerCase()
+    .slice(0, 80) || 'contract';
+}
+
+function sanitizeSolFileName(s) {
+  let name = String(s || 'contract').replace(/[^a-zA-Z0-9_-]/g, '_').replace(/_+/g, '_') || 'Contract';
+  if (!name.endsWith('.sol')) name += '.sol';
+  return name;
+}
 
 exports.getVerifiedContractStats = async (req, res) => {
   try {
@@ -241,6 +258,63 @@ exports.saveManualReconReport = async (req, res) => {
   } catch (err) {
     console.error('saveManualReconReport failed:', err?.message || err);
     res.status(500).json({ ok: false, error: 'Internal Server Error' });
+  }
+};
+
+exports.scaffoldRecon = async (req, res) => {
+  try {
+    const network = req.params?.network || req.query?.network;
+    const address = req.params?.address || req.query?.address;
+    if (!address || !network) {
+      return res.status(400).json({ ok: false, error: 'address and network are required' });
+    }
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ ok: false, error: 'Unauthorized' });
+    }
+
+    const accessToken = await authService.getGitHubToken(user.user_id);
+    if (!accessToken) {
+      return res.status(401).json({ ok: false, error: 'Re-authenticate required. Please sign out and sign in again with GitHub.' });
+    }
+
+    const contract = await service.getContractByAddress(address, network);
+    if (!contract) {
+      return res.status(404).json({ ok: false, error: 'Contract not found' });
+    }
+    if (!contract.source_code || !contract.source_code.trim()) {
+      return res.status(400).json({ ok: false, error: 'No source code available for this contract' });
+    }
+
+    const contractName = contract.contract_name || contract.contract_file_name || 'Contract';
+    const addressSlice = address.slice(2, 10).toLowerCase();
+    const repoName = sanitizeRepoName(`${contractName}-${addressSlice}-recon`);
+    const solFileName = sanitizeSolFileName(contract.contract_file_name || contractName);
+    const filePath = `src/${solFileName}`;
+
+    const { owner, repo, url } = await githubService.createRepoFromTemplate(
+      accessToken,
+      repoName,
+      `Contract ${contractName} (${address}) from BugChainIndexer`
+    );
+
+    await githubService.addContractFile(
+      accessToken,
+      owner,
+      repo,
+      filePath,
+      contract.source_code,
+      `Add contract ${solFileName} from BugChainIndexer`
+    );
+
+    await service.setGetReconUrl(address, network, url);
+
+    res.json({ ok: true, repoUrl: url });
+  } catch (err) {
+    console.error('scaffoldRecon failed:', err?.message || err);
+    const msg = err?.response?.data?.message || err?.message || 'Internal Server Error';
+    const status = err?.response?.status === 422 ? 422 : 500;
+    res.status(status).json({ ok: false, error: msg });
   }
 };
 

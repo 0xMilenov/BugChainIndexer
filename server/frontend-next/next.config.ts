@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8005";
 
 const nextConfig: NextConfig = {
   async rewrites() {
@@ -15,8 +15,8 @@ const nextConfig: NextConfig = {
       { source: "/bookmarks", destination: `${apiUrl}/bookmarks` },
       { source: "/bookmarks/:path*", destination: `${apiUrl}/bookmarks/:path*` },
       { source: "/health", destination: `${apiUrl}/health` },
-      // API proxy: /api/contract/* -> backend. Page route /contract/* stays with Next.js.
-      { source: "/api/contract/:path*", destination: `${apiUrl}/contract/:path*` },
+      // Auth: route handlers at app/auth/*/route.ts proxy to backend with explicit cookie forwarding
+      // /api/contract/*: app/api/contract/[...path]/route.ts proxies with cookie forwarding (rewrites don't)
     ];
   },
 };
