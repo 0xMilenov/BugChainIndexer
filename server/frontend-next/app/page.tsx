@@ -79,7 +79,7 @@ function SearchPageContent() {
   const [sortColumn, setSortColumn] = useState("fund");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [hideDuplicates, setHideDuplicates] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [viewingBookmarks, setViewingBookmarks] = useState(false);
   const [codeSnippet, setCodeSnippet] = useState("");
@@ -355,7 +355,13 @@ function SearchPageContent() {
     >
       <div className="mb-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm text-text-muted">{resultsMeta}</span>
+          <span
+            className={`text-sm text-text-muted transition-[padding] duration-200 ${
+              !sidebarOpen ? "pl-14 lg:pl-16" : ""
+            }`}
+          >
+            {resultsMeta}
+          </span>
           {viewingBookmarks && (
             <Button
               type="button"

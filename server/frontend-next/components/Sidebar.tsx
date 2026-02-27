@@ -46,12 +46,12 @@ export function Sidebar({
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const sidebarContent = (
-    <div className="space-y-5 pt-3 px-5 pb-5">
-      <div className="flex items-center justify-end mb-3">
+    <div className="space-y-5 pt-3 px-5 pb-5 lg:pt-16">
+      <div className="flex items-center justify-end mb-3 mt-2">
         <button
           type="button"
           onClick={onClose}
-          className="lg:hidden rounded-lg p-1.5 hover:bg-bg-tertiary transition"
+          className="rounded-lg p-1.5 hover:bg-bg-tertiary transition"
           aria-label="Close filters"
         >
           <X className="h-4 w-4 text-text-muted" />
@@ -156,7 +156,7 @@ export function Sidebar({
     <>
       <aside
         className={`fixed top-0 left-0 bottom-0 z-40 w-80 overflow-y-auto border-r border-border bg-bg-secondary/95 backdrop-blur-md shadow-2xl transition-transform duration-200 ease-out
-          lg:sticky lg:top-[65px] lg:z-auto lg:h-[calc(100vh-65px)] lg:w-72 xl:w-80 lg:translate-x-0 lg:shadow-none lg:backdrop-blur-none
+          lg:z-20 lg:w-72 xl:w-80 lg:shadow-none lg:backdrop-blur-none
           ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
         {sidebarContent}

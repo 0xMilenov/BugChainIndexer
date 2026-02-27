@@ -20,9 +20,9 @@ export function Header({ onToggleFilters, sidebarOpen, filterBadgeCount, onShowB
   const { user, authConfigured } = useAuth();
   const loginHref = getLoginHref();
   return (
-    <header className="sticky top-0 z-30 border-b border-border bg-bg-primary/95 backdrop-blur-md shadow-cyan-500/5">
-      <div className="mx-auto px-4 sm:px-6">
-        <div className="flex items-center justify-between py-3">
+    <header className="sticky top-0 z-30 h-16 flex flex-col justify-center border-b border-border bg-bg-primary/95 backdrop-blur-md shadow-cyan-500/5">
+      <div className="mx-auto w-full px-4 sm:px-6">
+        <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center space-x-3 group">
             <div className="relative h-10 w-10 flex-shrink-0 rounded-full overflow-hidden group/logo">
               <div
@@ -81,8 +81,8 @@ export function Header({ onToggleFilters, sidebarOpen, filterBadgeCount, onShowB
             {onToggleFilters && (
               <button
                 onClick={onToggleFilters}
-                className="lg:hidden flex items-center gap-1 px-3 py-1 rounded-md transition relative bg-bg-secondary text-text-muted hover:bg-bg-tertiary"
-                aria-label="Toggle filters"
+                className="flex items-center gap-1 px-3 py-1 rounded-md transition relative bg-bg-secondary text-text-muted hover:bg-bg-tertiary"
+                aria-label={sidebarOpen ? "Close filters" : "Open filters"}
               >
                 <SlidersHorizontal className="h-4 w-4" />
                 <span>Filters</span>
