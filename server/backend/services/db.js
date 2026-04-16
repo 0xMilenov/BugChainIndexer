@@ -40,46 +40,8 @@ pool.on('connect', () => {});
     await pool.query(`
       ALTER TABLE addresses ADD COLUMN IF NOT EXISTS native_balance NUMERIC(78, 0) DEFAULT 0
     `);
-    await pool.query(`
-      ALTER TABLE addresses ADD COLUMN IF NOT EXISTS evmbench BOOLEAN DEFAULT false
-    `);
-    await pool.query(`
-      ALTER TABLE addresses ADD COLUMN IF NOT EXISTS getrecon BOOLEAN DEFAULT false
-    `);
-    await pool.query(`
-      ALTER TABLE addresses ADD COLUMN IF NOT EXISTS getrecon_url TEXT
-    `);
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS audit_reports (
-        id SERIAL PRIMARY KEY,
-        address TEXT NOT NULL,
-        network TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'pending',
-        report_json JSONB,
-        raw_output TEXT,
-        triggered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        completed_at TIMESTAMP
-      )
-    `);
-    await pool.query(`
-      ALTER TABLE audit_reports ADD COLUMN IF NOT EXISTS evmbench_job_id UUID
-    `);
-    await pool.query(`
-      ALTER TABLE audit_reports ADD COLUMN IF NOT EXISTS model TEXT
-    `);
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS fuzz_reports (
-        id SERIAL PRIMARY KEY,
-        address TEXT NOT NULL,
-        network TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'pending',
-        report_json JSONB,
-        raw_output TEXT,
-        campaign_id TEXT,
-        triggered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        completed_at TIMESTAMP
-      )
-    `);
+    // EVMBENCH / GetRecon-specific schema (addresses.evmbench/getrecon, audit_reports, fuzz_reports)
+    // is no longer required by the simplified backend and is intentionally not created here.
     await pool.query(`
       CREATE TABLE IF NOT EXISTS contract_bookmarks (
         id SERIAL PRIMARY KEY,

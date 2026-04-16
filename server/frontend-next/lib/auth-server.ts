@@ -9,6 +9,12 @@ const getBackendUrl = () => {
   return url;
 };
 
+const fetchWithTimeout = (url: string, opts: RequestInit, ms = 5000) => {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(t));
+};
+
 export async function getServerAuth(): Promise<{
   user: AuthUser | null;
   authConfigured: boolean;
@@ -22,11 +28,11 @@ export async function getServerAuth(): Promise<{
 
     const backendUrl = getBackendUrl();
     const [meRes, statusRes] = await Promise.all([
-      fetch(`${backendUrl}/auth/me`, {
+      fetchWithTimeout(`${backendUrl}/auth/me`, {
         headers: cookieHeader ? { cookie: cookieHeader } : {},
         cache: "no-store",
       }),
-      fetch(`${backendUrl}/auth/status`, { cache: "no-store" }),
+      fetchWithTimeout(`${backendUrl}/auth/status`, { cache: "no-store" }),
     ]);
 
     const statusData = statusRes.ok ? await statusRes.json() : null;

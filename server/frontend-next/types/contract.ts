@@ -30,8 +30,6 @@ export interface Contract {
   native_balance?: string | number;
   erc20_balances?: Erc20Balance[];
   confidence?: string | number;
-  evmbench?: boolean;
-  getrecon?: boolean;
 }
 
 export interface SearchResponse {

@@ -59,7 +59,7 @@ echo "[6/6] Checking services..."
 if ! systemctl is-active --quiet bugchain-backend 2>/dev/null; then
     echo "Installing systemd services..."
     "$ROOT/server/services/install-systemd.sh"
-    systemctl start postgresql evmbench bugchain-backend bugchain-frontend
+    systemctl start postgresql bugchain-backend bugchain-frontend
 else
     systemctl restart bugchain-backend bugchain-frontend
 fi

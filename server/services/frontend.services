@@ -10,6 +10,8 @@ Restart=on-failure
 User=root
 Environment=PORT=3000
 Environment=NODE_ENV=production
+Environment=NEXT_PUBLIC_API_URL=http://localhost:8000
+Environment=NEXT_PUBLIC_APP_URL=https://app.visualisa.xyz
 
 [Install]
 WantedBy=multi-user.target

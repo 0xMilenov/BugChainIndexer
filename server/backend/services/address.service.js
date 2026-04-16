@@ -151,7 +151,7 @@ exports.getAddressesByFilter = async (filters = {}) => {
 
   // Determine ORDER BY clause based on sortBy parameter
   // Use native_balance (wei) for fund sort - fund column has mixed semantics (wei from UnifiedScanner, USD from FundUpdater)
-  // Use a. prefix for main query to avoid ambiguity with ar_audited (address, network)
+  // Use a. prefix for main query (qualified WHERE clause)
   let orderByClause;
   let orderByClauseOuter; // for hideUnnamed outer query (no a. prefix)
   if (sortBy === 'first_seen') {
@@ -168,18 +168,10 @@ exports.getAddressesByFilter = async (filters = {}) => {
       a.address, a.contract_name, a.deployed, a.fund, a.native_balance, a.network, a.first_seen,
       a.verified, a.is_proxy, a.implementation_address, a.proxy_contract_name,
       a.implementation_contract_name, a.deploy_tx_hash, a.deployer_address,
-      a.deploy_block_number, a.deployed_at_timestamp, a.deployed_at, a.confidence, a.fetched_at,
-      (COALESCE(a.evmbench, false) OR ar_audited.address IS NOT NULL) AS evmbench,
-      COALESCE(a.getrecon, false) AS getrecon
-  `;
-  const auditJoin = `
-    LEFT JOIN (
-      SELECT DISTINCT LOWER(address) AS address, LOWER(network) AS network
-      FROM audit_reports WHERE status = 'completed'
-    ) ar_audited ON LOWER(ar_audited.address) = LOWER(a.address) AND LOWER(ar_audited.network) = LOWER(a.network)
+      a.deploy_block_number, a.deployed_at_timestamp, a.deployed_at, a.confidence, a.fetched_at
   `;
   const baseWhere = CONTRACT_LIST_WHERE.replace(/addresses\./g, 'a.');
-  // Qualify buildWhere columns with a. to avoid ambiguity with ar_audited (address, network)
+  // Qualify buildWhere columns with a. for the addresses alias
   const whereQualified = whereSql
     ? ('AND ' + whereSql.replace('WHERE ', '')
         .replace(/\bdeployed\b/g, 'a.deployed')
@@ -198,7 +190,6 @@ exports.getAddressesByFilter = async (filters = {}) => {
         SELECT DISTINCT ON (a.contract_name)
           ${selectColumns}
         FROM addresses a
-        ${auditJoin}
         WHERE
           ${baseWhere}
           AND a.contract_name IS NOT NULL
@@ -213,7 +204,6 @@ exports.getAddressesByFilter = async (filters = {}) => {
     dataSql = `
       SELECT ${selectColumns}
       FROM addresses a
-      ${auditJoin}
       WHERE
         ${baseWhere}
         ${whereQualified}
@@ -587,9 +577,6 @@ exports.getContractByAddress = async (address, network) => {
       a.proxy_contract_name, a.implementation_contract_name,
       a.deploy_tx_hash, a.deployer_address, a.deploy_block_number,
       a.deployed_at_timestamp, a.deployed_at, a.confidence, a.fetched_at,
-      (COALESCE(a.evmbench, false) OR EXISTS (SELECT 1 FROM audit_reports ar WHERE LOWER(ar.address) = LOWER(a.address) AND LOWER(ar.network) = LOWER(a.network) AND ar.status = 'completed')) AS evmbench,
-      COALESCE(a.getrecon, false) AS getrecon,
-      a.getrecon_url,
       cs.source_code, cs.source_code_hash, cs.compiler_version, cs.optimization_used,
       cs.runs, cs.abi, cs.contract_file_name, cs.compiler_type, cs.evm_version,
       cs.constructor_arguments, cs.library, cs.license_type
@@ -628,319 +615,6 @@ exports.getContractByAddress = async (address, network) => {
     ...row,
     erc20_balances,
   };
-};
-
-/**
- * Start an AI audit via evmbench.
- * @param {string} address - Contract address (lowercase)
- * @param {string} network - Network name (lowercase)
- * @param {string} openaiKey - User's OpenAI API key
- * @param {string} [model] - Model key (default: codex-gpt-5.2)
- * @returns {Promise<Object>} - { ok, auditReport, error }
- */
-exports.startAudit = async (address, network, openaiKey, model) => {
-  ensureDbUrl();
-  const addr = String(address || '').trim().toLowerCase();
-  const net = String(network || '').trim().toLowerCase();
-  if (!addr || !net || !addr.startsWith('0x')) {
-    return { ok: false, error: 'address and network are required' };
-  }
-  if (!openaiKey || typeof openaiKey !== 'string' || !openaiKey.trim()) {
-    return { ok: false, error: 'openai_key is required' };
-  }
-
-  const contract = await exports.getContractByAddress(addr, net);
-  if (!contract) {
-    return { ok: false, error: 'Contract not found' };
-  }
-  if (!contract.source_code || !contract.source_code.trim()) {
-    return { ok: false, error: 'No source code available for this contract' };
-  }
-
-  const evmbench = require('./evmbench.service');
-  let jobId;
-  let status;
-  try {
-    const result = await evmbench.startAuditJob(
-      contract.source_code,
-      contract.contract_file_name || contract.contract_name,
-      openaiKey.trim(),
-      model || 'codex-gpt-5.2'
-    );
-    jobId = result.jobId;
-    status = result.status;
-  } catch (err) {
-    console.error('evmbench startAuditJob failed:', err?.message || err);
-    return { ok: false, error: err.message || 'Failed to start audit' };
-  }
-
-  const modelVal = model || 'codex-gpt-5.2';
-  const { rows } = await pool.query(
-    `INSERT INTO audit_reports (address, network, status, evmbench_job_id, model, triggered_at)
-     VALUES ($1, $2, 'pending', $3, $4, NOW())
-     RETURNING id, address, network, status, evmbench_job_id, model, triggered_at, completed_at`,
-    [addr, net, jobId, modelVal]
-  );
-  const auditReport = rows[0];
-  return { ok: true, auditReport };
-};
-
-/**
- * Get latest audit and fuzz reports for a contract.
- * @param {string} address - Contract address (lowercase)
- * @param {string} network - Network name (lowercase)
- * @returns {Object} - { auditReport, fuzzReport } (each may be null)
- */
-exports.getContractReports = async (address, network) => {
-  ensureDbUrl();
-  const addr = String(address || '').trim().toLowerCase();
-  const net = String(network || '').trim().toLowerCase();
-  if (!addr || !net) {
-    return { auditReport: null, fuzzReport: null };
-  }
-
-  const [auditResult, fuzzResult] = await Promise.all([
-    pool.query(
-      `SELECT id, address, network, status, report_json, raw_output, evmbench_job_id, model, triggered_at, completed_at
-       FROM audit_reports
-       WHERE LOWER(address) = $1 AND LOWER(network) = $2
-       ORDER BY triggered_at DESC
-       LIMIT 1`,
-      [addr, net]
-    ),
-    pool.query(
-      `SELECT id, address, network, status, report_json, raw_output, campaign_id, triggered_at, completed_at
-       FROM fuzz_reports
-       WHERE LOWER(address) = $1 AND LOWER(network) = $2
-       ORDER BY triggered_at DESC
-       LIMIT 1`,
-      [addr, net]
-    ),
-  ]);
-
-  let auditReport = auditResult.rows[0] || null;
-
-  let evmbenchJob = null;
-
-  // Lazy-poll evmbench when audit is pending
-  if (auditReport && auditReport.status === 'pending' && auditReport.evmbench_job_id) {
-    try {
-      const evmbench = require('./evmbench.service');
-      const jobStatus = await evmbench.getJobStatus(auditReport.evmbench_job_id);
-      evmbenchJob = {
-        status: jobStatus.status,
-        model: jobStatus.model,
-        file_name: jobStatus.file_name,
-        created_at: jobStatus.created_at,
-        started_at: jobStatus.started_at,
-        queue_position: jobStatus.queue_position,
-      };
-      if (jobStatus.status === 'succeeded') {
-        const updateModel = jobStatus.model || auditReport.model;
-        if (updateModel) {
-          await pool.query(
-            `UPDATE audit_reports SET status = 'completed', report_json = $1, completed_at = NOW(), model = $3 WHERE id = $2`,
-            [JSON.stringify(jobStatus.result || {}), auditReport.id, updateModel]
-          );
-        } else {
-          await pool.query(
-            `UPDATE audit_reports SET status = 'completed', report_json = $1, completed_at = NOW() WHERE id = $2`,
-            [JSON.stringify(jobStatus.result || {}), auditReport.id]
-          );
-        }
-        await pool.query(
-          `UPDATE addresses SET evmbench = true WHERE LOWER(address) = $1 AND LOWER(network) = $2`,
-          [auditReport.address, auditReport.network]
-        );
-        auditReport = {
-          ...auditReport,
-          status: 'completed',
-          report_json: jobStatus.result,
-          completed_at: new Date(),
-          model: updateModel || auditReport.model,
-        };
-        evmbenchJob = null;
-      } else if (jobStatus.status === 'failed') {
-        await pool.query(
-          `UPDATE audit_reports SET status = 'failed', raw_output = $1, completed_at = NOW() WHERE id = $2`,
-          [jobStatus.error || 'Audit failed', auditReport.id]
-        );
-        auditReport = {
-          ...auditReport,
-          status: 'failed',
-          raw_output: jobStatus.error || 'Audit failed',
-          completed_at: new Date(),
-        };
-        evmbenchJob = null;
-      }
-    } catch (err) {
-      console.warn('evmbench getJobStatus failed:', err?.message || err);
-    }
-  }
-
-  return {
-    auditReport,
-    fuzzReport: fuzzResult.rows[0] || null,
-    evmbenchJob,
-  };
-};
-
-const MANUAL_MARKDOWN_MAX_LENGTH = 500 * 1024; // 500KB
-
-/**
- * Save a manual AI audit report (markdown) for a contract.
- * @param {string} address - Contract address (lowercase)
- * @param {string} network - Network name (lowercase)
- * @param {string} markdown - Markdown content
- * @returns {Promise<Object>} - { ok, auditReport, error }
- */
-exports.saveManualAuditReport = async (address, network, markdown) => {
-  ensureDbUrl();
-  const addr = String(address || '').trim().toLowerCase();
-  const net = String(network || '').trim().toLowerCase();
-  if (!addr || !net || !addr.startsWith('0x')) {
-    return { ok: false, error: 'address and network are required' };
-  }
-  const md = typeof markdown === 'string' ? markdown.trim() : '';
-  if (!md) {
-    return { ok: false, error: 'Markdown content is required' };
-  }
-  if (md.length > MANUAL_MARKDOWN_MAX_LENGTH) {
-    return { ok: false, error: 'Markdown content exceeds maximum length' };
-  }
-
-  const contract = await exports.getContractByAddress(addr, net);
-  if (!contract) {
-    return { ok: false, error: 'Contract not found' };
-  }
-
-  const reportJson = JSON.stringify({ manual: true, markdown: md });
-  const { rows } = await pool.query(
-    `INSERT INTO audit_reports (address, network, status, report_json, triggered_at, completed_at)
-     VALUES ($1, $2, 'completed', $3::jsonb, NOW(), NOW())
-     RETURNING id, address, network, status, report_json, raw_output, evmbench_job_id, triggered_at, completed_at`,
-    [addr, net, reportJson]
-  );
-  const auditReport = rows[0];
-
-  await pool.query(
-    `UPDATE addresses SET evmbench = true WHERE LOWER(address) = $1 AND LOWER(network) = $2`,
-    [addr, net]
-  );
-
-  return { ok: true, auditReport };
-};
-
-/**
- * Import an evmbench job result into audit_reports (for jobs run from evmbench UI).
- * @param {string} address - Contract address (lowercase)
- * @param {string} network - Network name (lowercase)
- * @param {string} evmbenchJobId - evmbench job UUID
- * @returns {Promise<Object>} - { ok, auditReport, error }
- */
-exports.importEvmbenchJob = async (address, network, evmbenchJobId) => {
-  ensureDbUrl();
-  const addr = String(address || '').trim().toLowerCase();
-  const net = String(network || '').trim().toLowerCase();
-  const jobId = String(evmbenchJobId || '').trim();
-  if (!addr || !net || !addr.startsWith('0x')) {
-    return { ok: false, error: 'address and network are required' };
-  }
-  if (!jobId) {
-    return { ok: false, error: 'evmbench_job_id is required' };
-  }
-
-  const contract = await exports.getContractByAddress(addr, net);
-  if (!contract) {
-    return { ok: false, error: 'Contract not found' };
-  }
-
-  let jobStatus;
-  try {
-    const evmbench = require('./evmbench.service');
-    jobStatus = await evmbench.getJobStatus(jobId);
-  } catch (err) {
-    console.error('importEvmbenchJob getJobStatus failed:', err?.message || err);
-    return { ok: false, error: err?.message || 'Failed to fetch evmbench job' };
-  }
-
-  if (jobStatus.status !== 'succeeded' && jobStatus.status !== 'failed') {
-    return { ok: false, error: `Job is still ${jobStatus.status}. Wait for it to complete.` };
-  }
-
-  const status = jobStatus.status === 'succeeded' ? 'completed' : 'failed';
-  const reportJson = jobStatus.status === 'succeeded' ? JSON.stringify(jobStatus.result || {}) : null;
-  const rawOutput = jobStatus.status === 'failed' ? (jobStatus.error || 'Audit failed') : null;
-
-  const { rows } = await pool.query(
-    `INSERT INTO audit_reports (address, network, status, report_json, raw_output, evmbench_job_id, triggered_at, completed_at)
-     VALUES ($1, $2, $3, $4::jsonb, $5, $6::uuid, NOW(), NOW())
-     RETURNING id, address, network, status, report_json, raw_output, evmbench_job_id, triggered_at, completed_at`,
-    [addr, net, status, reportJson, rawOutput, jobId]
-  );
-  const auditReport = rows[0];
-
-  await pool.query(
-    `UPDATE addresses SET evmbench = true WHERE LOWER(address) = $1 AND LOWER(network) = $2`,
-    [addr, net]
-  );
-
-  return { ok: true, auditReport };
-};
-
-/**
- * Save a manual Get Recon / fuzz report (markdown) for a contract.
- * @param {string} address - Contract address (lowercase)
- * @param {string} network - Network name (lowercase)
- * @param {string} markdown - Markdown content
- * @returns {Promise<Object>} - { ok, fuzzReport, error }
- */
-exports.saveManualReconReport = async (address, network, markdown) => {
-  ensureDbUrl();
-  const addr = String(address || '').trim().toLowerCase();
-  const net = String(network || '').trim().toLowerCase();
-  if (!addr || !net || !addr.startsWith('0x')) {
-    return { ok: false, error: 'address and network are required' };
-  }
-  const md = typeof markdown === 'string' ? markdown.trim() : '';
-  if (!md) {
-    return { ok: false, error: 'Markdown content is required' };
-  }
-  if (md.length > MANUAL_MARKDOWN_MAX_LENGTH) {
-    return { ok: false, error: 'Markdown content exceeds maximum length' };
-  }
-
-  const contract = await exports.getContractByAddress(addr, net);
-  if (!contract) {
-    return { ok: false, error: 'Contract not found' };
-  }
-
-  const reportJson = JSON.stringify({ manual: true, markdown: md });
-  const { rows } = await pool.query(
-    `INSERT INTO fuzz_reports (address, network, status, report_json, triggered_at, completed_at)
-     VALUES ($1, $2, 'completed', $3::jsonb, NOW(), NOW())
-     RETURNING id, address, network, status, report_json, raw_output, campaign_id, triggered_at, completed_at`,
-    [addr, net, reportJson]
-  );
-  const fuzzReport = rows[0];
-
-  await pool.query(
-    `UPDATE addresses SET getrecon = true WHERE LOWER(address) = $1 AND LOWER(network) = $2`,
-    [addr, net]
-  );
-
-  return { ok: true, fuzzReport };
-};
-
-exports.setGetReconUrl = async (address, network, repoUrl) => {
-  ensureDbUrl();
-  const addr = String(address || '').trim().toLowerCase();
-  const net = String(network || '').trim().toLowerCase();
-  if (!addr || !net) return;
-  await pool.query(
-    `UPDATE addresses SET getrecon = true, getrecon_url = $3 WHERE LOWER(address) = $1 AND LOWER(network) = $2`,
-    [addr, net, repoUrl || null]
-  );
 };
 
 exports.searchByCode = async (opts = {}) => {

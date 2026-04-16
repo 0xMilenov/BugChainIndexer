@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Header } from "@/components/Header";
@@ -23,7 +24,7 @@ const ERROR_MESSAGES: Record<string, string> = {
     "Failed to exchange GitHub code for token. The code may have expired, or the callback URL in your GitHub OAuth app does not match.",
 };
 
-export default function AuthErrorPage() {
+function AuthErrorContent() {
   const searchParams = useSearchParams();
   const errorKey = searchParams.get("message") || searchParams.get("auth_error") || "unknown";
   const landed = searchParams.get("landed");
@@ -73,5 +74,13 @@ export default function AuthErrorPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function AuthErrorPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-bg-primary flex items-center justify-center">Loading...</div>}>
+      <AuthErrorContent />
+    </Suspense>
   );
 }

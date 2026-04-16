@@ -95,44 +95,6 @@ export function ContractCard({ contract, nativePrices, isBookmarked = false, onB
         </Badge>
         {isProxy && <Badge variant="warning">Proxy</Badge>}
       </div>
-      <div className="mt-2 flex items-center gap-4 text-xs text-text-muted">
-        <span className="flex items-center gap-1.5">
-          <span
-            role="img"
-            aria-label="EVMBench"
-            className={`inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border ${
-              contract.evmbench
-                ? "border-accent bg-accent"
-                : "border-border bg-bg-tertiary"
-            }`}
-          >
-            {contract.evmbench && (
-              <svg className="h-2 w-2 text-bg-primary" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="2 6 5 9 10 3" />
-              </svg>
-            )}
-          </span>
-          EVMBENCH
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span
-            role="img"
-            aria-label="GetRecon"
-            className={`inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border ${
-              contract.getrecon
-                ? "border-accent bg-accent"
-                : "border-border bg-bg-tertiary"
-            }`}
-          >
-            {contract.getrecon && (
-              <svg className="h-2 w-2 text-bg-primary" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="2 6 5 9 10 3" />
-              </svg>
-            )}
-          </span>
-          GETRECON
-        </span>
-      </div>
       {isProxy && implAddress && (
         <div className="mt-1 font-mono text-[10px] text-text-muted">
           Impl: {implAddress.slice(0, 8)}...{implAddress.slice(-6)}

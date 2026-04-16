@@ -131,40 +131,6 @@ export function ContractRow({
       <td className="max-w-[12rem] px-4 py-3 text-left text-xs">
         <Erc20BalancesDisplay balances={contract.erc20_balances} />
       </td>
-      <td className="px-4 py-3 text-center">
-        <span
-          role="img"
-          aria-label="EVMBench audit"
-          className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-            contract.evmbench
-              ? "border-accent bg-accent"
-              : "border-border bg-bg-tertiary"
-          }`}
-        >
-          {contract.evmbench && (
-            <svg className="h-2.5 w-2.5 text-bg-primary" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="2 6 5 9 10 3" />
-            </svg>
-          )}
-        </span>
-      </td>
-      <td className="px-4 py-3 text-center">
-        <span
-          role="img"
-          aria-label="GetRecon"
-          className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-            contract.getrecon
-              ? "border-accent bg-accent"
-              : "border-border bg-bg-tertiary"
-          }`}
-        >
-          {contract.getrecon && (
-            <svg className="h-2.5 w-2.5 text-bg-primary" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="2 6 5 9 10 3" />
-            </svg>
-          )}
-        </span>
-      </td>
     </tr>
   );
 }

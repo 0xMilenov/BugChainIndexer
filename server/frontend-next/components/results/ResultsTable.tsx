@@ -76,12 +76,6 @@ export function ResultsTable({
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
                 ERC-20 Tokens
               </th>
-              <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider">
-                EVMBENCH
-              </th>
-              <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider">
-                GETRECON
-              </th>
             </tr>
           </thead>
           <tbody>

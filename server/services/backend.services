@@ -1,6 +1,6 @@
 [Unit]
 Description=BugChainIndexer Backend API
-After=network.target postgresql.service evmbench.service
+After=network.target postgresql.service
 Wants=postgresql.service
 
 [Service]

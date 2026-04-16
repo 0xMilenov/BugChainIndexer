@@ -78,8 +78,5 @@ scanners/data/
 # Serena MCP
 .serena/
 
-# evmbench runtime data (postgres, rabbitmq, secrets)
-evmbench-main/backend/.data/
-
 # Local UI state
 .local-ui/

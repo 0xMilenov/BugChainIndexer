@@ -2,7 +2,7 @@
 
 ## Problem
 
-The 6 action buttons (Bookmark, AI Audit, Get Recon, Import evmbench Job, Add Manual AI Audit, Add Manual Recon) on the contract page render with visibly different widths despite using CSS Grid with `grid-cols-[repeat(3,minmax(0,1fr))]` and shared `ACTION_BUTTON_BASE` classes.
+The 6 historical action buttons (Bookmark, AI Audit, Get Recon, Import evmbench Job, Add Manual AI Audit, Add Manual Recon) on the old contract page rendered with visibly different widths despite using CSS Grid with `grid-cols-[repeat(3,minmax(0,1fr))]` and shared `ACTION_BUTTON_BASE` classes.
 
 ## Root Cause: CSS Grid "Blowout"
 
@@ -16,8 +16,8 @@ The 6 action buttons (Bookmark, AI Audit, Get Recon, Import evmbench Job, Add Ma
 
 3. **Content-driven column sizing**  
    Column 1 contains "Bookmark" (short) and "Import evmbench Job" (long) → column expands to fit the longer label.  
-   Column 2 contains "AI Audit" (short) and "Add Manual AI Audit" (long) → column expands.  
-   Column 3 contains "Get Recon" (short) and "Add Manual Recon" (medium) → column expands less.  
+   Column 2 contained "AI Audit" (short) and "Add Manual AI Audit" (long) → column expanded.  
+   Column 3 contained "Get Recon" (short) and "Add Manual Recon" (medium) → column expanded less.
    Result: columns end up with different widths based on their longest label.
 
 4. **`minmax(0, 1fr)` on columns**  

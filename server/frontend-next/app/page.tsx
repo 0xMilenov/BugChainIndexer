@@ -250,8 +250,6 @@ function SearchPageContent() {
       "Confidence",
       "Native",
       "ERC-20 Tokens",
-      "EVMBENCH",
-      "GETRECON",
     ];
     const rows = sortedResults.map((r) => [
       r.address || "",
@@ -266,8 +264,6 @@ function SearchPageContent() {
       r.confidence || "",
       r.fund || "",
       formatErc20Balances(r.erc20_balances, 99),
-      r.evmbench ? "true" : "false",
-      r.getrecon ? "true" : "false",
     ]);
     const csvContent = [headers, ...rows]
       .map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))

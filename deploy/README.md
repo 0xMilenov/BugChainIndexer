@@ -28,12 +28,11 @@ If port 80 is blocked, Certbot will fail with "Timeout during connect (likely fi
 
 ### 3. Services Running
 
-Ensure backend, frontend, and evmbench are running:
+Ensure backend and frontend are running:
 
 ```bash
 cd /home/claude/BugChainIndexer
 ./run-local-ui.sh status
-cd evmbench-main/backend && docker compose ps
 ```
 
 ---
