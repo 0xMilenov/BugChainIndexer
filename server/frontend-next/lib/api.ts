@@ -157,6 +157,11 @@ export interface ContractDetail {
   library?: string;
   license_type?: string;
   erc20_balances?: Array<{ symbol: string; balance: string; decimals?: number }>;
+  critical_count?: number;
+  high_count?: number;
+  medium_count?: number;
+  audit_status?: string | null;
+  audit_completed_at?: number | null;
 }
 
 export interface GetContractResponse {
@@ -175,6 +180,60 @@ export async function getContract(
   // Proxy path /api/contract/*; direct API uses /contract/*
   const url = base ? `${base}/contract/${encNet}/${encAddr}` : `/api/contract/${encNet}/${encAddr}`;
   const resp = await fetch(url);
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data?.error || `HTTP ${resp.status}`);
+  return data;
+}
+
+export interface AuditFinding {
+  id: number;
+  severity: "critical" | "high" | "medium";
+  title: string;
+  description?: string | null;
+  location?: string | null;
+  recommendation?: string | null;
+  proof_of_concept?: string | null;
+  finding_index?: number | null;
+  created_at?: number | null;
+}
+
+export interface ContractAudit {
+  id: number;
+  address: string;
+  network: string;
+  audit_tool: string;
+  audit_mode?: string | null;
+  tool_version?: string | null;
+  status: string;
+  started_at?: number | null;
+  completed_at?: number | null;
+  duration_ms?: number | null;
+  critical_count: number;
+  high_count: number;
+  medium_count: number;
+  findings: AuditFinding[];
+}
+
+export interface GetContractAuditResponse {
+  ok: boolean;
+  audit?: ContractAudit;
+  error?: string;
+}
+
+export async function getContractAudit(
+  address: string,
+  network: string
+): Promise<GetContractAuditResponse | null> {
+  const base = getBaseUrl();
+  const encAddr = encodeURIComponent(address);
+  const encNet = encodeURIComponent(network);
+  const url = base
+    ? `${base}/contract/${encNet}/${encAddr}/audit`
+    : `/api/contract/${encNet}/${encAddr}/audit`;
+  const resp = await fetch(url);
+  // 404 is a valid "no audit yet" signal — callers handle it as null rather than
+  // having to catch an exception.
+  if (resp.status === 404) return null;
   const data = await resp.json();
   if (!resp.ok) throw new Error(data?.error || `HTTP ${resp.status}`);
   return data;

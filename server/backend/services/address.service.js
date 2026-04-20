@@ -168,7 +168,19 @@ exports.getAddressesByFilter = async (filters = {}) => {
       a.address, a.contract_name, a.deployed, a.fund, a.native_balance, a.network, a.first_seen,
       a.verified, a.is_proxy, a.implementation_address, a.proxy_contract_name,
       a.implementation_contract_name, a.deploy_tx_hash, a.deployer_address,
-      a.deploy_block_number, a.deployed_at_timestamp, a.deployed_at, a.confidence, a.fetched_at
+      a.deploy_block_number, a.deployed_at_timestamp, a.deployed_at, a.confidence, a.fetched_at,
+      COALESCE(ca.critical_count, 0) AS critical_count,
+      COALESCE(ca.high_count, 0) AS high_count,
+      COALESCE(ca.medium_count, 0) AS medium_count
+  `;
+  // Joined once per row — contract_audits is keyed by (address, network, audit_tool),
+  // and the filter narrows it to at most one row (the active Plamen audit).
+  const auditJoin = `
+    LEFT JOIN contract_audits ca
+      ON ca.address = a.address
+     AND ca.network = a.network
+     AND ca.audit_tool = 'plamen'
+     AND ca.status = 'completed'
   `;
   const baseWhere = CONTRACT_LIST_WHERE.replace(/addresses\./g, 'a.');
   // Qualify buildWhere columns with a. for the addresses alias
@@ -190,6 +202,7 @@ exports.getAddressesByFilter = async (filters = {}) => {
         SELECT DISTINCT ON (a.contract_name)
           ${selectColumns}
         FROM addresses a
+        ${auditJoin}
         WHERE
           ${baseWhere}
           AND a.contract_name IS NOT NULL
@@ -204,6 +217,7 @@ exports.getAddressesByFilter = async (filters = {}) => {
     dataSql = `
       SELECT ${selectColumns}
       FROM addresses a
+      ${auditJoin}
       WHERE
         ${baseWhere}
         ${whereQualified}
@@ -579,9 +593,17 @@ exports.getContractByAddress = async (address, network) => {
       a.deployed_at_timestamp, a.deployed_at, a.confidence, a.fetched_at,
       cs.source_code, cs.source_code_hash, cs.compiler_version, cs.optimization_used,
       cs.runs, cs.abi, cs.contract_file_name, cs.compiler_type, cs.evm_version,
-      cs.constructor_arguments, cs.library, cs.license_type
+      cs.constructor_arguments, cs.library, cs.license_type,
+      COALESCE(ca.critical_count, 0) AS critical_count,
+      COALESCE(ca.high_count, 0) AS high_count,
+      COALESCE(ca.medium_count, 0) AS medium_count,
+      ca.status AS audit_status,
+      ca.completed_at AS audit_completed_at
     FROM addresses a
     LEFT JOIN contract_sources cs ON LOWER(cs.address) = LOWER(a.address) AND LOWER(cs.network) = LOWER(a.network)
+    LEFT JOIN contract_audits ca
+      ON ca.address = a.address AND ca.network = a.network
+     AND ca.audit_tool = 'plamen' AND ca.status = 'completed'
     WHERE LOWER(a.address) = $1 AND LOWER(a.network) = $2
       AND (a.tags IS NULL OR NOT 'EOA' = ANY(COALESCE(a.tags, '{}')))
     `,
@@ -614,6 +636,62 @@ exports.getContractByAddress = async (address, network) => {
   return {
     ...row,
     erc20_balances,
+  };
+};
+
+/**
+ * Return the completed Plamen audit for a contract, including the full list of
+ * critical/high/medium findings. Returns null when no completed audit exists.
+ */
+exports.getContractAuditByAddress = async (address, network) => {
+  ensureDbUrl();
+  const addr = String(address || '').trim().toLowerCase();
+  const net = String(network || '').trim().toLowerCase();
+  if (!addr || !net || !addr.startsWith('0x')) {
+    return null;
+  }
+
+  const auditRes = await pool.query(
+    `SELECT id, address, network, audit_tool, audit_mode, tool_version,
+            status, started_at, completed_at, duration_ms,
+            critical_count, high_count, medium_count, error_message
+       FROM contract_audits
+      WHERE address = $1 AND network = $2
+        AND audit_tool = 'plamen' AND status = 'completed'
+      ORDER BY completed_at DESC NULLS LAST
+      LIMIT 1`,
+    [addr, net]
+  );
+  if (auditRes.rows.length === 0) return null;
+  const audit = auditRes.rows[0];
+
+  const findingsRes = await pool.query(
+    `SELECT id, severity, title, description, location, recommendation,
+            proof_of_concept, finding_index, created_at
+       FROM contract_audit_findings
+      WHERE audit_id = $1
+      ORDER BY
+        CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+        finding_index NULLS LAST,
+        id`,
+    [audit.id]
+  );
+
+  return {
+    id: audit.id,
+    address: audit.address,
+    network: audit.network,
+    audit_tool: audit.audit_tool,
+    audit_mode: audit.audit_mode,
+    tool_version: audit.tool_version,
+    status: audit.status,
+    started_at: audit.started_at,
+    completed_at: audit.completed_at,
+    duration_ms: audit.duration_ms,
+    critical_count: audit.critical_count,
+    high_count: audit.high_count,
+    medium_count: audit.medium_count,
+    findings: findingsRes.rows
   };
 };
 

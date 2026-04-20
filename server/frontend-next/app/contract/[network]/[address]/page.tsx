@@ -16,6 +16,7 @@ import { EXPLORER_MAP, TX_EXPLORER_MAP, NETWORK_COLORS } from "@/lib/constants";
 import { ArrowLeft, Bookmark, BookmarkCheck } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Badge } from "@/components/ui/Badge";
+import { AuditSection } from "@/components/audits/AuditSection";
 import ReactMarkdown from "react-markdown";
 
 function getContractName(c: ContractDetail): string {
@@ -301,6 +302,8 @@ export default function ContractDetailPage() {
               No source code available for this contract.
             </div>
           )}
+
+          <AuditSection address={address} network={network} />
 
         </div>
       </div>

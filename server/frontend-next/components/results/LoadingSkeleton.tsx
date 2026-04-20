@@ -23,6 +23,9 @@ export function LoadingSkeleton() {
         <td className="px-4 py-3">
           <div className="skeleton h-4 w-24" />
         </td>
+        <td className="px-4 py-3">
+          <div className="skeleton h-4 w-20" />
+        </td>
       </tr>
     ));
 
@@ -67,6 +70,9 @@ export function LoadingSkeleton() {
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
                 ERC-20 Tokens
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
+                Audit
               </th>
             </tr>
           </thead>

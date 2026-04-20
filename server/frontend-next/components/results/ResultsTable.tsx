@@ -76,6 +76,9 @@ export function ResultsTable({
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
                 ERC-20 Tokens
               </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
+                Audit
+              </th>
             </tr>
           </thead>
           <tbody>

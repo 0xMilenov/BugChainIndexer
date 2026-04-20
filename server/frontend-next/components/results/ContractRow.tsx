@@ -15,6 +15,7 @@ import {
 import { Bookmark, BookmarkCheck } from "lucide-react";
 import { Erc20BalancesDisplay } from "./Erc20BalancesDisplay";
 import { Badge } from "../ui/Badge";
+import { SeverityBadges } from "../audits/SeverityBadges";
 
 interface ContractRowProps {
   contract: Contract;
@@ -130,6 +131,14 @@ export function ContractRow({
       </td>
       <td className="max-w-[12rem] px-4 py-3 text-left text-xs">
         <Erc20BalancesDisplay balances={contract.erc20_balances} />
+      </td>
+      <td className="whitespace-nowrap px-4 py-3 text-left">
+        <SeverityBadges
+          critical={contract.critical_count ?? 0}
+          high={contract.high_count ?? 0}
+          medium={contract.medium_count ?? 0}
+          compact
+        />
       </td>
     </tr>
   );

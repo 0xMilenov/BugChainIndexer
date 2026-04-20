@@ -15,6 +15,7 @@ import {
 import { Bookmark, BookmarkCheck } from "lucide-react";
 import { Erc20BalancesDisplay } from "./Erc20BalancesDisplay";
 import { Badge } from "../ui/Badge";
+import { SeverityBadges } from "../audits/SeverityBadges";
 
 interface ContractCardProps {
   contract: Contract;
@@ -130,6 +131,17 @@ export function ContractCard({ contract, nativePrices, isBookmarked = false, onB
           </span>
         </div>
       )}
+      <div className="mt-2 flex flex-col rounded-lg bg-bg-tertiary px-2 py-1.5 text-xs">
+        <span className="text-text-muted">Audit</span>
+        <span className="mt-0.5">
+          <SeverityBadges
+            critical={contract.critical_count ?? 0}
+            high={contract.high_count ?? 0}
+            medium={contract.medium_count ?? 0}
+            compact
+          />
+        </span>
+      </div>
     </div>
   );
 }

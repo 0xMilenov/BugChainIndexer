@@ -30,6 +30,9 @@ export interface Contract {
   native_balance?: string | number;
   erc20_balances?: Erc20Balance[];
   confidence?: string | number;
+  critical_count?: number;
+  high_count?: number;
+  medium_count?: number;
 }
 
 export interface SearchResponse {

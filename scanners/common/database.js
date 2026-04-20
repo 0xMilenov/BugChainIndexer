@@ -126,7 +126,50 @@ async function ensureSchema(client) {
       FOREIGN KEY (address, network) REFERENCES addresses(address, network) ON DELETE CASCADE
     )`,
     `CREATE INDEX IF NOT EXISTS idx_ctb_network ON contract_token_balances(network)`,
-    `CREATE INDEX IF NOT EXISTS idx_ctb_last_updated ON contract_token_balances(network, last_updated)`
+    `CREATE INDEX IF NOT EXISTS idx_ctb_last_updated ON contract_token_balances(network, last_updated)`,
+
+    // Per-contract security audits (one row per (address, network, audit_tool)).
+    // Stores run metadata, severity counters, and the raw report blob; findings
+    // are normalized into contract_audit_findings.
+    `CREATE TABLE IF NOT EXISTS contract_audits (
+      id SERIAL PRIMARY KEY,
+      address TEXT NOT NULL,
+      network TEXT NOT NULL,
+      audit_tool TEXT NOT NULL DEFAULT 'plamen',
+      audit_mode TEXT,
+      tool_version TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      started_at BIGINT,
+      completed_at BIGINT,
+      duration_ms BIGINT,
+      raw_report TEXT,
+      report_path TEXT,
+      critical_count INTEGER NOT NULL DEFAULT 0,
+      high_count INTEGER NOT NULL DEFAULT 0,
+      medium_count INTEGER NOT NULL DEFAULT 0,
+      error_message TEXT,
+      UNIQUE (address, network, audit_tool),
+      FOREIGN KEY (address, network) REFERENCES addresses(address, network) ON DELETE CASCADE
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_contract_audits_addr_net ON contract_audits(address, network)`,
+    `CREATE INDEX IF NOT EXISTS idx_contract_audits_status ON contract_audits(status)`,
+    `CREATE INDEX IF NOT EXISTS idx_contract_audits_severity ON contract_audits(critical_count, high_count, medium_count) WHERE status = 'completed'`,
+
+    // Normalized findings — only critical / high / medium are persisted (by policy).
+    `CREATE TABLE IF NOT EXISTS contract_audit_findings (
+      id SERIAL PRIMARY KEY,
+      audit_id INTEGER NOT NULL REFERENCES contract_audits(id) ON DELETE CASCADE,
+      severity TEXT NOT NULL CHECK (severity IN ('critical','high','medium')),
+      title TEXT NOT NULL,
+      description TEXT,
+      location TEXT,
+      recommendation TEXT,
+      proof_of_concept TEXT,
+      finding_index INTEGER,
+      created_at BIGINT
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_audit_findings_audit ON contract_audit_findings(audit_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_audit_findings_severity ON contract_audit_findings(severity)`
   ];
 
   for (const schema of schemas) {

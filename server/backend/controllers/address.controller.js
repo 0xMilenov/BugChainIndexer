@@ -134,6 +134,24 @@ exports.getContract = async (req, res) => {
   }
 };
 
+exports.getContractAudit = async (req, res) => {
+  try {
+    const network = req.params?.network || req.query?.network;
+    const address = req.params?.address || req.query?.address;
+    if (!address || !network) {
+      return res.status(400).json({ ok: false, error: 'address and network are required' });
+    }
+    const audit = await service.getContractAuditByAddress(address, network);
+    if (!audit) {
+      return res.status(404).json({ ok: false, error: 'No completed audit for this contract' });
+    }
+    res.json({ ok: true, audit });
+  } catch (err) {
+    console.error('getContractAudit failed:', err?.message || err);
+    res.status(500).json({ ok: false, error: 'Internal Server Error' });
+  }
+};
+
 exports.searchByCode = async (req, res) => {
   try {
     const body = req.body || {};
