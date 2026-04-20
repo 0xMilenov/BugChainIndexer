@@ -66,6 +66,82 @@ function sanitizeContractName(name) {
   return /^[A-Za-z_]/.test(cleaned) ? cleaned : `C_${cleaned || 'Contract'}`;
 }
 
+/**
+ * BugChainIndexer stores multi-file (`solc-j` / `solc-m`) contracts as one
+ * concatenated blob with `// File: <relative-path>` markers at every file
+ * boundary. Recover the original file layout so Foundry can resolve imports.
+ * Returns null when no markers are present (plain single-file source).
+ */
+function splitMultiFile(source) {
+  const re = /^\/\/ File:\s*(.+?)\s*$/gm;
+  const marks = [];
+  let m;
+  while ((m = re.exec(source)) !== null) {
+    marks.push({ start: m.index, after: re.lastIndex, rel: m[1].trim() });
+  }
+  if (marks.length < 2) return null;
+  const files = [];
+  for (let i = 0; i < marks.length; i++) {
+    const end = i + 1 < marks.length ? marks[i + 1].start : source.length;
+    const body = source.slice(marks[i].after, end).replace(/^\s*\n/, '');
+    files.push({ rel: marks[i].rel, body });
+  }
+  return files;
+}
+
+/**
+ * Scan all `import "X"` / `import {…} from "X"` statements across the split
+ * files and derive Foundry remappings for bare specifiers (`@foo/...`,
+ * `foo/bar.sol`) by matching their tail against the paths we actually wrote.
+ *
+ * Etherscan's `@openzeppelin/contracts/...` imports resolve to files written
+ * at `lib/openzeppelin-contracts/contracts/...` — the `@openzeppelin/` alias
+ * has to be derived from the longest path suffix shared between the import
+ * spec and a real file, not a literal substring match.
+ */
+function deriveRemappings(files) {
+  const importRe = /import\s+(?:[^'"]*?from\s+)?['"]([^'"]+)['"]/g;
+  const bareImports = new Set();
+  for (const f of files) {
+    let m;
+    while ((m = importRe.exec(f.body)) !== null) {
+      const spec = m[1];
+      if (spec.startsWith('./') || spec.startsWith('../') || spec.startsWith('/')) continue;
+      bareImports.add(spec);
+    }
+  }
+
+  const remaps = new Map();
+  for (const spec of bareImports) {
+    const specParts = spec.split('/');
+    let best = null; // { file, commonTail }
+    for (const f of files) {
+      const fileParts = f.rel.split('/');
+      let n = 0;
+      while (n < specParts.length && n < fileParts.length
+             && specParts[specParts.length - 1 - n] === fileParts[fileParts.length - 1 - n]) n++;
+      if (n === 0) continue;
+      if (!best || n > best.commonTail) best = { file: f.rel, commonTail: n };
+    }
+    if (!best || best.commonTail === 0) continue;
+    // Full spec match = the file already sits at the spec path; nothing to remap.
+    if (best.commonTail === specParts.length
+        && best.file.split('/').length === specParts.length) continue;
+
+    const fileParts = best.file.split('/');
+    const keyPrefix = specParts.slice(0, specParts.length - best.commonTail).join('/');
+    const valPrefix = fileParts.slice(0, fileParts.length - best.commonTail).join('/');
+    if (!keyPrefix || !valPrefix) continue;
+    const key = keyPrefix + '/';
+    const val = valPrefix + '/';
+    // Prefer the deepest mapping we can derive from any one import — that
+    // gives the most specific remap (Foundry picks longest prefix).
+    const existing = remaps.get(key);
+    if (!existing || val.length > existing.length) remaps.set(key, val);
+  }
+  return Array.from(remaps.entries()).map(([k, v]) => `${k}=${v}`);
+}
+
 async function main() {
   const args = parseArgs(process.argv);
   const pool = new Pool({ connectionString: loadDatabaseUrl() });
@@ -102,8 +178,36 @@ async function main() {
   fs.mkdirSync(srcDir, { recursive: true });
 
   const contractName = sanitizeContractName(row.contract_name);
-  const srcFile = path.join(srcDir, `${contractName}.sol`);
-  fs.writeFileSync(srcFile, row.source_code, 'utf8');
+  let srcFile = path.join(srcDir, `${contractName}.sol`);
+  let remappings = [];
+  let multiFileCount = 1;
+
+  const split = splitMultiFile(row.source_code);
+  if (split && split.length > 0) {
+    // Multi-file project (solc-j / solc-m). Restore the original tree so
+    // `import "./interfaces/X.sol"` and `import "@openzeppelin/..."` resolve.
+    for (const f of split) {
+      const target = path.join(projectDir, f.rel);
+      if (!target.startsWith(projectDir + path.sep)) {
+        // Defensive: a `// File:` marker with `..` in it would escape the project.
+        console.error(`WARN: skipping out-of-tree file path ${f.rel}`);
+        continue;
+      }
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, f.body, 'utf8');
+    }
+    remappings = deriveRemappings(split);
+    multiFileCount = split.length;
+    // The "primary" source file is the first occurrence whose basename matches
+    // the contract's own name — fall back to the first file if not found.
+    const primary = split.find((f) => path.basename(f.rel, '.sol') === contractName)
+      || split.find((f) => path.basename(f.rel, '.sol').toLowerCase() === contractName.toLowerCase())
+      || split[0];
+    srcFile = path.join(projectDir, primary.rel);
+  } else {
+    // Plain single-file source — write as-is under src/.
+    fs.writeFileSync(srcFile, row.source_code, 'utf8');
+  }
 
   // Etherscan's evm_version field uses "Default" to mean "whatever solc's default
   // is for this compiler" — Foundry doesn't accept that literally, so omit it.
@@ -116,6 +220,7 @@ async function main() {
     'src = "src"',
     'out = "out"',
     'libs = ["lib"]',
+    remappings.length ? 'remappings = [' + remappings.map((r) => `"${r}"`).join(', ') + ']' : null,
     solcVersion ? `solc = "${solcVersion}"` : null,
     evmVersion ? `evm_version = "${evmVersion}"` : null,
     'optimizer = ' + (row.optimization_used === '1' || row.optimization_used === 'true' ? 'true' : 'false'),
@@ -123,6 +228,9 @@ async function main() {
     ''
   ].filter(Boolean).join('\n');
   fs.writeFileSync(path.join(projectDir, 'foundry.toml'), foundryToml, 'utf8');
+  if (remappings.length) {
+    fs.writeFileSync(path.join(projectDir, 'remappings.txt'), remappings.join('\n') + '\n', 'utf8');
+  }
 
   const meta = {
     address: args.address,
@@ -159,8 +267,12 @@ async function main() {
   fs.writeFileSync(path.join(projectDir, 'README.md'), readme, 'utf8');
 
   console.error(`extracted ${args.network}/${args.address} -> ${projectDir}`);
-  console.error(`  source: ${srcFile} (${row.source_code.length} bytes)`);
+  console.error(`  source: ${srcFile} (${row.source_code.length} bytes, ${multiFileCount} file${multiFileCount > 1 ? 's' : ''})`);
   console.error(`  compiler: ${row.compiler_version || 'unknown'} (${row.compiler_type || 'unknown'})`);
+  if (remappings.length) {
+    console.error(`  remappings: ${remappings.length} derived`);
+    for (const r of remappings) console.error(`    ${r}`);
+  }
   process.stdout.write(projectDir + '\n');
 }
 
