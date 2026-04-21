@@ -205,9 +205,9 @@ export interface ContractAudit {
   audit_mode?: string | null;
   tool_version?: string | null;
   status: string;
-  started_at?: number | null;
-  completed_at?: number | null;
-  duration_ms?: number | null;
+  started_at?: number | string | null;
+  completed_at?: number | string | null;
+  duration_ms?: number | string | null;
   critical_count: number;
   high_count: number;
   medium_count: number;
@@ -249,19 +249,25 @@ export async function addContract(
   address: string,
   network: string
 ): Promise<AddContractResponse> {
-  const base = getBaseUrl();
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 90000); // 90s - Etherscan can be slow under rate limits
+  const timeoutMs = 180000;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const resp = await fetch(`${base}/addContract`, {
+    const resp = await fetch(`/api/addContract`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ address: address.trim(), network: network.trim() }),
       signal: controller.signal,
     });
-    const data = await resp.json();
+    const responseText = await resp.text();
+    const data = JSON.parse(responseText) as AddContractResponse;
     if (!resp.ok) throw new Error(data?.error || `HTTP ${resp.status}`);
     return data;
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error("Request timed out while waiting for block explorer retries. Please try again.");
+    }
+    throw err;
   } finally {
     clearTimeout(timeoutId);
   }
