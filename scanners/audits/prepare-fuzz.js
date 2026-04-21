@@ -57,9 +57,15 @@ function copyDirRecursive(src, dst) {
     // Skip tool caches and noisy state so we ship a clean project.
     filter: (s) => {
       const base = path.basename(s);
+      const rel = path.relative(src, s);
+      // Drop tool caches, Plamen/Medusa state, and anything under `test/` —
+      // the audit project may contain Plamen-generated fuzz tests whose import
+      // paths won't survive relocation, and Recon's scaffolding will write its
+      // own `test/recon/*` in the target project regardless.
+      if (rel.startsWith('test' + path.sep) || rel === 'test') return false;
       return !['node_modules', 'out', 'cache', 'broadcast', '.git',
               '.plamen', '.audit_scratchpad', '.medusa-corpus',
-              'crytic-export'].includes(base);
+              'crytic-export', 'medusa.json'].includes(base);
     }
   });
 }
