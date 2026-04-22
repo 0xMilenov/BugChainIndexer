@@ -182,7 +182,14 @@ async function main() {
   let remappings = [];
   let multiFileCount = 1;
 
-  const split = splitMultiFile(row.source_code);
+  // `compiler_type = 'solc'` means Etherscan stored this as a true single-file
+  // contract. Some such blobs happen to contain `// File:` comments for
+  // readability (e.g. section headers), which our splitter would falsely
+  // interpret as file boundaries — producing N files with broken cross-refs
+  // because Solidity 0.4.x didn't need imports between in-scope contracts.
+  // Only attempt the multi-file split for solc-j / solc-m types.
+  const isMultiFileType = String(row.compiler_type || '').toLowerCase().includes('-');
+  const split = isMultiFileType ? splitMultiFile(row.source_code) : null;
   if (split && split.length > 0) {
     // Multi-file project (solc-j / solc-m). Restore the original tree so
     // `import "./interfaces/X.sol"` and `import "@openzeppelin/..."` resolve.
