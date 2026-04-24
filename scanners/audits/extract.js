@@ -176,6 +176,10 @@ async function main() {
   const projectDir = args.out || path.join(AUDIT_ROOT, `${args.network}-${args.address}`);
   const srcDir = path.join(projectDir, 'src');
   fs.mkdirSync(srcDir, { recursive: true });
+  // Auto-detected later if the multi-file split writes files under a root
+  // directory other than `src/` (e.g. `contracts/`). Gets persisted in
+  // foundry.toml's `src` key so `forge build` finds the sources.
+  let foundrySrcDir = 'src';
 
   const contractName = sanitizeContractName(row.contract_name);
   let srcFile = path.join(srcDir, `${contractName}.sol`);
@@ -193,6 +197,7 @@ async function main() {
   if (split && split.length > 0) {
     // Multi-file project (solc-j / solc-m). Restore the original tree so
     // `import "./interfaces/X.sol"` and `import "@openzeppelin/..."` resolve.
+    const topRoots = new Set();
     for (const f of split) {
       const target = path.join(projectDir, f.rel);
       if (!target.startsWith(projectDir + path.sep)) {
@@ -202,9 +207,22 @@ async function main() {
       }
       fs.mkdirSync(path.dirname(target), { recursive: true });
       fs.writeFileSync(target, f.body, 'utf8');
+      const firstSeg = f.rel.split('/')[0];
+      if (firstSeg) topRoots.add(firstSeg);
     }
     remappings = deriveRemappings(split);
     multiFileCount = split.length;
+    // Pick the source-root Foundry should compile from. If the split placed
+    // files under `src/` already, keep `src`; otherwise prefer `contracts/`
+    // (Hardhat convention), or fall back to the first top-level dir.
+    if (topRoots.has('src')) foundrySrcDir = 'src';
+    else if (topRoots.has('contracts')) foundrySrcDir = 'contracts';
+    else {
+      // Pick the first non-library top-level directory.
+      const libRoots = new Set(['lib', 'node_modules', '@openzeppelin', '@uniswap', '@chainlink', 'solmate', 'solady']);
+      const candidate = [...topRoots].find((r) => !libRoots.has(r));
+      if (candidate) foundrySrcDir = candidate;
+    }
     // The "primary" source file is the first occurrence whose basename matches
     // the contract's own name — fall back to the first file if not found.
     const primary = split.find((f) => path.basename(f.rel, '.sol') === contractName)
@@ -224,7 +242,7 @@ async function main() {
   const solcVersion = solcMajorMinor(row.compiler_version);
   const foundryToml = [
     '[profile.default]',
-    'src = "src"',
+    `src = "${foundrySrcDir}"`,
     'out = "out"',
     'libs = ["lib"]',
     remappings.length ? 'remappings = [' + remappings.map((r) => `"${r}"`).join(', ') + ']' : null,
