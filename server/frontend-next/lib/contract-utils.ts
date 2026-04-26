@@ -176,21 +176,46 @@ export function formatFund(
 }
 
 /**
- * True when the contract has a completed audit for dashboard cells.
- * Prefer `audit_id` from the API; also accept non-zero severity counts so rows
- * still render if `audit_id` was omitted from JSON (e.g. older cached responses).
+ * True when the contract has a *completed* audit (the only state where
+ * severity counts are meaningful). The listing endpoint now returns rows
+ * for in-flight / failed audits too — those must NOT be treated as audited
+ * for the purposes of the dashboard severity cells.
  */
 export function hasCompletedAuditListing(row: Contract): boolean {
-  const id = row.audit_id != null ? Number(row.audit_id) : NaN;
-  if (Number.isFinite(id) && id > 0) return true;
+  if (row.audit_status === "completed") return true;
+  // Fallback for older cached responses where audit_status wasn't sent yet:
+  // a non-zero severity count is a reliable proxy for completion.
   const c = Number(row.critical_count);
   const h = Number(row.high_count);
   const m = Number(row.medium_count);
-  return (
+  if (
     (Number.isFinite(c) && c > 0) ||
     (Number.isFinite(h) && h > 0) ||
     (Number.isFinite(m) && m > 0)
-  );
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/** One of the audit-row states surfaced inline on the dashboard. */
+export type RowAuditState =
+  | "completed"
+  | "running"
+  | "pending"
+  | "failed"
+  | "stalled"
+  | "none";
+
+/** Classify a row for inline rendering — see RowAuditState. */
+export function getRowAuditState(row: Contract): RowAuditState {
+  if (hasCompletedAuditListing(row)) return "completed";
+  const s = (row.audit_status || "").toLowerCase();
+  if (s === "running") return "running";
+  if (s === "pending") return "pending";
+  if (s === "failed") return "failed";
+  if (s === "stalled") return "stalled";
+  return "none";
 }
 
 /**

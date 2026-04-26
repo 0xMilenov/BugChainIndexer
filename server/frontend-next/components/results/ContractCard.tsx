@@ -10,10 +10,12 @@ import {
   getImplementationAddress,
   formatFund,
   formatAuditSeverityCell,
+  hasCompletedAuditListing,
 } from "@/lib/contract-utils";
 import { Bookmark, BookmarkCheck } from "lucide-react";
 import { Erc20BalancesDisplay } from "./Erc20BalancesDisplay";
 import { Badge } from "../ui/Badge";
+import { RunAuditCell } from "./RunAuditCell";
 
 interface ContractCardProps {
   contract: Contract;
@@ -109,44 +111,50 @@ export function ContractCard({ contract, nativePrices, isBookmarked = false, onB
           </span>
         </div>
       )}
-      <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
-        <div className="flex flex-col rounded-lg bg-bg-tertiary px-2 py-1.5">
-          <span className="text-red-400/90">Critical</span>
-          <span
-            className={`mt-0.5 font-mono tabular-nums ${
-              formatAuditSeverityCell(contract, "critical") === "-"
-                ? "text-text-muted"
-                : "font-semibold text-text-primary"
-            }`}
-          >
-            {formatAuditSeverityCell(contract, "critical")}
-          </span>
+      {hasCompletedAuditListing(contract) ? (
+        <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+          <div className="flex flex-col rounded-lg bg-bg-tertiary px-2 py-1.5">
+            <span className="text-red-400/90">Critical</span>
+            <span
+              className={`mt-0.5 font-mono tabular-nums ${
+                formatAuditSeverityCell(contract, "critical") === "-"
+                  ? "text-text-muted"
+                  : "font-semibold text-text-primary"
+              }`}
+            >
+              {formatAuditSeverityCell(contract, "critical")}
+            </span>
+          </div>
+          <div className="flex flex-col rounded-lg bg-bg-tertiary px-2 py-1.5">
+            <span className="text-orange-400/90">High</span>
+            <span
+              className={`mt-0.5 font-mono tabular-nums ${
+                formatAuditSeverityCell(contract, "high") === "-"
+                  ? "text-text-muted"
+                  : "font-semibold text-text-primary"
+              }`}
+            >
+              {formatAuditSeverityCell(contract, "high")}
+            </span>
+          </div>
+          <div className="flex flex-col rounded-lg bg-bg-tertiary px-2 py-1.5">
+            <span className="text-amber-400/90">Medium</span>
+            <span
+              className={`mt-0.5 font-mono tabular-nums ${
+                formatAuditSeverityCell(contract, "medium") === "-"
+                  ? "text-text-muted"
+                  : "font-semibold text-text-primary"
+              }`}
+            >
+              {formatAuditSeverityCell(contract, "medium")}
+            </span>
+          </div>
         </div>
-        <div className="flex flex-col rounded-lg bg-bg-tertiary px-2 py-1.5">
-          <span className="text-orange-400/90">High</span>
-          <span
-            className={`mt-0.5 font-mono tabular-nums ${
-              formatAuditSeverityCell(contract, "high") === "-"
-                ? "text-text-muted"
-                : "font-semibold text-text-primary"
-            }`}
-          >
-            {formatAuditSeverityCell(contract, "high")}
-          </span>
+      ) : (
+        <div className="mt-3 flex items-center justify-end">
+          <RunAuditCell contract={contract} />
         </div>
-        <div className="flex flex-col rounded-lg bg-bg-tertiary px-2 py-1.5">
-          <span className="text-amber-400/90">Medium</span>
-          <span
-            className={`mt-0.5 font-mono tabular-nums ${
-              formatAuditSeverityCell(contract, "medium") === "-"
-                ? "text-text-muted"
-                : "font-semibold text-text-primary"
-            }`}
-          >
-            {formatAuditSeverityCell(contract, "medium")}
-          </span>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

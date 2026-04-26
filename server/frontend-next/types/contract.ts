@@ -33,8 +33,16 @@ export interface Contract {
   critical_count?: number;
   high_count?: number;
   medium_count?: number;
-  /** Present when a completed Plamen audit exists for this contract (listing API). */
+  /** Present when ANY Plamen audit row exists for this contract (listing API). */
   audit_id?: number | null;
+  /**
+   * Status of the most recent Plamen audit row for this contract:
+   * 'pending' | 'running' | 'completed' | 'failed' | 'stalled' | null.
+   * Listing only treats 'completed' rows as having severity counts.
+   */
+  audit_status?: string | null;
+  /** Optional phase label parsed from the running audit's log (best-effort). */
+  audit_phase?: string | null;
 }
 
 export interface SearchResponse {

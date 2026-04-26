@@ -10,10 +10,12 @@ import {
   getImplementationAddress,
   formatFund,
   formatAuditSeverityCell,
+  hasCompletedAuditListing,
 } from "@/lib/contract-utils";
 import { Bookmark, BookmarkCheck } from "lucide-react";
 import { Erc20BalancesDisplay } from "./Erc20BalancesDisplay";
 import { Badge } from "../ui/Badge";
+import { RunAuditCell } from "./RunAuditCell";
 
 interface ContractRowProps {
   contract: Contract;
@@ -135,9 +137,19 @@ export function ContractRow({
       <td className="max-w-[12rem] px-4 py-3 text-left text-xs">
         <Erc20BalancesDisplay balances={contract.erc20_balances} />
       </td>
-      <SeverityCountCell contract={contract} severity="critical" className="text-red-400/95" />
-      <SeverityCountCell contract={contract} severity="high" className="text-orange-400/95" />
-      <SeverityCountCell contract={contract} severity="medium" className="text-amber-400/95" />
+      {hasCompletedAuditListing(contract) ? (
+        <>
+          <SeverityCountCell contract={contract} severity="critical" className="text-red-400/95" />
+          <SeverityCountCell contract={contract} severity="high" className="text-orange-400/95" />
+          <SeverityCountCell contract={contract} severity="medium" className="text-amber-400/95" />
+        </>
+      ) : (
+        // Collapse the 3 severity columns into one action cell when this
+        // contract has no completed audit yet — preserves table column count.
+        <td colSpan={3} className="whitespace-nowrap px-4 py-3 text-right">
+          <RunAuditCell contract={contract} compact />
+        </td>
+      )}
     </tr>
   );
 }

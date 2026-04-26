@@ -172,17 +172,21 @@ exports.getAddressesByFilter = async (filters = {}) => {
       COALESCE(ca.critical_count, 0) AS critical_count,
       COALESCE(ca.high_count, 0) AS high_count,
       COALESCE(ca.medium_count, 0) AS medium_count,
-      ca.id AS audit_id
+      ca.id AS audit_id,
+      ca.status AS audit_status,
+      ca.phase AS audit_phase
   `;
   // Joined once per row — contract_audits is keyed by (address, network, audit_tool),
   // and the filter narrows it to at most one row (the active Plamen audit).
   // Match contract_sources style: compare with LOWER() so audits survive network/address casing drift.
+  // We include rows in any state (running / failed / completed / etc.) so the
+  // dashboard can render an inline run-state badge per contract — completed
+  // counts are still gated by audit_status='completed' on the frontend.
   const auditJoin = `
     LEFT JOIN contract_audits ca
       ON LOWER(TRIM(ca.address)) = LOWER(TRIM(a.address))
      AND LOWER(TRIM(ca.network)) = LOWER(TRIM(a.network))
      AND ca.audit_tool = 'plamen'
-     AND ca.status = 'completed'
   `;
   const baseWhere = CONTRACT_LIST_WHERE.replace(/addresses\./g, 'a.');
   // Qualify buildWhere columns with a. for the addresses alias
