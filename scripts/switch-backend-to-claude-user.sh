@@ -50,7 +50,22 @@ else
   sed -i "/^\[Service\]/a Group=${TARGET_GROUP}" "$UNIT"
 fi
 
-echo "[2/5] Set User=${TARGET_USER} / Group=${TARGET_GROUP}"
+# Ensure systemd-spawned children can find plamen + foundry on PATH. systemd
+# launches with a minimal PATH; without this, audit-one.sh's `plamen` call
+# resolves to nothing even when the user logs in interactively.
+PATH_LINE='Environment="PATH=/home/claude/.plamen:/home/claude/.foundry/bin:/home/claude/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"'
+if grep -q '^Environment="PATH=' "$UNIT"; then
+  sed -i "s|^Environment=\"PATH=.*|${PATH_LINE}|" "$UNIT"
+else
+  sed -i "/^\[Service\]/a ${PATH_LINE}" "$UNIT"
+fi
+
+# Ensure HOME is set so ~ expands correctly inside the spawned audit-one.sh.
+if ! grep -q '^Environment=HOME=' "$UNIT"; then
+  sed -i "/^\[Service\]/a Environment=HOME=/home/claude" "$UNIT"
+fi
+
+echo "[2/5] Set User=${TARGET_USER} / Group=${TARGET_GROUP} + PATH/HOME"
 
 # Ensure audit log dir is writable by the new user.
 mkdir -p /tmp/audits/logs
@@ -69,13 +84,13 @@ echo "--- Status ---"
 systemctl status bugchain-backend --no-pager | head -15 || true
 
 echo
-echo "--- Verifying tools available to ${TARGET_USER} ---"
-sudo -u "${TARGET_USER}" bash -lc '
+echo "--- Verifying tools available to ${TARGET_USER} (-i = login shell) ---"
+sudo -iu "${TARGET_USER}" bash -c '
   echo "PATH=$PATH"
   echo -n "plamen: "; command -v plamen || echo MISSING
   echo -n "forge:  "; command -v forge || echo MISSING
   echo -n "node:   "; command -v node || echo MISSING
-  echo -n "creds:  "; ls -la ~/.claude/.credentials.json 2>/dev/null || echo MISSING
+  echo -n "creds:  "; ls -la ~/.claude/.credentials.json 2>/dev/null || echo "MISSING — run: claude login"
 '
 
 echo
