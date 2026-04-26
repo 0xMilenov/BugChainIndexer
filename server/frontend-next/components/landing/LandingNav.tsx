@@ -27,7 +27,7 @@ export function LandingNav() {
         <Link href="/" className="group flex items-center gap-2">
           <div className="relative h-8 w-8 overflow-hidden rounded-md ring-1 ring-border/60 transition group-hover:ring-accent/40">
             <Image
-              src="/logo.png"
+              src="/logo-black2.png"
               alt="Visualisa"
               width={32}
               height={32}
