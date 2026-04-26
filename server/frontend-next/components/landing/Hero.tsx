@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, ShieldCheck, Search } from "lucide-react";
+import { ArrowRight, Search, Bot } from "lucide-react";
 import { GridBackground } from "./GridBackground";
 import { AnimatedCounter } from "./AnimatedCounter";
 import { formatCompactNumber, type LandingStats } from "@/lib/landing-types";
@@ -28,7 +28,7 @@ export function Hero({ stats }: HeroProps) {
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
           </span>
-          live · {stats.contracts.networks} networks · {formatCompactNumber(stats.contracts.total)} contracts indexed
+          live · {stats.contracts.networks} chains · {formatCompactNumber(stats.contracts.total)} contracts indexed
         </motion.div>
 
         {/* Display headline */}
@@ -38,14 +38,13 @@ export function Hero({ stats }: HeroProps) {
           transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
           className="mt-8 text-balance text-[clamp(2.75rem,7vw,5.5rem)] font-semibold leading-[1.05] tracking-tight text-text-primary"
         >
-          Where every smart contract meets{" "}
+          Every contract on-chain.{" "}
           <span className="relative inline-block">
             <span className="bg-gradient-to-br from-accent via-accent-soft to-accent-amber bg-clip-text text-transparent">
-              its auditor
+              Every audit a click away.
             </span>
             <span className="absolute inset-x-0 -bottom-1 h-[2px] bg-gradient-to-r from-transparent via-accent to-transparent opacity-50" />
           </span>
-          .
         </motion.h1>
 
         {/* Subhead */}
@@ -55,11 +54,12 @@ export function Hero({ stats }: HeroProps) {
           transition={{ duration: 0.8, delay: 0.4, ease: [0.22, 1, 0.36, 1] }}
           className="mx-auto mt-6 max-w-2xl text-balance text-base leading-relaxed text-text-muted sm:text-lg"
         >
-          Visualisa indexes verified contracts across{" "}
-          <span className="text-text-primary">{stats.contracts.networks} EVM chains</span>{" "}
-          and runs autonomous, multi-agent security audits on demand. Every audit
-          is rendered with proof-of-concept tests, severity scoring, and
-          remediation guidance — surfaced inline on the contract page.
+          Visualisa indexes verified smart contracts across{" "}
+          <span className="text-text-primary">{stats.contracts.networks} EVM networks</span>.
+          Look up any address to see live security findings inline. Or trigger a fresh
+          autonomous audit on demand — powered by{" "}
+          <span className="text-accent">Plamen</span>, the best-in-class multi-agent
+          audit framework.
         </motion.p>
 
         {/* CTA pair */}
@@ -82,7 +82,7 @@ export function Hero({ stats }: HeroProps) {
             href="#how"
             className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-bg-secondary/40 px-7 py-3 text-base font-medium text-text-primary backdrop-blur transition hover:border-border hover:bg-bg-secondary"
           >
-            <ShieldCheck className="h-4 w-4 text-accent" />
+            <Bot className="h-4 w-4 text-accent" />
             See how it works
           </a>
         </motion.div>

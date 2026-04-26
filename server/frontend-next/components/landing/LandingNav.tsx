@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
 
@@ -24,22 +23,14 @@ export function LandingNav() {
       }`}
     >
       <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-6">
-        <Link href="/" className="group flex items-center gap-2">
-          <div className="relative h-8 w-8 overflow-hidden rounded-md ring-1 ring-border/60 transition group-hover:ring-accent/40">
-            <Image
-              src="/logo-black2.png"
-              alt="Visualisa"
-              width={32}
-              height={32}
-              className="object-cover"
-              priority
-            />
-          </div>
-          <span className="font-semibold tracking-tight text-text-primary">
-            Visualisa
+        <Link href="/" className="group flex items-center gap-2.5">
+          {/* Text wordmark with accent dot — no image dependency */}
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-60" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
           </span>
-          <span className="ml-1 rounded border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-accent">
-            secure
+          <span className="font-semibold tracking-[0.18em] text-text-primary">
+            VISUALISA
           </span>
         </Link>
 

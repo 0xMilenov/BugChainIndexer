@@ -1,27 +1,28 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Boxes, Cpu, FileSearch } from "lucide-react";
+import { Boxes, Search, Bot } from "lucide-react";
 import { SectionHeader } from "./LiveStats";
 
 const STEPS = [
   {
     icon: Boxes,
     eyebrow: "01 · Index",
-    title: "Stream every verified contract on every chain.",
-    body: "Continuous scanners crawl Ethereum, BSC, Arbitrum, Optimism, Base, Polygon, Linea, Scroll, and more. Verified source, deployment metadata, ERC-20 balances, and proxy targets all land in one queryable place.",
+    title: "Every verified contract on every chain.",
+    body: "Continuous scanners stream verified contracts from Ethereum, BSC, Arbitrum, Optimism, Base, Polygon, Linea, Scroll, and more. Verified source, deployment metadata, ERC-20 balances, and proxy targets all land in one queryable place — ready to look up the moment they hit-chain.",
   },
   {
-    icon: Cpu,
-    eyebrow: "02 · Audit",
-    title: "Spawn a multi-agent audit on demand.",
-    body: "Plamen orchestrates 40-100 specialized AI agents across recon, breadth, depth, fuzz, chain analysis, PoC verification, and skeptic-judge. Each finding ships with severity, location, evidence, and a working Foundry proof-of-concept.",
+    icon: Search,
+    eyebrow: "02 · Look up",
+    title: "Paste an address — read findings instantly.",
+    body: "Open the dashboard, drop in any address. If the contract is already audited, every Critical / High / Medium finding renders inline with full description, location, PoC results, and remediation guidance. No signup, no API keys.",
   },
   {
-    icon: FileSearch,
-    eyebrow: "03 · Surface",
-    title: "Findings rendered inline on the contract page.",
-    body: "Severity chips on the dashboard. Full descriptions, locations, PoC results, and remediation guidance on the detail page. Same Postgres backing the audits powers the UI — single source of truth.",
+    icon: Bot,
+    eyebrow: "03 · Or audit on demand",
+    title: "Not audited yet? Spin up a Plamen run.",
+    body: "Add any contract manually and trigger a fresh audit. Plamen orchestrates 40-100 specialized AI agents across recon, breadth, depth, fuzz, chain analysis, PoC verification, and skeptic-judge. Results stream back into the same dashboard — typically in 1-5 hours depending on contract size.",
+    plamen: true,
   },
 ];
 
@@ -30,13 +31,12 @@ export function HowItWorks() {
     <section id="how" className="relative border-t border-border/40 py-24 sm:py-32">
       <div className="mx-auto max-w-6xl px-6">
         <SectionHeader
-          eyebrow="The pipeline"
-          title="Three phases, one source of truth."
-          sub="Built on top of public block data and the Plamen autonomous audit framework."
+          eyebrow="The flow"
+          title="Index. Look up. Or audit on demand."
+          sub="The full loop, from on-chain deployment to security findings on your screen."
         />
 
         <div className="relative mt-20">
-          {/* Connecting line */}
           <div
             aria-hidden
             className="absolute left-1/2 top-12 hidden h-[calc(100%-6rem)] w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-border to-transparent md:block"
@@ -81,14 +81,19 @@ function Step({
           {step.title}
         </h3>
         <p className="mt-3 max-w-md text-text-muted leading-relaxed">{step.body}</p>
+        {step.plamen && (
+          <div className="mt-4 inline-flex items-center gap-2 rounded-md border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs">
+            <span className="text-accent font-mono uppercase tracking-wider">Plamen</span>
+            <span className="text-text-muted">·</span>
+            <span className="text-text-primary">autonomous multi-agent audit framework</span>
+          </div>
+        )}
       </div>
 
       <div className="relative">
-        {/* Centered icon disc */}
         <div className="relative mx-auto flex h-32 w-32 items-center justify-center rounded-2xl border border-border/60 bg-bg-secondary/60 backdrop-blur md:mx-0 md:h-48 md:w-48 md:rounded-3xl">
           <div className="absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_center,rgba(0,255,157,0.18),transparent_70%)] md:rounded-3xl" />
           <Icon className="relative h-12 w-12 text-accent md:h-16 md:w-16" />
-          {/* Number badge on the disc */}
           <div className="absolute -right-3 -top-3 flex h-9 w-9 items-center justify-center rounded-full border border-accent/40 bg-bg-primary font-mono text-sm font-semibold text-accent">
             {String(index + 1).padStart(2, "0")}
           </div>

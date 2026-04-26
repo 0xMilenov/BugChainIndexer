@@ -6,7 +6,10 @@ export function LandingFooter() {
     <footer className="border-t border-border/40">
       <div className="mx-auto flex w-full max-w-7xl flex-col items-center justify-between gap-4 px-6 py-10 text-sm text-text-muted sm:flex-row">
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-text-primary">Visualisa</span>
+          <span className="relative flex h-2 w-2">
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+          </span>
+          <span className="font-semibold tracking-[0.18em] text-text-primary">VISUALISA</span>
           <span className="text-text-muted/60">·</span>
           <span>autonomous Web3 security audits, indexed.</span>
         </div>
@@ -29,8 +32,9 @@ export function LandingFooter() {
             rel="noopener noreferrer"
             className="transition hover:text-text-primary"
           >
-            Powered by Plamen
+            Plamen
           </a>
+          <span className="text-text-muted/60">Powered by VISUALISA</span>
         </div>
       </div>
     </footer>

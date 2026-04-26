@@ -17,7 +17,6 @@ export function FinalCTA({ stats }: { stats: LandingStats }) {
           transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
           className="relative overflow-hidden rounded-3xl border border-border/60 bg-bg-secondary/40 p-12 text-center backdrop-blur sm:p-20"
         >
-          {/* Aurora background */}
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_30%_20%,rgba(0,255,157,0.18),transparent_50%),radial-gradient(circle_at_70%_80%,rgba(255,184,0,0.10),transparent_50%)]"
@@ -33,14 +32,15 @@ export function FinalCTA({ stats }: { stats: LandingStats }) {
           </div>
 
           <h2 className="mt-6 text-balance text-[clamp(2rem,5vw,3.5rem)] font-semibold leading-tight tracking-tight text-text-primary">
-            Open a contract.
+            Look up a contract.
             <br />
-            See its bugs.
+            See its bugs. Or audit it now.
           </h2>
 
           <p className="mx-auto mt-6 max-w-xl text-balance text-base leading-relaxed text-text-muted sm:text-lg">
-            {formatCompactNumber(stats.contracts.verified)} verified contracts indexed and waiting.
-            Click below to start exploring.
+            {formatCompactNumber(stats.contracts.verified)} verified contracts indexed and ready to query.
+            Pre-audited findings render instantly. New audits run on demand,
+            powered by <span className="text-accent">Plamen</span>.
           </p>
 
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
