@@ -239,6 +239,80 @@ export async function getContractAudit(
   return data;
 }
 
+/**
+ * Status payload for an in-flight or recently-finished Plamen audit run.
+ * `status` is one of: pending | running | completed | failed | stalled.
+ * `phase` is a free-form short label parsed from the run's log file
+ * (e.g. "Phase 4b") — null when the run hasn't produced log lines yet.
+ */
+export interface ContractAuditStatus {
+  id: number;
+  address: string;
+  network: string;
+  audit_tool: string;
+  audit_mode?: string | null;
+  tool_version?: string | null;
+  status: "pending" | "running" | "completed" | "failed" | "stalled" | string;
+  started_at?: number | string | null;
+  completed_at?: number | string | null;
+  duration_ms?: number | string | null;
+  critical_count: number;
+  high_count: number;
+  medium_count: number;
+  error_message?: string | null;
+  phase?: string | null;
+  log_tail?: string | null;
+}
+
+export interface GetContractAuditStatusResponse {
+  ok: boolean;
+  audit?: ContractAuditStatus | null;
+  error?: string;
+}
+
+export async function getContractAuditStatus(
+  address: string,
+  network: string
+): Promise<GetContractAuditStatusResponse> {
+  const base = getBaseUrl();
+  const encAddr = encodeURIComponent(address);
+  const encNet = encodeURIComponent(network);
+  const url = base
+    ? `${base}/contract/${encNet}/${encAddr}/audit/status`
+    : `/api/contract/${encNet}/${encAddr}/audit/status`;
+  const resp = await fetch(url, { cache: "no-store" });
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data?.error || `HTTP ${resp.status}`);
+  return data;
+}
+
+export interface TriggerAuditResponse {
+  ok: boolean;
+  audit?: ContractAuditStatus;
+  error?: string;
+}
+
+export async function triggerContractAudit(
+  address: string,
+  network: string,
+  mode: "light" | "core" | "thorough" = "thorough"
+): Promise<TriggerAuditResponse> {
+  const base = getBaseUrl();
+  const encAddr = encodeURIComponent(address);
+  const encNet = encodeURIComponent(network);
+  const url = base
+    ? `${base}/contract/${encNet}/${encAddr}/audit/run`
+    : `/api/contract/${encNet}/${encAddr}/audit/run`;
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode }),
+  });
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data?.error || `HTTP ${resp.status}`);
+  return data;
+}
+
 export interface AddContractResponse {
   ok: boolean;
   contract?: ContractDetail;

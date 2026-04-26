@@ -1,5 +1,6 @@
 const service = require('../services/address.service');
 const addContractService = require('../services/addContract.service');
+const auditRunService = require('../services/auditRun.service');
 const { parseNumber, parseStringArray, parseBool, decodeCursor } = require('../utils/parsers');
 
 exports.getVerifiedContractStats = async (req, res) => {
@@ -160,6 +161,52 @@ exports.getContractAudit = async (req, res) => {
     res.json({ ok: true, audit });
   } catch (err) {
     console.error('getContractAudit failed:', err?.message || err);
+    res.status(500).json({ ok: false, error: 'Internal Server Error' });
+  }
+};
+
+exports.triggerContractAudit = async (req, res) => {
+  try {
+    const network = req.params?.network || req.body?.network;
+    const address = req.params?.address || req.body?.address;
+    const mode = (req.body?.mode || req.query?.mode || 'thorough').toString();
+    if (!address || !network) {
+      return res.status(400).json({ ok: false, error: 'address and network are required' });
+    }
+    const result = await auditRunService.triggerAudit({ address, network, mode });
+    if (!result.ok) {
+      const clientErrors = new Set([
+        'Invalid contract address',
+        'Unsupported network',
+        'Invalid mode (must be light|core|thorough)',
+        'Contract is not indexed yet',
+        'Contract is not verified',
+        'Audit already running for this contract',
+      ]);
+      const status = clientErrors.has(result.error) ? 409 : 500;
+      return res.status(status).json(result);
+    }
+    res.json(result);
+  } catch (err) {
+    console.error('triggerContractAudit failed:', err?.message || err);
+    res.status(500).json({ ok: false, error: 'Internal Server Error' });
+  }
+};
+
+exports.getContractAuditStatus = async (req, res) => {
+  try {
+    const network = req.params?.network || req.query?.network;
+    const address = req.params?.address || req.query?.address;
+    if (!address || !network) {
+      return res.status(400).json({ ok: false, error: 'address and network are required' });
+    }
+    const result = await auditRunService.getAuditStatus({ address, network });
+    // No-cache: this is a poll endpoint.
+    res.set('Cache-Control', 'no-store');
+    if (!result.ok) return res.status(400).json(result);
+    res.json(result);
+  } catch (err) {
+    console.error('getContractAuditStatus failed:', err?.message || err);
     res.status(500).json({ ok: false, error: 'Internal Server Error' });
   }
 };

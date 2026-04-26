@@ -52,6 +52,12 @@ pool.on('connect', () => {});
         UNIQUE(address, network)
       )
     `);
+    // Audit run tracking columns. The audit-one.sh / ingest.js pipeline only
+    // writes 'completed' rows on success — these columns let us track running
+    // / failed runs and expose phase/log info to the dashboard.
+    await pool.query(`ALTER TABLE contract_audits ADD COLUMN IF NOT EXISTS pid INTEGER`);
+    await pool.query(`ALTER TABLE contract_audits ADD COLUMN IF NOT EXISTS phase TEXT`);
+    await pool.query(`ALTER TABLE contract_audits ADD COLUMN IF NOT EXISTS log_path TEXT`);
     await pool.query(`
       CREATE TABLE IF NOT EXISTS github_tokens (
         user_id TEXT PRIMARY KEY,

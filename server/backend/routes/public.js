@@ -13,6 +13,8 @@ router.delete('/bookmarks/:network/:address', bookmarkCtrl.removeBookmark);
 // Endpoints
 router.get('/contract/:network/:address', ctrl.getContract);
 router.get('/contract/:network/:address/audit', ctrl.getContractAudit);
+router.get('/contract/:network/:address/audit/status', ctrl.getContractAuditStatus);
+router.post('/contract/:network/:address/audit/run', ctrl.triggerContractAudit);
 router.get('/getAddressesByFilter', ctrl.getAddressesByFilter);
 router.get('/getContractCount', ctrl.getContractCount);
 router.get('/getVerifiedContractStats', ctrl.getVerifiedContractStats);
