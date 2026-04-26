@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
       { source: "/getContractCount", destination: `${apiUrl}/getContractCount` },
       { source: "/getVerifiedContractStats", destination: `${apiUrl}/getVerifiedContractStats` },
       { source: "/networkCounts", destination: `${apiUrl}/networkCounts` },
+      { source: "/landingStats", destination: `${apiUrl}/landingStats` },
       { source: "/nativePrices", destination: `${apiUrl}/nativePrices` },
       { source: "/searchByCode", destination: `${apiUrl}/searchByCode` },
       { source: "/addContract", destination: `${apiUrl}/addContract` },

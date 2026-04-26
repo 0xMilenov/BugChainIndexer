@@ -105,3 +105,26 @@ body {
 .glow-cyan-hover:hover {
   box-shadow: 0 0 24px rgba(0, 255, 157, 0.25);
 }
+
+/* Landing-page animations */
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.55; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 0.85; transform: translate(-50%, -50%) scale(1.04); }
+}
+.animate-pulse-slow {
+  animation: pulse-slow 7s ease-in-out infinite;
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 38s linear infinite;
+}
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Subtle smoothing for landing scroll */
+html { scroll-behavior: smooth; }

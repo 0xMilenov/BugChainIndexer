@@ -498,6 +498,105 @@ exports.getNetworkCounts = async (forceRefresh = false) => {
   return out;
 }
 
+// ============================================================================
+// Landing-page stats — single round-trip aggregate for the public marketing
+// page. Cached aggressively (5 min) since the marketing page is high-traffic
+// and these counters update slowly relative to the cache horizon.
+// ============================================================================
+let landingStatsCache = null;
+let landingStatsCacheTime = 0;
+const LANDING_STATS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+exports.getLandingStats = async (forceRefresh = false) => {
+  ensureDbUrl();
+  const now = Date.now();
+  if (!forceRefresh && landingStatsCache && (now - landingStatsCacheTime) < LANDING_STATS_CACHE_TTL) {
+    return landingStatsCache;
+  }
+
+  // Run the four small aggregates in parallel.
+  const [contractsAgg, auditsAgg, latestFindings, completedAuditsAgg] = await Promise.all([
+    pool.query(`
+      SELECT COUNT(*)::bigint AS total_contracts,
+             SUM(CASE WHEN verified THEN 1 ELSE 0 END)::bigint AS verified,
+             COUNT(DISTINCT network)::bigint AS networks
+      FROM addresses
+      WHERE (tags IS NULL OR NOT 'EOA' = ANY(COALESCE(tags, '{}')))
+    `),
+    pool.query(`
+      SELECT COUNT(*)::bigint AS total_audits,
+             COALESCE(SUM(critical_count), 0)::bigint AS critical_total,
+             COALESCE(SUM(high_count), 0)::bigint AS high_total,
+             COALESCE(SUM(medium_count), 0)::bigint AS medium_total,
+             COALESCE(SUM(critical_count + high_count + medium_count), 0)::bigint AS findings_total
+      FROM contract_audits
+      WHERE status = 'completed'
+    `),
+    // Most recent severe findings, with parent contract context, for the live ticker.
+    pool.query(`
+      SELECT f.severity, f.title, f.location,
+             ca.address, ca.network, ca.completed_at,
+             a.contract_name
+      FROM contract_audit_findings f
+      JOIN contract_audits ca ON ca.id = f.audit_id
+      LEFT JOIN addresses a ON a.address = ca.address AND a.network = ca.network
+      WHERE ca.status = 'completed'
+        AND f.severity IN ('critical', 'high')
+      ORDER BY ca.completed_at DESC NULLS LAST, f.id DESC
+      LIMIT 12
+    `),
+    pool.query(`
+      SELECT ca.network, ca.address, ca.critical_count, ca.high_count, ca.medium_count,
+             ca.completed_at, a.contract_name
+      FROM contract_audits ca
+      LEFT JOIN addresses a ON a.address = ca.address AND a.network = ca.network
+      WHERE ca.status = 'completed'
+      ORDER BY ca.completed_at DESC NULLS LAST
+      LIMIT 8
+    `)
+  ]);
+
+  const c = contractsAgg.rows[0] || {};
+  const u = auditsAgg.rows[0] || {};
+  const stats = {
+    contracts: {
+      total: Number(c.total_contracts || 0),
+      verified: Number(c.verified || 0),
+      networks: Number(c.networks || 0)
+    },
+    audits: {
+      total: Number(u.total_audits || 0),
+      critical: Number(u.critical_total || 0),
+      high: Number(u.high_total || 0),
+      medium: Number(u.medium_total || 0),
+      findings: Number(u.findings_total || 0)
+    },
+    latest_findings: latestFindings.rows.map((r) => ({
+      severity: r.severity,
+      title: r.title,
+      location: r.location,
+      address: r.address,
+      network: r.network,
+      contract_name: r.contract_name,
+      completed_at: r.completed_at ? Number(r.completed_at) : null
+    })),
+    recent_audits: completedAuditsAgg.rows.map((r) => ({
+      address: r.address,
+      network: r.network,
+      contract_name: r.contract_name,
+      critical: Number(r.critical_count || 0),
+      high: Number(r.high_count || 0),
+      medium: Number(r.medium_count || 0),
+      completed_at: r.completed_at ? Number(r.completed_at) : null
+    })),
+    generated_at: now
+  };
+
+  landingStatsCache = stats;
+  landingStatsCacheTime = now;
+  return stats;
+};
+
 exports.getNativePrices = async () => {
   ensureDbUrl();
 

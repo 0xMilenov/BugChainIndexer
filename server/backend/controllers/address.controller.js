@@ -95,6 +95,18 @@ exports.getAddressesByFilter = async (req, res) => {
 // getAddress / getBridge removed
 
 
+exports.getLandingStats = async (req, res) => {
+  try {
+    const refresh = req.query?.refresh === '1' || req.query?.refresh === 'true';
+    const stats = await service.getLandingStats(refresh);
+    res.set('Cache-Control', 'public, max-age=60, s-maxage=300');
+    res.json({ ok: true, ...stats });
+  } catch (err) {
+    console.error('getLandingStats failed:', err?.message || err);
+    res.status(500).json({ ok: false, error: 'Internal Server Error' });
+  }
+};
+
 exports.getNetworkCounts = async (req, res) => {
   try {
     const refresh = req.query?.refresh === '1' || req.query?.refresh === 'true';
