@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, ShieldCheck, Search } from "lucide-react";
 import { GridBackground } from "./GridBackground";
 import { AnimatedCounter } from "./AnimatedCounter";
-import { formatCompactNumber, type LandingStats } from "@/lib/landing";
+import { formatCompactNumber, type LandingStats } from "@/lib/landing-types";
 
 interface HeroProps {
   stats: LandingStats;

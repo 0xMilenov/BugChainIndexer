@@ -4,7 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowUpRight, AlertOctagon, Flame } from "lucide-react";
 import { SectionHeader } from "./LiveStats";
-import { shortAddress, type LandingFinding, type LandingRecentAudit } from "@/lib/landing";
+import { shortAddress, type LandingFinding, type LandingRecentAudit } from "@/lib/landing-types";
 
 interface LiveFindingsProps {
   findings: LandingFinding[];

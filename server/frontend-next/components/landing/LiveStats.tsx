@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { Database, ShieldAlert, AlertOctagon, Radio } from "lucide-react";
 import { AnimatedCounter } from "./AnimatedCounter";
-import type { LandingStats } from "@/lib/landing";
+import type { LandingStats } from "@/lib/landing-types";
 
 interface LiveStatsProps {
   stats: LandingStats;

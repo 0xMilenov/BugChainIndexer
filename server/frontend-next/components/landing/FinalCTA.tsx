@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, Sparkles } from "lucide-react";
-import type { LandingStats } from "@/lib/landing";
-import { formatCompactNumber } from "@/lib/landing";
+import type { LandingStats } from "@/lib/landing-types";
+import { formatCompactNumber } from "@/lib/landing-types";
 
 export function FinalCTA({ stats }: { stats: LandingStats }) {
   return (
