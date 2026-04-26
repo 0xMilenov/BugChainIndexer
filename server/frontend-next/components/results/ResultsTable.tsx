@@ -18,6 +18,24 @@ interface ResultsTableProps {
   onBookmarkToggle?: (contract: { address: string; network: string }) => void;
 }
 
+function ColumnSortIcon({
+  col,
+  sortColumn,
+  sortDirection,
+}: {
+  col: string;
+  sortColumn: string;
+  sortDirection: "asc" | "desc";
+}) {
+  if (sortColumn !== col)
+    return <ChevronsUpDown className="ml-1 inline-block h-3 w-3 opacity-40" />;
+  return sortDirection === "asc" ? (
+    <ChevronUp className="ml-1 inline-block h-3 w-3" />
+  ) : (
+    <ChevronDown className="ml-1 inline-block h-3 w-3" />
+  );
+}
+
 export function ResultsTable({
   contracts,
   nativePrices,
@@ -27,16 +45,6 @@ export function ResultsTable({
   isBookmarked,
   onBookmarkToggle,
 }: ResultsTableProps) {
-  const SortIcon = ({ col }: { col: string }) => {
-    if (sortColumn !== col)
-      return <ChevronsUpDown className="ml-1 inline-block h-3 w-3 opacity-40" />;
-    return sortDirection === "asc" ? (
-      <ChevronUp className="ml-1 inline-block h-3 w-3" />
-    ) : (
-      <ChevronDown className="ml-1 inline-block h-3 w-3" />
-    );
-  };
-
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-bg-secondary">
       <div className="overflow-x-auto">
@@ -47,37 +55,53 @@ export function ResultsTable({
                 className="cursor-pointer px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider transition hover:bg-border/50"
                 onClick={() => onSort("address")}
               >
-                Address <SortIcon col="address" />
+                Address{" "}
+                <ColumnSortIcon col="address" sortColumn={sortColumn} sortDirection={sortDirection} />
               </th>
               <th
                 className="cursor-pointer px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider transition hover:bg-border/50"
                 onClick={() => onSort("name")}
               >
-                Contract Name <SortIcon col="name" />
+                Contract Name{" "}
+                <ColumnSortIcon col="name" sortColumn={sortColumn} sortDirection={sortDirection} />
               </th>
               <th
                 className="cursor-pointer px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider transition hover:bg-border/50"
                 onClick={() => onSort("network")}
               >
-                Network <SortIcon col="network" />
-              </th>
-              <th
-                className="cursor-pointer px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider transition hover:bg-border/50"
-                onClick={() => onSort("deployed")}
-              >
-                Deployed <SortIcon col="deployed" />
+                Network{" "}
+                <ColumnSortIcon col="network" sortColumn={sortColumn} sortDirection={sortDirection} />
               </th>
               <th
                 className="cursor-pointer px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider transition hover:bg-border/50"
                 onClick={() => onSort("fund")}
               >
-                Native <SortIcon col="fund" />
+                Native{" "}
+                <ColumnSortIcon col="fund" sortColumn={sortColumn} sortDirection={sortDirection} />
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
                 ERC-20 Tokens
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
-                Audit
+              <th
+                className="cursor-pointer px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-red-400/90 transition hover:bg-border/50"
+                onClick={() => onSort("critical")}
+              >
+                Critical{" "}
+                <ColumnSortIcon col="critical" sortColumn={sortColumn} sortDirection={sortDirection} />
+              </th>
+              <th
+                className="cursor-pointer px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-orange-400/90 transition hover:bg-border/50"
+                onClick={() => onSort("high")}
+              >
+                High{" "}
+                <ColumnSortIcon col="high" sortColumn={sortColumn} sortDirection={sortDirection} />
+              </th>
+              <th
+                className="cursor-pointer px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-amber-400/90 transition hover:bg-border/50"
+                onClick={() => onSort("medium")}
+              >
+                Medium{" "}
+                <ColumnSortIcon col="medium" sortColumn={sortColumn} sortDirection={sortDirection} />
               </th>
             </tr>
           </thead>

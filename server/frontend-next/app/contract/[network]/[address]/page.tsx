@@ -17,7 +17,6 @@ import { ArrowLeft, Bookmark, BookmarkCheck } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Badge } from "@/components/ui/Badge";
 import { AuditSection } from "@/components/audits/AuditSection";
-import ReactMarkdown from "react-markdown";
 
 function getContractName(c: ContractDetail): string {
   const name = c?.contract_name?.trim();
@@ -281,6 +280,8 @@ export default function ContractDetailPage() {
             </div>
           </div>
 
+          <AuditSection address={address} network={network} />
+
           {/** Source code */}
           {contract.source_code && (
             <div className="rounded-xl border border-border bg-bg-secondary overflow-hidden">
@@ -302,8 +303,6 @@ export default function ContractDetailPage() {
               No source code available for this contract.
             </div>
           )}
-
-          <AuditSection address={address} network={network} />
 
         </div>
       </div>

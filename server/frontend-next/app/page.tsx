@@ -25,8 +25,8 @@ import {
   getImplementationAddress,
   getDeployTxHash,
   getDeployerAddress,
-  getContractTimestamp,
   formatErc20Balances,
+  formatAuditSeverityCell,
 } from "@/lib/contract-utils";
 import { Info } from "lucide-react";
 import { AddContractModal } from "@/components/AddContractModal";
@@ -227,7 +227,7 @@ function SearchPageContent() {
     } else {
       setSortColumn(col);
       setSortDirection(
-        ["fund", "deployed", "discovered"].includes(col) ? "desc" : "asc"
+        ["fund", "discovered", "critical", "high", "medium"].includes(col) ? "desc" : "asc"
       );
     }
   }, [sortColumn]);
@@ -241,7 +241,6 @@ function SearchPageContent() {
       "Address",
       "Contract Name",
       "Network",
-      "Deployed",
       "Verified",
       "Is Proxy",
       "Implementation Address",
@@ -250,12 +249,14 @@ function SearchPageContent() {
       "Confidence",
       "Native",
       "ERC-20 Tokens",
+      "Critical",
+      "High",
+      "Medium",
     ];
     const rows = sortedResults.map((r) => [
       r.address || "",
       getCanonicalContractName(r),
       r.network || "",
-      getContractTimestamp(r) ? new Date(getContractTimestamp(r)! * 1000).toISOString() : "",
       isVerifiedContract(r) ? "true" : "false",
       isProxyContract(r) ? "true" : "false",
       getImplementationAddress(r) || "",
@@ -264,6 +265,9 @@ function SearchPageContent() {
       r.confidence || "",
       r.fund || "",
       formatErc20Balances(r.erc20_balances, 99),
+      formatAuditSeverityCell(r, "critical"),
+      formatAuditSeverityCell(r, "high"),
+      formatAuditSeverityCell(r, "medium"),
     ]);
     const csvContent = [headers, ...rows]
       .map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))

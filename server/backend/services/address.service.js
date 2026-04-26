@@ -171,14 +171,16 @@ exports.getAddressesByFilter = async (filters = {}) => {
       a.deploy_block_number, a.deployed_at_timestamp, a.deployed_at, a.confidence, a.fetched_at,
       COALESCE(ca.critical_count, 0) AS critical_count,
       COALESCE(ca.high_count, 0) AS high_count,
-      COALESCE(ca.medium_count, 0) AS medium_count
+      COALESCE(ca.medium_count, 0) AS medium_count,
+      ca.id AS audit_id
   `;
   // Joined once per row — contract_audits is keyed by (address, network, audit_tool),
   // and the filter narrows it to at most one row (the active Plamen audit).
+  // Match contract_sources style: compare with LOWER() so audits survive network/address casing drift.
   const auditJoin = `
     LEFT JOIN contract_audits ca
-      ON ca.address = a.address
-     AND ca.network = a.network
+      ON LOWER(TRIM(ca.address)) = LOWER(TRIM(a.address))
+     AND LOWER(TRIM(ca.network)) = LOWER(TRIM(a.network))
      AND ca.audit_tool = 'plamen'
      AND ca.status = 'completed'
   `;
@@ -602,7 +604,8 @@ exports.getContractByAddress = async (address, network) => {
     FROM addresses a
     LEFT JOIN contract_sources cs ON LOWER(cs.address) = LOWER(a.address) AND LOWER(cs.network) = LOWER(a.network)
     LEFT JOIN contract_audits ca
-      ON ca.address = a.address AND ca.network = a.network
+      ON LOWER(TRIM(ca.address)) = LOWER(TRIM(a.address))
+     AND LOWER(TRIM(ca.network)) = LOWER(TRIM(a.network))
      AND ca.audit_tool = 'plamen' AND ca.status = 'completed'
     WHERE LOWER(a.address) = $1 AND LOWER(a.network) = $2
       AND (a.tags IS NULL OR NOT 'EOA' = ANY(COALESCE(a.tags, '{}')))

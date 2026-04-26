@@ -2,26 +2,46 @@
 
 import Link from "next/link";
 import type { Contract } from "@/types/contract";
-import { EXPLORER_MAP, TX_EXPLORER_MAP, NETWORK_COLORS } from "@/lib/constants";
+import { EXPLORER_MAP, NETWORK_COLORS } from "@/lib/constants";
 import {
   getCanonicalContractName,
   isVerifiedContract,
   isProxyContract,
   getImplementationAddress,
-  getDeployTxHash,
-  formatContractDate,
   formatFund,
+  formatAuditSeverityCell,
 } from "@/lib/contract-utils";
 import { Bookmark, BookmarkCheck } from "lucide-react";
 import { Erc20BalancesDisplay } from "./Erc20BalancesDisplay";
 import { Badge } from "../ui/Badge";
-import { SeverityBadges } from "../audits/SeverityBadges";
 
 interface ContractRowProps {
   contract: Contract;
   nativePrices: Record<string, number>;
   isBookmarked?: boolean;
   onBookmarkToggle?: (contract: { address: string; network: string }) => void;
+}
+
+function SeverityCountCell({
+  contract,
+  severity,
+  className,
+}: {
+  contract: Contract;
+  severity: "critical" | "high" | "medium";
+  className: string;
+}) {
+  const text = formatAuditSeverityCell(contract, severity);
+  const isCount = text !== "-";
+  return (
+    <td
+      className={`whitespace-nowrap px-4 py-3 text-right font-mono text-sm tabular-nums ${className} ${
+        isCount ? "font-semibold" : "text-text-muted font-normal"
+      }`}
+    >
+      {text}
+    </td>
+  );
 }
 
 export function ContractRow({
@@ -38,10 +58,6 @@ export function ContractRow({
   const netKey = contract.network?.toLowerCase() ?? "";
   const base = EXPLORER_MAP[netKey];
   const href = base ? `${base}${contract.address}` : "#";
-  const txBase = TX_EXPLORER_MAP[netKey];
-  const deployTxHash = getDeployTxHash(contract);
-  const deployTxHref =
-    txBase && deployTxHash ? `${txBase}${deployTxHash}` : null;
   const proxyImpl = getImplementationAddress(contract);
   const verified = isVerifiedContract(contract);
   const isProxy = isProxyContract(contract);
@@ -111,19 +127,6 @@ export function ContractRow({
           </span>
         )}
       </td>
-      <td className="whitespace-nowrap px-4 py-3 text-right text-text-muted">
-        <div>{formatContractDate(contract)}</div>
-        {deployTxHref && (
-          <a
-            href={deployTxHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-1 block text-[10px] text-accent hover:underline"
-          >
-            Deploy TX
-          </a>
-        )}
-      </td>
       <td className="whitespace-nowrap px-4 py-3 text-right">
         <span className="font-semibold text-accent">
           {formatFund(contract, nativePrices)}
@@ -132,14 +135,9 @@ export function ContractRow({
       <td className="max-w-[12rem] px-4 py-3 text-left text-xs">
         <Erc20BalancesDisplay balances={contract.erc20_balances} />
       </td>
-      <td className="whitespace-nowrap px-4 py-3 text-left">
-        <SeverityBadges
-          critical={contract.critical_count ?? 0}
-          high={contract.high_count ?? 0}
-          medium={contract.medium_count ?? 0}
-          compact
-        />
-      </td>
+      <SeverityCountCell contract={contract} severity="critical" className="text-red-400/95" />
+      <SeverityCountCell contract={contract} severity="high" className="text-orange-400/95" />
+      <SeverityCountCell contract={contract} severity="medium" className="text-amber-400/95" />
     </tr>
   );
 }

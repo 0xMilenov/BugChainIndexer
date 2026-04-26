@@ -174,3 +174,39 @@ export function formatFund(
   }
   return fmtUsdShort(rawValue);
 }
+
+/**
+ * True when the contract has a completed audit for dashboard cells.
+ * Prefer `audit_id` from the API; also accept non-zero severity counts so rows
+ * still render if `audit_id` was omitted from JSON (e.g. older cached responses).
+ */
+export function hasCompletedAuditListing(row: Contract): boolean {
+  const id = row.audit_id != null ? Number(row.audit_id) : NaN;
+  if (Number.isFinite(id) && id > 0) return true;
+  const c = Number(row.critical_count);
+  const h = Number(row.high_count);
+  const m = Number(row.medium_count);
+  return (
+    (Number.isFinite(c) && c > 0) ||
+    (Number.isFinite(h) && h > 0) ||
+    (Number.isFinite(m) && m > 0)
+  );
+}
+
+/**
+ * Dashboard cell: "-" if not audited; if audited, show count or "-" when zero for that severity.
+ */
+export function formatAuditSeverityCell(
+  row: Contract,
+  severity: "critical" | "high" | "medium"
+): string {
+  if (!hasCompletedAuditListing(row)) return "-";
+  const n =
+    severity === "critical"
+      ? Number(row.critical_count)
+      : severity === "high"
+        ? Number(row.high_count)
+        : Number(row.medium_count);
+  const v = Number.isFinite(n) ? n : 0;
+  return v > 0 ? String(v) : "-";
+}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getContractAudit, type ContractAudit, type AuditFinding } from "@/lib/api";
+import { AuditMarkdown } from "./AuditMarkdown";
 import { SeverityBadges } from "./SeverityBadges";
 
 interface AuditSectionProps {
@@ -15,13 +16,15 @@ const SEVERITY_STYLE: Record<AuditFinding["severity"], string> = {
   medium: "bg-amber-500/15 text-amber-400 border-amber-500/40",
 };
 
-function formatTimestamp(ms?: number | null): string {
-  if (!ms) return "";
-  try {
-    return new Date(ms).toLocaleString();
-  } catch {
-    return "";
-  }
+/** DB / JSON may return millis as number, string, or seconds (10-digit). */
+function formatTimestamp(raw?: number | string | null): string {
+  if (raw === null || raw === undefined || raw === "") return "";
+  const n = typeof raw === "string" ? Number(raw.trim()) : Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  const asMs = n < 1e12 ? n * 1000 : n;
+  const d = new Date(asMs);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString();
 }
 
 function FindingCard({ finding, index }: { finding: AuditFinding; index: number }) {
@@ -67,7 +70,7 @@ function FindingCard({ finding, index }: { finding: AuditFinding; index: number 
               <div className="text-[11px] font-semibold uppercase tracking-wider text-text-muted mb-1">
                 Description
               </div>
-              <div className="whitespace-pre-wrap text-text-primary">{finding.description}</div>
+              <AuditMarkdown content={finding.description} />
             </div>
           )}
           {finding.proof_of_concept && (
@@ -75,9 +78,7 @@ function FindingCard({ finding, index }: { finding: AuditFinding; index: number 
               <div className="text-[11px] font-semibold uppercase tracking-wider text-text-muted mb-1">
                 Proof of Concept
               </div>
-              <div className="whitespace-pre-wrap font-mono text-xs text-text-primary">
-                {finding.proof_of_concept}
-              </div>
+              <AuditMarkdown content={finding.proof_of_concept} />
             </div>
           )}
           {finding.recommendation && (
@@ -85,7 +86,7 @@ function FindingCard({ finding, index }: { finding: AuditFinding; index: number 
               <div className="text-[11px] font-semibold uppercase tracking-wider text-text-muted mb-1">
                 Recommendation
               </div>
-              <div className="whitespace-pre-wrap text-text-primary">{finding.recommendation}</div>
+              <AuditMarkdown content={finding.recommendation} />
             </div>
           )}
         </div>

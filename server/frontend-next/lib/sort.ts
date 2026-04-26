@@ -1,8 +1,5 @@
 import type { Contract } from "@/types/contract";
-import {
-  getContractName,
-  getContractTimestamp,
-} from "./contract-utils";
+import { getContractName } from "./contract-utils";
 
 export function sortResults(
   rows: Contract[],
@@ -27,13 +24,21 @@ export function sortResults(
         valA = (a.network || "").toLowerCase();
         valB = (b.network || "").toLowerCase();
         break;
-      case "deployed":
-        valA = getContractTimestamp(a) || 0;
-        valB = getContractTimestamp(b) || 0;
-        break;
       case "fund":
         valA = Number(a.native_balance ?? a.fund) || 0;
         valB = Number(b.native_balance ?? b.fund) || 0;
+        break;
+      case "critical":
+        valA = Number(a.critical_count) || 0;
+        valB = Number(b.critical_count) || 0;
+        break;
+      case "high":
+        valA = Number(a.high_count) || 0;
+        valB = Number(b.high_count) || 0;
+        break;
+      case "medium":
+        valA = Number(a.medium_count) || 0;
+        valB = Number(b.medium_count) || 0;
         break;
       default:
         return 0;

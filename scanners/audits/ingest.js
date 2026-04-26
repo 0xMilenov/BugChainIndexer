@@ -47,6 +47,7 @@ function parseArgs(argv) {
     process.exit(2);
   }
   args.address = args.address.toLowerCase();
+  args.network = String(args.network).trim().toLowerCase();
   if (!args.report) {
     args.report = path.join('/tmp', 'audits', `${args.network}-${args.address}`, 'AUDIT_REPORT.md');
   }

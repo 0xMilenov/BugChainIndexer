@@ -33,6 +33,8 @@ export interface Contract {
   critical_count?: number;
   high_count?: number;
   medium_count?: number;
+  /** Present when a completed Plamen audit exists for this contract (listing API). */
+  audit_id?: number | null;
 }
 
 export interface SearchResponse {
