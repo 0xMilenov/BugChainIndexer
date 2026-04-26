@@ -1,5 +1,4 @@
 import "server-only";
-import { headers } from "next/headers";
 import type { LandingStats } from "./landing-types";
 
 export type { LandingStats, LandingFinding, LandingRecentAudit } from "./landing-types";
@@ -24,11 +23,14 @@ const FALLBACK: LandingStats = {
  */
 export async function fetchLandingStats(): Promise<LandingStats> {
   try {
-    const h = await headers();
-    const host = h.get("x-forwarded-host") || h.get("host");
-    const proto = h.get("x-forwarded-proto") || "http";
-    const base = host ? `${proto}://${host}` : "";
-    const url = `${base}/landingStats`;
+    // Fetch backend directly — bypass the frontend rewrite proxy entirely.
+    // This avoids any dependency on the running next-server having the
+    // rewrite baked in, and avoids DNS/TLS roundtrips through the public host.
+    const backendUrl =
+      process.env.BACKEND_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      "http://localhost:8000";
+    const url = `${backendUrl.replace(/\/$/, "")}/landingStats`;
     const res = await fetch(url, { next: { revalidate: 60 } });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
