@@ -53,8 +53,10 @@ exports.getAddressesByFilter = async (req, res) => {
       address:      q.address ? String(q.address).trim() : null,           // address ILIKE %address%
       contractName: q.contractName ? String(q.contractName).trim() : null, // contract_name ILIKE %contractName%
 
-      // Sorting
-      sortBy: q.sortBy && ['fund', 'first_seen'].includes(q.sortBy) ? q.sortBy : 'fund',
+      // Sorting. 'severity' = audited (status=completed) first, ordered by
+      // critical -> high -> medium DESC; non-audited rows fall back to
+      // native_balance DESC (same tail order as 'fund').
+      sortBy: q.sortBy && ['fund', 'first_seen', 'severity'].includes(q.sortBy) ? q.sortBy : 'fund',
 
       // Hide unnamed/duplicate contracts
       hideUnnamed: parseBool(q.hideUnnamed),

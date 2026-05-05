@@ -75,8 +75,12 @@ function SearchPageContent() {
   const { bookmarks, saveBookmark, removeBookmark, isBookmarked } = useBookmarks();
   const nativePrices = useNativePrices();
 
-  const [sortBy, setSortBy] = useState<"fund" | "first_seen" | null>("fund");
-  const [sortColumn, setSortColumn] = useState("fund");
+  // Default to 'severity': audited contracts first (ordered by critical → high
+  // → medium DESC), then non-audited by native balance DESC. sortColumn is
+  // initialized to 'severity' so no individual table column shows an active
+  // sort indicator on first paint (no column header maps to this composite).
+  const [sortBy, setSortBy] = useState<"fund" | "first_seen" | "severity" | null>("severity");
+  const [sortColumn, setSortColumn] = useState("severity");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [hideDuplicates, setHideDuplicates] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);

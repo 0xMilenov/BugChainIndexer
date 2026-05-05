@@ -157,6 +157,25 @@ exports.getAddressesByFilter = async (filters = {}) => {
   if (sortBy === 'first_seen') {
     orderByClause = 'ORDER BY a.first_seen DESC NULLS LAST, a.address ASC';
     orderByClauseOuter = 'ORDER BY first_seen DESC NULLS LAST, address ASC';
+  } else if (sortBy === 'severity') {
+    // Audited (status=completed) first, then severity DESC, then fund DESC.
+    // CASE expression keeps non-completed (running/pending/failed/null) rows after completed ones.
+    orderByClause = `ORDER BY
+        CASE WHEN ca.status = 'completed' THEN 1 ELSE 0 END DESC,
+        COALESCE(ca.critical_count, 0) DESC,
+        COALESCE(ca.high_count, 0) DESC,
+        COALESCE(ca.medium_count, 0) DESC,
+        COALESCE(a.native_balance, 0)::numeric DESC NULLS LAST,
+        a.deployed DESC NULLS LAST,
+        a.address ASC`;
+    orderByClauseOuter = `ORDER BY
+        CASE WHEN audit_status = 'completed' THEN 1 ELSE 0 END DESC,
+        COALESCE(critical_count, 0) DESC,
+        COALESCE(high_count, 0) DESC,
+        COALESCE(medium_count, 0) DESC,
+        COALESCE(native_balance, 0)::numeric DESC NULLS LAST,
+        deployed DESC NULLS LAST,
+        address ASC`;
   } else {
     orderByClause = 'ORDER BY COALESCE(a.native_balance, 0)::numeric DESC NULLS LAST, a.deployed DESC NULLS LAST, a.address ASC';
     orderByClauseOuter = 'ORDER BY COALESCE(native_balance, 0)::numeric DESC NULLS LAST, deployed DESC NULLS LAST, address ASC';
@@ -189,9 +208,17 @@ exports.getAddressesByFilter = async (filters = {}) => {
      AND ca.audit_tool = 'plamen'
   `;
   const baseWhere = CONTRACT_LIST_WHERE.replace(/addresses\./g, 'a.');
-  // Qualify buildWhere columns with a. for the addresses alias
+  // Qualify buildWhere columns with a. for the addresses alias.
+  // Audit columns (critical_count/high_count/medium_count/audit_status) come
+  // from the LEFT JOIN'd contract_audits row (alias ca) -- qualify those too,
+  // and run them BEFORE the a.* substitutions so 'audit_status' isn't first
+  // mangled to 'a.audit_status'.
   const whereQualified = whereSql
     ? ('AND ' + whereSql.replace('WHERE ', '')
+        .replace(/\bcritical_count\b/g, 'COALESCE(ca.critical_count, 0)')
+        .replace(/\bhigh_count\b/g, 'COALESCE(ca.high_count, 0)')
+        .replace(/\bmedium_count\b/g, 'COALESCE(ca.medium_count, 0)')
+        .replace(/\baudit_status\b/g, 'ca.status')
         .replace(/\bdeployed\b/g, 'a.deployed')
         .replace(/\bfund\b/g, 'a.fund')
         .replace(/\bnetwork\b/g, 'a.network')
@@ -361,6 +388,16 @@ exports.getAddressesByFilter = async (filters = {}) => {
         first_seen: last.first_seen ?? null,
         address: last.address,
       };
+    } else if (sortBy === 'severity') {
+      nextCursor = {
+        is_audited: last.audit_status === 'completed' ? 1 : 0,
+        critical_count: Number(last.critical_count) || 0,
+        high_count: Number(last.high_count) || 0,
+        medium_count: Number(last.medium_count) || 0,
+        native_balance: last.native_balance ?? last.fund ?? null,
+        deployed: last.deployed ?? null,
+        address: last.address,
+      };
     } else {
       // Cursor for native_balance sort (use native_balance for consistent pagination)
       nextCursor = {
@@ -432,6 +469,63 @@ function buildWhere({
         (
           COALESCE(first_seen, -1) <  COALESCE(${f1}, -1)
           OR (COALESCE(first_seen, -1) = COALESCE(${f1}, -1) AND address > ${f2})
+        )
+      `);
+    } else if (sortBy === 'severity') {
+      // Composite cursor for: is_audited DESC, critical/high/medium DESC,
+      // native_balance DESC, deployed DESC, address ASC.
+      // Bare column names (audit_status / critical_count / high_count /
+      // medium_count / native_balance / deployed / address) get rewritten by
+      // the whereQualified regex to ca.status / ca.* / a.* respectively.
+      const balanceVal = cursor.native_balance ?? cursor.fund ?? null;
+      params.push(
+        cursor.is_audited ? 1 : 0,
+        Number(cursor.critical_count) || 0,
+        Number(cursor.high_count) || 0,
+        Number(cursor.medium_count) || 0,
+        balanceVal,
+        cursor.deployed ?? null,
+        cursor.address,
+      );
+      const f1 = `$${params.length-6}`; // is_audited
+      const f2 = `$${params.length-5}`; // critical_count
+      const f3 = `$${params.length-4}`; // high_count
+      const f4 = `$${params.length-3}`; // medium_count
+      const f5 = `$${params.length-2}`; // native_balance
+      const f6 = `$${params.length-1}`; // deployed
+      const f7 = `$${params.length}`;   // address
+      const isAudExpr = `(CASE WHEN audit_status = 'completed' THEN 1 ELSE 0 END)`;
+      const balExpr = `COALESCE(native_balance, -1::numeric)`;
+      const balCur = `COALESCE(${f5}::numeric, -1::numeric)`;
+      const depExpr = `COALESCE(deployed, -1::bigint)`;
+      const depCur = `COALESCE(${f6}::bigint, -1::bigint)`;
+      // Bare critical_count / high_count / medium_count get rewritten to
+      // COALESCE(ca.critical_count, 0) etc by whereQualified, so the
+      // null-handling is already covered.
+      where.push(`
+        (
+          ${isAudExpr} < ${f1}
+          OR (${isAudExpr} = ${f1} AND critical_count < ${f2})
+          OR (${isAudExpr} = ${f1} AND critical_count = ${f2}
+              AND high_count < ${f3})
+          OR (${isAudExpr} = ${f1} AND critical_count = ${f2}
+              AND high_count = ${f3}
+              AND medium_count < ${f4})
+          OR (${isAudExpr} = ${f1} AND critical_count = ${f2}
+              AND high_count = ${f3}
+              AND medium_count = ${f4}
+              AND ${balExpr} < ${balCur})
+          OR (${isAudExpr} = ${f1} AND critical_count = ${f2}
+              AND high_count = ${f3}
+              AND medium_count = ${f4}
+              AND ${balExpr} = ${balCur}
+              AND ${depExpr} < ${depCur})
+          OR (${isAudExpr} = ${f1} AND critical_count = ${f2}
+              AND high_count = ${f3}
+              AND medium_count = ${f4}
+              AND ${balExpr} = ${balCur}
+              AND ${depExpr} = ${depCur}
+              AND address > ${f7})
         )
       `);
     } else {

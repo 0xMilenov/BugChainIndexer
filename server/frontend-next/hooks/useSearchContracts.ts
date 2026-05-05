@@ -52,7 +52,7 @@ export interface SearchOptions {
 export function useSearchContracts(
   filters: Filters,
   hideDuplicates: boolean,
-  sortBy: "fund" | "first_seen" | null
+  sortBy: "fund" | "first_seen" | "severity" | null
 ) {
   const [state, setState] = useState<SearchState>({
     results: [],
