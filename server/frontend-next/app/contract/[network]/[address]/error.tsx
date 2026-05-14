@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Header } from "@/components/Header";
+import { useChunkErrorRecovery } from "@/hooks/useChunkErrorRecovery";
 
 export default function ContractError({
   error,
@@ -12,6 +13,7 @@ export default function ContractError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useChunkErrorRecovery(error);
   useEffect(() => {
     console.error("Contract page error:", error);
   }, [error]);

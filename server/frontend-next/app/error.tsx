@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { useChunkErrorRecovery } from "@/hooks/useChunkErrorRecovery";
 
 export default function Error({
   error,
@@ -11,6 +12,7 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useChunkErrorRecovery(error);
   useEffect(() => {
     console.error("Application error:", error);
   }, [error]);
