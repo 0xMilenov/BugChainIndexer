@@ -337,10 +337,57 @@ function initEtherscan(network, apiKeys) {
   etherscanState.set(network, { keys, index: 0 });
 }
 
+/**
+ * Translate Etherscan-style `module=proxy&action=eth_X` parameters to a direct
+ * JSON-RPC call against the network's configured rpcUrls. Used for chains whose
+ * dedicated explorer (typically Blockscout) does not expose the Etherscan proxy
+ * module. Opt-in via `useDedicatedExplorer: true` on the network config.
+ */
+async function proxyViaRpc(network, params) {
+  const config = NETWORKS[network];
+  if (!config?.rpcUrls?.length) {
+    throw new Error(`proxyViaRpc: no rpcUrls configured for ${network}`);
+  }
+  const action = params.action;
+  let rpcParams;
+  switch (action) {
+    case 'eth_getCode':
+    case 'eth_getBalance':
+      rpcParams = [params.address, params.tag || 'latest'];
+      break;
+    case 'eth_blockNumber':
+      rpcParams = [];
+      break;
+    case 'eth_getBlockByNumber':
+      rpcParams = [params.tag, params.boolean === 'true' || params.boolean === true];
+      break;
+    case 'eth_getTransactionByHash':
+      rpcParams = [params.txhash];
+      break;
+    case 'eth_call':
+      rpcParams = [{ to: params.to, data: params.data }, params.tag || 'latest'];
+      break;
+    default:
+      throw new Error(`proxyViaRpc: unsupported action '${action}' on ${network}`);
+  }
+  const client = new HttpRpcClient(network);
+  return await client.makeRequest(action, rpcParams);
+}
+
 async function etherscanRequestInternal(network, params, maxRetries = 3) {
   // Clean and normalize address parameters before sending
   const cleanedParams = cleanAddressParams(params);
-  
+
+  // Dedicated-explorer chains (e.g. Bittensor EVM via evm.taostats.io) sit
+  // outside the Etherscan v2 family. Their Blockscout-style API supports the
+  // `contract` and `account` modules but not the Etherscan `proxy` module, so
+  // route those calls through direct JSON-RPC instead.
+  const dedicatedConfig = NETWORKS[network];
+  const useDedicated = dedicatedConfig?.useDedicatedExplorer === true && !!dedicatedConfig.explorerApiUrl;
+  if (useDedicated && cleanedParams.module === 'proxy') {
+    return await proxyViaRpc(network, cleanedParams);
+  }
+
   // Check if proxy server is enabled
   const useProxy = process.env.USE_ETHERSCAN_PROXY === 'true';
   const proxyUrl = process.env.ETHERSCAN_PROXY_URL || 'http://localhost:3000';
@@ -417,8 +464,12 @@ async function etherscanRequestInternal(network, params, maxRetries = 3) {
 
   // Parameterized base URL for multi-network support.
   // Defaults to Etherscan V2, but can be overridden globally via env.
-  const baseURL = process.env.ETHERSCAN_BASE_URL || 'https://api.etherscan.io/v2/api';
-  const useV2Api = true;
+  // Chains that opt in with `useDedicatedExplorer: true` route through their
+  // own `explorerApiUrl` (e.g. Bittensor EVM, which is not on Etherscan v2).
+  // Existing chains without the flag continue to use v2 unchanged.
+  const baseURL = process.env.ETHERSCAN_BASE_URL
+    || (useDedicated ? config.explorerApiUrl : 'https://api.etherscan.io/v2/api');
+  const useV2Api = !useDedicated;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
