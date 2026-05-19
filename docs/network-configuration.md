@@ -89,19 +89,20 @@ GET https://api.etherscan.io/v2/api?
 
 ## Network Configuration
 
-### Dedicated API Networks (7 networks)
+### Dedicated API Networks
 
 These networks use network-specific explorer APIs with the `explorerApiUrl` field:
 
-| Network | Chain ID | Explorer API URL | API Key |
-|---------|----------|------------------|---------|
-| Ethereum | 1 | https://api.etherscan.io/api | Etherscan |
-| Polygon | 137 | https://api.polygonscan.com/api | Etherscan |
-| Arbitrum | 42161 | https://api.arbiscan.io/api | Etherscan |
-| Optimism | 10 | https://api-optimistic.etherscan.io/api | Etherscan |
-| Base | 8453 | https://api.basescan.org/api | Etherscan |
-| BSC | 56 | https://api.bscscan.com/api | Etherscan |
-| Avalanche | 43114 | https://api.snowtrace.io/api | Etherscan |
+| Network | Chain ID | Explorer API URL | API Key | Notes |
+|---------|----------|------------------|---------|-------|
+| Ethereum | 1 | https://api.etherscan.io/api | Etherscan | |
+| Polygon | 137 | https://api.polygonscan.com/api | Etherscan | |
+| Arbitrum | 42161 | https://api.arbiscan.io/api | Etherscan | |
+| Optimism | 10 | https://api-optimistic.etherscan.io/api | Etherscan | |
+| Base | 8453 | https://api.basescan.org/api | Etherscan | |
+| BSC | 56 | https://api.bscscan.com/api | Etherscan | |
+| Avalanche | 43114 | https://api.snowtrace.io/api | Etherscan | |
+| Bittensor EVM | 964 | https://evm.taostats.io/api | none | Blockscout; `useDedicatedExplorer: true` (see below) |
 
 **Configuration Example** (`scanners/config/networks.js`):
 ```javascript
@@ -111,6 +112,24 @@ ethereum: {
   // ... other config
 }
 ```
+
+### Opt-in dedicated routing (`useDedicatedExplorer`)
+
+Bittensor EVM (and any future chain outside the Etherscan v2 supported list) sets
+`useDedicatedExplorer: true` on its network config. This flag does two things in
+`scanners/common/core.js`:
+
+1. **Routes `module=contract|account` requests** to the chain's `explorerApiUrl`
+   directly instead of `api.etherscan.io/v2/api?chainid=...`. Blockscout-family
+   explorers ignore the trailing `apikey` param, so no key is required.
+2. **Falls back to direct JSON-RPC for `module=proxy` requests** (`eth_getCode`,
+   `eth_getBalance`, `eth_blockNumber`, `eth_getBlockByNumber`,
+   `eth_getTransactionByHash`, `eth_call`). The Etherscan `proxy` module is not
+   exposed by Blockscout, so these calls go through the network's `rpcUrls` via
+   `HttpRpcClient` (with the existing failover/rate-limit infrastructure).
+
+Existing chains that do **not** set the flag continue to use Etherscan v2 with
+`chainid` parameter (unchanged behavior).
 
 ### V2 API Networks (6 networks)
 

@@ -288,15 +288,21 @@ class Scanner {
         timestamp: targetTimestamp,
         closest: 'before'  // Get block before or at timestamp
       });
-      
-      const blockNumber = parseInt(result);
-      
+
+      // Etherscan returns the block number as a string in `result`.
+      // Blockscout-family APIs (e.g. Bittensor's evm.taostats.io) wrap it:
+      // `result: { blockNumber: "..." }`. Handle both shapes.
+      const raw = (result && typeof result === 'object' && !Array.isArray(result))
+        ? (result.blockNumber ?? result.block_number)
+        : result;
+      const blockNumber = parseInt(raw, 10);
+
       // Simple validation - ensure reasonable block number
-      if (blockNumber <= 0 ) {
+      if (!Number.isFinite(blockNumber) || blockNumber <= 0) {
         this.log(`Invalid block number ${blockNumber} from API, using current block`, 'warn');
         return await this.getBlockNumber(); // Return current block as fallback
       }
-      
+
       return blockNumber;
     } catch (error) {
       this.log(`Failed to get block by timestamp via API: ${error.message}`, 'warn');

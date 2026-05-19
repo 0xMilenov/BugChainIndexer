@@ -982,6 +982,30 @@ const ADDITIONAL_NETWORKS = {
     logsOptimization: 'low-density'
   },
 
+  subtensor: {
+    chainId: 964,
+    name: 'Bittensor EVM',
+    // Alchemy does not support Bittensor; rely on the public RPC fallbacks below.
+    explorerApiUrl: 'https://evm.taostats.io/api',
+    // Bittensor's Blockscout-based explorer is not on Etherscan v2's chain list.
+    // Routes contract/account calls to evm.taostats.io and proxy calls through JSON-RPC.
+    useDedicatedExplorer: true,
+
+    rpcUrls: envArray('SUBTENSOR_RPC_URL', [
+      'https://lite.chain.opentensor.ai',
+      'https://entrypoint-finney.opentensor.ai'
+    ].filter(Boolean)),
+    // contractValidator omitted - scanner falls back to per-address eth_getCode (MegaETH pattern).
+    // BalanceHelper omitted - FundUpdater falls back to individual eth_getBalance calls.
+    nativeCurrency: 'TAO',
+    maxLogsBlockRange: {
+      free: 10,
+      premium: 10000
+    },
+    // Bittensor has low log density (5-20 logs/block)
+    logsOptimization: 'low-density'
+  },
+
   sui: {
     chainId: 0, // Sui doesn't use EVM chainId
     name: 'Sui Network',

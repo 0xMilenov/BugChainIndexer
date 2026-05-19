@@ -36,6 +36,7 @@ export const NETWORK_DISPLAY_NAMES: Record<string, string> = {
   moonbeam: "Moonbeam",
   moonriver: "Moonriver",
   opbnb: "opBNB",
+  subtensor: "Bittensor",
 };
 
 export const NETWORK_KEYS = Object.keys(NETWORK_DISPLAY_NAMES);
@@ -61,6 +62,7 @@ export const EXPLORER_MAP: Record<string, string> = {
   moonbeam: "https://moonscan.io/address/",
   moonriver: "https://moonriver.moonscan.io/address/",
   opbnb: "https://opbnb.bscscan.com/address/",
+  subtensor: "https://evm.taostats.io/address/",
 };
 
 export const TX_EXPLORER_MAP: Record<string, string> = {
@@ -84,6 +86,7 @@ export const TX_EXPLORER_MAP: Record<string, string> = {
   moonbeam: "https://moonscan.io/tx/",
   moonriver: "https://moonriver.moonscan.io/tx/",
   opbnb: "https://opbnb.bscscan.com/tx/",
+  subtensor: "https://evm.taostats.io/tx/",
 };
 
 export const NETWORK_COLORS: Record<string, string> = {
@@ -107,6 +110,7 @@ export const NETWORK_COLORS: Record<string, string> = {
   moonbeam: "bg-pink-600",
   moonriver: "bg-rose-500",
   opbnb: "bg-yellow-600",
+  subtensor: "bg-indigo-500",
 };
 
 export const NETWORK_NATIVE_CONFIG: Record<
@@ -130,4 +134,5 @@ export const NETWORK_NATIVE_CONFIG: Record<
   cronos: { symbol: "CRO", decimals: 18 },
   moonbeam: { symbol: "GLMR", decimals: 18 },
   moonriver: { symbol: "MOVR", decimals: 18 },
+  subtensor: { symbol: "TAO", decimals: 18 },
 };

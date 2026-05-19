@@ -115,7 +115,17 @@ const GENESIS_TIMESTAMPS = {
     block: 0,
     date: '2021-06-22T15:30:00Z'
   },
-  
+  964: {
+    name: 'Bittensor EVM',
+    // Approximation: EVM module activation on Subtensor (Oct 2024).
+    // Only consulted on GENESIS_ placeholder tx hashes; Bittensor's explorer
+    // returns real creator+txHash for all observed contracts, so this is a
+    // defensive fallback rather than a hot path.
+    timestamp: 1729641600,  // October 23, 2024 00:00:00 UTC
+    block: 0,
+    date: '2024-10-23T00:00:00Z'
+  },
+
   // Testnets (optional, can be added as needed)
   11155111: {
     name: 'Sepolia',
