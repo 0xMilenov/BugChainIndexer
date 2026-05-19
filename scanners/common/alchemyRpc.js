@@ -38,27 +38,44 @@ class AlchemyRPCClient {
       scheduling: 'fifo'
     });
 
+    // Networks without an Alchemy mapping (e.g. Bittensor EVM) fall back to
+    // their first configured public RPC. We mark them with isNonAlchemy so
+    // tier detection and Alchemy-specific endpoints short-circuit cleanly.
+    const networkConfig = NETWORKS[network];
+    const hasAlchemySupport = !!networkConfig?.alchemyNetwork;
+
     if (useProxy) {
       // Use Alchemy proxy server
       this.proxyUrl = process.env.ALCHEMY_PROXY_URL || 'http://localhost:3002';
       this.alchemyUrl = `${this.proxyUrl}/rpc/${this.network}`;
       this.useProxy = true;
+      this.isNonAlchemy = false;
       console.log(`[${network}] AlchemyRPC: Using proxy at ${this.proxyUrl} with connection pooling`);
-    } else {
+    } else if (hasAlchemySupport) {
       // Use direct Alchemy API
       const apiKey = process.env.ALCHEMY_API_KEY;
       if (!apiKey) {
         throw new Error('ALCHEMY_API_KEY not configured and USE_ALCHEMY_PROXY is false');
       }
 
-      // Get network config for Alchemy endpoint
-      const networkConfig = NETWORKS[network];
-      const alchemyNetwork = networkConfig?.alchemyNetwork || network;
-
-      // Construct direct Alchemy URL
+      const alchemyNetwork = networkConfig.alchemyNetwork;
       this.alchemyUrl = `https://${alchemyNetwork}.g.alchemy.com/v2/${apiKey}`;
       this.useProxy = false;
+      this.isNonAlchemy = false;
       console.log(`[${network}] AlchemyRPC: Using direct Alchemy API for ${alchemyNetwork} with connection pooling`);
+    } else {
+      // No Alchemy support - fall back to the chain's first public RPC URL.
+      // Generic JSON-RPC calls (eth_blockNumber, eth_getLogs, etc.) work fine;
+      // Alchemy-specific endpoints (alchemy_getTokenMetadata, prices API)
+      // will fail cleanly with isNonAlchemy guards.
+      const fallbackRpc = networkConfig?.rpcUrls?.find(u => u && !u.includes('alchemy.com') && !u.includes(':3001/rpc/'));
+      if (!fallbackRpc) {
+        throw new Error(`No Alchemy mapping and no fallback RPC for ${network}`);
+      }
+      this.alchemyUrl = fallbackRpc;
+      this.useProxy = false;
+      this.isNonAlchemy = true;
+      console.log(`[${network}] AlchemyRPC: No Alchemy mapping; using ${fallbackRpc} as generic JSON-RPC`);
     }
   }
 
@@ -68,6 +85,15 @@ class AlchemyRPCClient {
    */
   async detectTier() {
     if (this.detectedTier) {
+      return this.detectedTier;
+    }
+
+    // Non-Alchemy chains: skip remote tier probing and pin to 'free' (use the
+    // chain's `maxLogsBlockRange.free` value). Behavior matches the existing
+    // fallback at the bottom of this function without the slow remote calls.
+    if (this.isNonAlchemy) {
+      this.detectedTier = 'free';
+      console.log(`[${this.network}] Non-Alchemy chain: tier pinned to free`);
       return this.detectedTier;
     }
 
