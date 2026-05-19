@@ -342,6 +342,13 @@ function initEtherscan(network, apiKeys) {
  * JSON-RPC call against the network's configured rpcUrls. Used for chains whose
  * dedicated explorer (typically Blockscout) does not expose the Etherscan proxy
  * module. Opt-in via `useDedicatedExplorer: true` on the network config.
+ *
+ * Uses axios directly with sequential RPC fallback (not the HttpRpcClient queue):
+ * the proxy fallback is invoked from inside an active Etherscan-queue flow, and
+ * re-entering globalAPILimiter from there deadlocks when the etherscan-queue's
+ * post-processing sleep is still holding `processing=true`. Upstream Etherscan
+ * rate-limiting already gates the call frequency, so per-call queueing is not
+ * needed here.
  */
 async function proxyViaRpc(network, params) {
   const config = NETWORKS[network];
@@ -370,23 +377,43 @@ async function proxyViaRpc(network, params) {
     default:
       throw new Error(`proxyViaRpc: unsupported action '${action}' on ${network}`);
   }
-  const client = new HttpRpcClient(network);
-  return await client.makeRequest(action, rpcParams);
+
+  const payload = { jsonrpc: '2.0', id: 1, method: action, params: rpcParams };
+  let lastError;
+  for (const rpcUrl of config.rpcUrls) {
+    // Skip Alchemy URLs - they're an empty fallback for chains without Alchemy support
+    // (getAlchemyUrl returns null when the chain isn't in the map, then filter(Boolean) removes it,
+    // but we double-check here in case the config was constructed differently).
+    if (!rpcUrl || rpcUrl.includes('alchemy.com') || rpcUrl.includes(':3001/rpc/')) continue;
+    try {
+      const response = await axios.post(rpcUrl, payload, {
+        timeout: 15000,
+        headers: { 'Content-Type': 'application/json' },
+        validateStatus: (s) => s < 500,
+      });
+      if (response.data?.error) {
+        lastError = new Error(`RPC error from ${rpcUrl}: ${response.data.error.message}`);
+        continue;
+      }
+      return response.data?.result ?? null;
+    } catch (err) {
+      lastError = err;
+      // try next RPC
+    }
+  }
+  throw lastError || new Error(`proxyViaRpc: all RPCs failed for ${network}/${action}`);
 }
 
 async function etherscanRequestInternal(network, params, maxRetries = 3) {
   // Clean and normalize address parameters before sending
   const cleanedParams = cleanAddressParams(params);
 
-  // Dedicated-explorer chains (e.g. Bittensor EVM via evm.taostats.io) sit
-  // outside the Etherscan v2 family. Their Blockscout-style API supports the
-  // `contract` and `account` modules but not the Etherscan `proxy` module, so
-  // route those calls through direct JSON-RPC instead.
-  const dedicatedConfig = NETWORKS[network];
-  const useDedicated = dedicatedConfig?.useDedicatedExplorer === true && !!dedicatedConfig.explorerApiUrl;
-  if (useDedicated && cleanedParams.module === 'proxy') {
-    return await proxyViaRpc(network, cleanedParams);
-  }
+  // Note: proxy-module fallback for dedicated-explorer chains (e.g. Bittensor)
+  // is short-circuited at the etherscanRequest entry point, BEFORE the
+  // Etherscan queue. Calls reaching here are guaranteed to target the
+  // Etherscan-family API.
+  const useDedicated = NETWORKS[network]?.useDedicatedExplorer === true
+    && !!NETWORKS[network].explorerApiUrl;
 
   // Check if proxy server is enabled
   const useProxy = process.env.USE_ETHERSCAN_PROXY === 'true';
@@ -550,8 +577,20 @@ async function etherscanRequestInternal(network, params, maxRetries = 3) {
 }
 
 async function etherscanRequest(network, params, maxRetries = 3) {
+  // Dedicated-explorer chains route module=proxy calls through JSON-RPC
+  // (Blockscout-family APIs don't expose the Etherscan proxy module).
+  // We MUST short-circuit before entering the Etherscan queue: the proxy
+  // fallback queues on the RPC queue, and re-entering globalAPILimiter
+  // from inside an already-running Etherscan-queue handler would deadlock.
+  const dedicatedConfig = NETWORKS[network];
+  if (dedicatedConfig?.useDedicatedExplorer === true
+      && !!dedicatedConfig.explorerApiUrl
+      && params?.module === 'proxy') {
+    return await proxyViaRpc(network, cleanAddressParams(params));
+  }
+
   const description = `${params.module}/${params.action}`;
-  
+
   return globalAPILimiter.queueEtherscanRequest(
     () => etherscanRequestInternal(network, params, maxRetries),
     network,
