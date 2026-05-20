@@ -252,7 +252,7 @@ export interface ContractAuditStatus {
   audit_tool: string;
   audit_mode?: string | null;
   tool_version?: string | null;
-  status: "pending" | "running" | "completed" | "failed" | "stalled" | string;
+  status: "pending" | "running" | "completed" | "failed" | "stalled" | "cancelled" | string;
   started_at?: number | string | null;
   completed_at?: number | string | null;
   duration_ms?: number | string | null;
@@ -307,6 +307,30 @@ export async function triggerContractAudit(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ mode }),
+  });
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data?.error || `HTTP ${resp.status}`);
+  return data;
+}
+
+/**
+ * Cancel an in-flight audit. Returns the updated status row (status='cancelled').
+ * Safe to call when nothing is running — backend returns a 409 with an
+ * explanatory error in that case.
+ */
+export async function cancelContractAudit(
+  address: string,
+  network: string
+): Promise<TriggerAuditResponse> {
+  const base = getBaseUrl();
+  const encAddr = encodeURIComponent(address);
+  const encNet = encodeURIComponent(network);
+  const url = base
+    ? `${base}/contract/${encNet}/${encAddr}/audit/cancel`
+    : `/api/contract/${encNet}/${encAddr}/audit/cancel`;
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
   });
   const data = await resp.json();
   if (!resp.ok) throw new Error(data?.error || `HTTP ${resp.status}`);

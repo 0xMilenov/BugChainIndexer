@@ -213,6 +213,32 @@ exports.getContractAuditStatus = async (req, res) => {
   }
 };
 
+exports.cancelContractAudit = async (req, res) => {
+  try {
+    const network = req.params?.network || req.body?.network;
+    const address = req.params?.address || req.body?.address;
+    if (!address || !network) {
+      return res.status(400).json({ ok: false, error: 'address and network are required' });
+    }
+    const result = await auditRunService.cancelAudit({ address, network });
+    if (!result.ok) {
+      const clientErrors = new Set([
+        'Invalid contract address',
+        'Network is required',
+        'No audit found for this contract',
+      ]);
+      const isStateMismatch =
+        typeof result.error === 'string' && result.error.startsWith("Cannot cancel audit in '");
+      const status = clientErrors.has(result.error) || isStateMismatch ? 409 : 500;
+      return res.status(status).json(result);
+    }
+    res.json(result);
+  } catch (err) {
+    console.error('cancelContractAudit failed:', err?.message || err);
+    res.status(500).json({ ok: false, error: 'Internal Server Error' });
+  }
+};
+
 exports.searchByCode = async (req, res) => {
   try {
     const body = req.body || {};

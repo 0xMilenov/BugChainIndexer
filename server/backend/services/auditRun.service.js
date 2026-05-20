@@ -357,7 +357,70 @@ async function getAuditStatus({ address, network }) {
   };
 }
 
+/**
+ * Cancel a running Plamen audit for the given contract.
+ *
+ * Sends SIGTERM to the spawn'd process group (so plamen's child agents die
+ * too), waits briefly, then SIGKILL on holdouts, and marks the DB row
+ * 'cancelled'. Safe to call when nothing is running — returns an explanatory
+ * `ok: false` rather than mutating state.
+ *
+ * Returns `{ ok, audit, error }` shaped like triggerAudit.
+ */
+async function cancelAudit({ address, network }) {
+  const addr = normalizeAddress(address);
+  const net = normalizeNetwork(network);
+
+  if (!isValidAddress(addr)) return { ok: false, error: 'Invalid contract address' };
+  if (!net) return { ok: false, error: 'Network is required' };
+
+  const row = await getAuditRow(addr, net);
+  if (!row) return { ok: false, error: 'No audit found for this contract' };
+  if (row.status !== 'running' && row.status !== 'pending') {
+    return {
+      ok: false,
+      error: `Cannot cancel audit in '${row.status}' state`,
+      audit: row,
+    };
+  }
+
+  // Best-effort signal delivery. The child was spawn'd with detached:true so
+  // it's the leader of its own process group — kill -pid (negative) signals
+  // the whole group, which is what we want for plamen + its agent children.
+  if (row.pid && isProcessAlive(row.pid)) {
+    const sendSignal = (sig) => {
+      try {
+        process.kill(-row.pid, sig); // process group
+      } catch {
+        try { process.kill(row.pid, sig); } catch { /* gone */ }
+      }
+    };
+    sendSignal('SIGTERM');
+    // Give plamen up to 3s to clean up its subagents.
+    await new Promise((r) => setTimeout(r, 3000));
+    if (isProcessAlive(row.pid)) {
+      sendSignal('SIGKILL');
+    }
+  }
+
+  const now = Date.now();
+  await pool.query(
+    `UPDATE contract_audits
+        SET status = 'cancelled',
+            completed_at = $1,
+            duration_ms = COALESCE($1 - started_at, 0),
+            error_message = 'Cancelled by user',
+            pid = NULL
+      WHERE id = $2`,
+    [now, row.id]
+  );
+
+  const updated = await getAuditRow(addr, net);
+  return { ok: true, audit: updated };
+}
+
 module.exports = {
   triggerAudit,
   getAuditStatus,
+  cancelAudit,
 };

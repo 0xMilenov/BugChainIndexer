@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  cancelContractAudit,
   getContractAudit,
   getContractAuditStatus,
   triggerContractAudit,
@@ -11,7 +12,7 @@ import {
 } from "@/lib/api";
 import { AuditMarkdown } from "./AuditMarkdown";
 import { SeverityBadges } from "./SeverityBadges";
-import { Loader2, Play, AlertTriangle, RefreshCcw, Activity } from "lucide-react";
+import { Loader2, Play, AlertTriangle, RefreshCcw, Activity, X } from "lucide-react";
 
 interface AuditSectionProps {
   address: string;
@@ -122,6 +123,7 @@ const STATUS_STYLE: Record<string, string> = {
   completed: "bg-emerald-500/15 text-emerald-400 border-emerald-500/40",
   failed: "bg-red-500/15 text-red-400 border-red-500/40",
   stalled: "bg-amber-500/15 text-amber-400 border-amber-500/40",
+  cancelled: "bg-text-muted/15 text-text-muted border-border",
 };
 
 function StatusPill({ status }: { status: string }) {
@@ -147,6 +149,8 @@ export function AuditSection({ address, network }: AuditSectionProps) {
   const [error, setError] = useState<string | null>(null);
   const [triggering, setTriggering] = useState(false);
   const [triggerError, setTriggerError] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelled = useRef(false);
 
@@ -236,9 +240,31 @@ export function AuditSection({ address, network }: AuditSectionProps) {
     }
   }, [address, network, refreshStatus]);
 
+  const handleCancel = useCallback(async () => {
+    if (!window.confirm("Stop the in-flight audit? Any progress will be lost.")) return;
+    setCancelling(true);
+    setCancelError(null);
+    try {
+      const r = await cancelContractAudit(address, network);
+      if (r.audit) setStatus(r.audit);
+      // Stop the polling loop — status is now terminal.
+      if (pollTimer.current) {
+        clearTimeout(pollTimer.current);
+        pollTimer.current = null;
+      }
+    } catch (err) {
+      setCancelError((err as Error)?.message || "Failed to cancel audit");
+    } finally {
+      setCancelling(false);
+    }
+  }, [address, network]);
+
   const isRunning = status?.status === "running" || status?.status === "pending";
   const isCompleted = status?.status === "completed";
-  const isTerminalFailure = status?.status === "failed" || status?.status === "stalled";
+  const isTerminalFailure =
+    status?.status === "failed" ||
+    status?.status === "stalled" ||
+    status?.status === "cancelled";
   const showFindings = isCompleted && audit;
 
   return (
@@ -347,19 +373,62 @@ export function AuditSection({ address, network }: AuditSectionProps) {
                 </pre>
               </details>
             )}
-            <p className="mt-3 text-[11px] text-text-muted">
-              The page polls every 5s. You can leave and come back — findings will
-              appear here once the run finishes.
-            </p>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[11px] text-text-muted">
+                The page polls every 5s. You can leave and come back — findings
+                will appear here once the run finishes.
+              </p>
+              <button
+                type="button"
+                onClick={handleCancel}
+                disabled={cancelling}
+                className="inline-flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-red-400 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {cancelling ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Stopping…
+                  </>
+                ) : (
+                  <>
+                    <X className="h-3 w-3" />
+                    Stop audit
+                  </>
+                )}
+              </button>
+            </div>
+            {cancelError && (
+              <p className="mt-2 text-[11px] text-red-400">{cancelError}</p>
+            )}
           </div>
         )}
 
-        {/* Failure / stall */}
+        {/* Failure / stall / cancelled */}
         {!loading && !error && isTerminalFailure && (
-          <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-4">
-            <div className="flex items-center gap-2 text-sm font-semibold text-red-400">
-              <AlertTriangle className="h-4 w-4" />
-              {status?.status === "stalled" ? "Audit stalled" : "Audit failed"}
+          <div
+            className={
+              status?.status === "cancelled"
+                ? "rounded-lg border border-border bg-bg-tertiary/40 p-4"
+                : "rounded-lg border border-red-500/30 bg-red-500/5 p-4"
+            }
+          >
+            <div
+              className={
+                status?.status === "cancelled"
+                  ? "flex items-center gap-2 text-sm font-semibold text-text-muted"
+                  : "flex items-center gap-2 text-sm font-semibold text-red-400"
+              }
+            >
+              {status?.status === "cancelled" ? (
+                <X className="h-4 w-4" />
+              ) : (
+                <AlertTriangle className="h-4 w-4" />
+              )}
+              {status?.status === "cancelled"
+                ? "Audit cancelled"
+                : status?.status === "stalled"
+                  ? "Audit stalled"
+                  : "Audit failed"}
             </div>
             {status?.error_message && (
               <p className="mt-1 text-xs text-text-muted">{status.error_message}</p>
@@ -375,7 +444,7 @@ export function AuditSection({ address, network }: AuditSectionProps) {
               ) : (
                 <RefreshCcw className="h-3 w-3" />
               )}
-              Retry audit
+              {status?.status === "cancelled" ? "Run audit again" : "Retry audit"}
             </button>
             {triggerError && (
               <p className="mt-2 text-xs text-red-400">{triggerError}</p>
