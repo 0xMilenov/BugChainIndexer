@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-# audit-one.sh — extract a single contract, run Plamen thorough, ingest findings.
+# audit-one.sh — extract a single contract, run Plamen, ingest findings.
+#
+# Plamen CLI: tested against v2.0.0. The smart-contract pipeline keeps the
+# positional `<mode> <path>` form plus `--network` and `--proven-only` from
+# v1.1.8, so this script's invocation is unchanged across the upgrade.
 #
 # Usage:
 #   scanners/audits/audit-one.sh <network> <address>
