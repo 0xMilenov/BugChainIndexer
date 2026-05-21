@@ -1,0 +1,112 @@
+diff --git a/scripts/plamen_validators.py b/scripts/plamen_validators.py
+index d93e3cf..64622d7 100644
+--- a/scripts/plamen_validators.py
++++ b/scripts/plamen_validators.py
+@@ -5427,8 +5427,14 @@ def _maybe_skip_empty_body_writer(scratchpad: Path, phase_name: str) -> bool:
+         "Empty-Tier-Auth: PLAMEN-DRIVER-AUTHENTIC-EMPTY-TIER\n"
+     )
+     (scratchpad / out_name).write_text(note, encoding="utf-8")
++    # Sidecar write is best-effort: the body markdown already carries the
++    # `Empty-Tier-Auth: PLAMEN-DRIVER-AUTHENTIC-EMPTY-TIER` magic string,
++    # which `_empty_tier_sidecar_valid` now treats as an authoritative
++    # fallback. We still try to write the sidecar so newer code that
++    # prefers structured signals keeps working, but a failure here no
++    # longer brings down the run silently.
+     try:
+-        manifests_dir.mkdir(exist_ok=True)
++        manifests_dir.mkdir(parents=True, exist_ok=True)
+         (manifests_dir / f"{shard_key}.empty.json").write_text(
+             json.dumps(
+                 {
+@@ -5442,8 +5448,17 @@ def _maybe_skip_empty_body_writer(scratchpad: Path, phase_name: str) -> bool:
+             ),
+             encoding="utf-8",
+         )
+-    except Exception:
+-        pass
++    except Exception as exc:
++        # Log instead of swallowing — future failures should be diagnosable.
++        try:
++            log = logging.getLogger(__name__)
++            log.warning(
++                f"[{phase_name}] empty-tier sidecar write failed "
++                f"({type(exc).__name__}: {exc}); relying on body magic "
++                f"string fallback in _empty_tier_sidecar_valid"
++            )
++        except Exception:
++            pass
+     return True
+ 
+ 
+@@ -5470,22 +5485,58 @@ def _expected_tier_assignment_count(scratchpad: Path, shard_key: str) -> int | N
+ 
+ 
+ def _empty_tier_sidecar_valid(scratchpad: Path, shard_key: str, body_name: str) -> bool:
+-    sidecar = scratchpad / "body_manifests" / f"{shard_key}.empty.json"
+-    if not sidecar.exists():
+-        return False
+-    try:
+-        data = json.loads(sidecar.read_text(encoding="utf-8"))
+-    except Exception:
+-        return False
++    """Authenticate an empty-tier body file.
++
++    Primary signal: structured sidecar at
++      body_manifests/{shard_key}.empty.json
++    written by `_maybe_skip_empty_body_writer` with `auth =
++    PLAMEN-DRIVER-AUTHENTIC-EMPTY-TIER`. This is the preferred path.
++
++    Fallback signal: the body markdown itself carries the magic string
++    `Empty-Tier-Auth: PLAMEN-DRIVER-AUTHENTIC-EMPTY-TIER` (also written
++    by the empty-shard handler at the same time as the sidecar). The
++    fallback exists because the sidecar write is best-effort — on rare
++    filesystem / permission failures the body file lands but the
++    sidecar doesn't, and historically that silently broke the run.
++    The body magic string is just as authoritative as the sidecar
++    payload (both originate from the same handler in the same call)
++    so accepting it here is safe.
++
++    In both paths we still require `_expected_tier_assignment_count == 0`
++    so the validator can't be spoofed by an LLM that hallucinates the
++    magic string while the index has reportable findings.
++    """
+     expected_count = _expected_tier_assignment_count(scratchpad, shard_key)
+     if expected_count is None or expected_count != 0:
+         return False
+-    return (
+-        data.get("auth") == "PLAMEN-DRIVER-AUTHENTIC-EMPTY-TIER"
+-        and data.get("shard") == shard_key
+-        and data.get("assigned_count") == 0
+-        and data.get("output") == body_name
+-    )
++
++    sidecar = scratchpad / "body_manifests" / f"{shard_key}.empty.json"
++    if sidecar.exists():
++        try:
++            data = json.loads(sidecar.read_text(encoding="utf-8"))
++            if (
++                data.get("auth") == "PLAMEN-DRIVER-AUTHENTIC-EMPTY-TIER"
++                and data.get("shard") == shard_key
++                and data.get("assigned_count") == 0
++                and data.get("output") == body_name
++            ):
++                return True
++        except Exception:
++            # fall through to body magic-string fallback
++            pass
++
++    # Body magic-string fallback: only the empty-shard handler emits this
++    # exact line, so its presence in the tier body is a reliable proof of
++    # an authentic empty tier even when the sidecar write didn't land.
++    body_path = scratchpad / body_name
++    if body_path.exists():
++        try:
++            body_text = body_path.read_text(encoding="utf-8", errors="replace")
++        except Exception:
++            return False
++        return "Empty-Tier-Auth: PLAMEN-DRIVER-AUTHENTIC-EMPTY-TIER" in body_text
++
++    return False
+ 
+ 
+ def _generate_body_writer_retry_hint(scratchpad: Path, phase_name: str) -> str:
