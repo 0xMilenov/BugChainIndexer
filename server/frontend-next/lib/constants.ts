@@ -16,7 +16,12 @@ export const TIME_RANGES: Record<number, string> = {
 
 export const FUND_UI_MAX = 10_000_000;
 
+// Order here drives BOTH the dashboard NetworkFilter chip order and the
+// AddContractModal <select> options. NETWORK_KEYS[0] is also used as the
+// default-selected network in AddContractModal — so the first entry is the
+// network the user is most likely to add next.
 export const NETWORK_DISPLAY_NAMES: Record<string, string> = {
+  subtensor: "Bittensor",
   ethereum: "Ethereum",
   binance: "Binance",
   optimism: "Optimism",
@@ -36,7 +41,6 @@ export const NETWORK_DISPLAY_NAMES: Record<string, string> = {
   moonbeam: "Moonbeam",
   moonriver: "Moonriver",
   opbnb: "opBNB",
-  subtensor: "Bittensor",
 };
 
 export const NETWORK_KEYS = Object.keys(NETWORK_DISPLAY_NAMES);
