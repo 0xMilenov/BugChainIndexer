@@ -18,9 +18,19 @@ const { NETWORKS } = require('../../../scanners/config/networks');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 const AUDIT_ONE_SH = path.join(REPO_ROOT, 'scanners', 'audits', 'audit-one.sh');
+const INGEST_JS = path.join(REPO_ROOT, 'scanners', 'audits', 'ingest.js');
 const AUDIT_ROOT = process.env.AUDIT_ROOT || '/tmp/audits';
 const VALID_MODES = new Set(['light', 'core', 'thorough']);
 const EVM_ADDRESS_REGEX = /^0x[a-fA-F0-9]{40}$/;
+
+// Reconciler tuning. A wrapper death without an exit-handler firing (e.g.
+// systemd cgroup kill on backend restart, OOM, host reboot) leaves the row
+// stuck in 'running' forever. The reconciler scans periodically and either
+// ingests the finished AUDIT_REPORT.md or marks the run failed.
+const RECONCILER_INTERVAL_MS = Number(process.env.AUDIT_RECONCILER_INTERVAL_MS || 60_000);
+// Don't reconcile runs younger than this — a row whose PID lookup briefly
+// races the spawn handler should not be flipped to failed by mistake.
+const RECONCILER_MIN_AGE_MS = Number(process.env.AUDIT_RECONCILER_MIN_AGE_MS || 60_000);
 
 /** Phase markers we look for in the log tail when reporting progress. */
 const PHASE_PATTERNS = [
@@ -419,8 +429,147 @@ async function cancelAudit({ address, network }) {
   return { ok: true, audit: updated };
 }
 
+/**
+ * Project directory layout convention (see audit-one.sh):
+ *   <AUDIT_ROOT>/<network>-<address>/AUDIT_REPORT.md
+ */
+function projectDir(address, network) {
+  return path.join(AUDIT_ROOT, `${network}-${address}`);
+}
+
+function reportPath(address, network) {
+  return path.join(projectDir(address, network), 'AUDIT_REPORT.md');
+}
+
+/**
+ * Run the ingest CLI for a finished audit. Resolves with stdout (JSON) on
+ * success, rejects with stderr on failure. Used by the reconciler to import
+ * reports that the wrapper produced but never registered.
+ */
+function ingestReport({ address, network, mode, startedAt }) {
+  return new Promise((resolve, reject) => {
+    const args = [
+      INGEST_JS,
+      '--network', network,
+      '--address', address,
+      '--report', reportPath(address, network),
+      '--mode', mode || 'thorough',
+      '--status', 'completed',
+    ];
+    if (startedAt) {
+      args.push('--started-at', String(startedAt));
+    }
+    const child = spawn('node', args, {
+      cwd: REPO_ROOT,
+      env: process.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let out = '', err = '';
+    child.stdout.on('data', (b) => { out += b.toString(); });
+    child.stderr.on('data', (b) => { err += b.toString(); });
+    child.on('error', reject);
+    child.on('exit', (code) => {
+      if (code === 0) resolve(out.trim());
+      else reject(new Error(`ingest.js exit ${code}: ${err.trim() || out.trim()}`));
+    });
+  });
+}
+
+/**
+ * Reconcile orphaned audit rows.
+ *
+ * Finds rows still marked 'running' whose PID is null or dead. For each:
+ *   - If AUDIT_REPORT.md exists → ingest it (flips to 'completed').
+ *   - Otherwise → mark 'failed' with a diagnostic message.
+ *
+ * Designed to be safe to call concurrently (it only mutates rows whose status
+ * is still 'running' via WHERE clauses) and idempotent across restarts.
+ */
+async function reconcileOrphanedAudits() {
+  const cutoff = Date.now() - RECONCILER_MIN_AGE_MS;
+  let rows;
+  try {
+    const r = await pool.query(
+      `SELECT id, address, network, audit_mode, pid, started_at, log_path
+         FROM contract_audits
+        WHERE status = 'running'
+          AND (started_at IS NULL OR started_at < $1)`,
+      [cutoff]
+    );
+    rows = r.rows;
+  } catch (err) {
+    console.error('[audit-reconciler] DB scan failed:', err.message);
+    return { scanned: 0, ingested: 0, failed: 0 };
+  }
+
+  let ingested = 0;
+  let failed = 0;
+  for (const row of rows) {
+    if (row.pid && isProcessAlive(row.pid)) continue; // genuinely still running
+
+    const rpt = reportPath(row.address, row.network);
+    if (fs.existsSync(rpt)) {
+      try {
+        await ingestReport({
+          address: row.address,
+          network: row.network,
+          mode: row.audit_mode,
+          startedAt: row.started_at,
+        });
+        console.log(
+          `[audit-reconciler] ingested audit ${row.id} ` +
+          `(${row.network}/${row.address}) from existing report`
+        );
+        ingested++;
+      } catch (err) {
+        console.error(
+          `[audit-reconciler] ingest failed for audit ${row.id} ` +
+          `(${row.network}/${row.address}): ${err.message}`
+        );
+      }
+    } else {
+      try {
+        await markFailed(
+          row.id,
+          'wrapper exited without producing AUDIT_REPORT.md (likely killed mid-run)'
+        );
+        console.log(
+          `[audit-reconciler] marked audit ${row.id} failed ` +
+          `(${row.network}/${row.address}) — no report`
+        );
+        failed++;
+      } catch (err) {
+        console.error(
+          `[audit-reconciler] markFailed failed for audit ${row.id}: ${err.message}`
+        );
+      }
+    }
+  }
+  return { scanned: rows.length, ingested, failed };
+}
+
+/**
+ * Start the reconciler loop. Runs once immediately, then on a timer.
+ * Returns the interval handle so callers (tests) can stop it.
+ */
+function startReconciler({ intervalMs = RECONCILER_INTERVAL_MS } = {}) {
+  // Fire immediately so a fresh boot heals orphans from the previous run.
+  reconcileOrphanedAudits().catch((err) => {
+    console.error('[audit-reconciler] initial pass error:', err.message);
+  });
+  const handle = setInterval(() => {
+    reconcileOrphanedAudits().catch((err) => {
+      console.error('[audit-reconciler] periodic pass error:', err.message);
+    });
+  }, intervalMs);
+  handle.unref?.();
+  return handle;
+}
+
 module.exports = {
   triggerAudit,
   getAuditStatus,
   cancelAudit,
+  reconcileOrphanedAudits,
+  startReconciler,
 };

@@ -18,6 +18,7 @@ if (httpPort === 8005) {
 const https = require('https');
 const http = require('http');
 const app = require('./app');
+const { startReconciler } = require('./services/auditRun.service');
 
 // Ports and TLS paths via env, with sensible defaults
 const HTTP_PORT = Number(process.env.PORT || process.env.HTTP_PORT || 8000);
@@ -66,5 +67,8 @@ function startServers() {
 }
 
 startServers();
+
+// Heal audit rows the wrapper left in 'running' (backend restart, OOM, etc.).
+startReconciler();
 
 module.exports = app;
