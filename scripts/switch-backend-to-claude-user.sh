@@ -65,7 +65,18 @@ if ! grep -q '^Environment=HOME=' "$UNIT"; then
   sed -i "/^\[Service\]/a Environment=HOME=/home/claude" "$UNIT"
 fi
 
-echo "[2/5] Set User=${TARGET_USER} / Group=${TARGET_GROUP} + PATH/HOME"
+# KillMode=process so a `systemctl restart bugchain-backend` only kills the
+# main node process, NOT the detached audit-one.sh wrappers running in the
+# same cgroup. Without this, every deploy aborts whatever Plamen audit was
+# running, leaving an orphaned row in 'running'. The reconciler now ingests
+# such orphans on next boot, but preserving in-flight audits is still better.
+if grep -q '^KillMode=' "$UNIT"; then
+  sed -i 's/^KillMode=.*/KillMode=process/' "$UNIT"
+else
+  sed -i "/^\[Service\]/a KillMode=process" "$UNIT"
+fi
+
+echo "[2/5] Set User=${TARGET_USER} / Group=${TARGET_GROUP} + PATH/HOME + KillMode=process"
 
 # Ensure audit log dir is writable by the new user.
 mkdir -p /tmp/audits/logs

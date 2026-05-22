@@ -13,6 +13,11 @@ Environment=NODE_ENV=production
 StandardOutput=syslog
 StandardError=syslog
 SyslogIdentifier=node-app
+# Only kill the main node process on stop. Background-spawned audit-one.sh
+# wrappers (and their Plamen children) are detached via spawn() and must
+# outlive a backend restart so a multi-hour audit isn't aborted by a deploy.
+# The reconciler picks them back up on next boot.
+KillMode=process
 
 [Install]
 WantedBy=multi-user.target
