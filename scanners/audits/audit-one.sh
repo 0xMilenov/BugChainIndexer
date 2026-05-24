@@ -8,7 +8,7 @@
 # Plamen v2 exit code grammar (from ~/.plamen/scripts/plamen_types.py):
 #    0  EXIT_SUCCESS        run finished, AUDIT_REPORT.md assembled
 #    1  EXIT_ERROR          genuine failure
-#    2  EXIT_RATE_LIMITED   Anthropic quota hit; resume after wait
+#    2  EXIT_RATE_LIMITED   provider quota/rate limit hit; resume after wait
 #    3  EXIT_DEGRADED       finished with >N degraded phases
 #    4  EXIT_CONFIG_MISSING
 #   42  EXIT_HIBERNATING    long wait detected; resume after wake_at_utc
@@ -80,10 +80,10 @@ if [[ "${SKIP_EXTRACT:-0}" != "1" ]]; then
 fi
 
 if [[ "${SKIP_RUN:-0}" != "1" ]]; then
-  echo "[audit-one] running plamen ${MODE} (log: ${LOG_FILE}) ..." >&2
+  echo "[audit-one] running plamen ${MODE} via Codex (log: ${LOG_FILE}) ..." >&2
   PLAMEN_EXIT=0
   ( cd "$PROJECT_DIR" \
-    && plamen "$MODE" . --proven-only --network "$NETWORK" ) \
+    && plamen "$MODE" . --proven-only --network "$NETWORK" --codex ) \
     > "$LOG_FILE" 2>&1 || PLAMEN_EXIT=$?
 
   # Auto-resume on rate-limit / hibernate. Other non-zero codes fall
@@ -93,7 +93,7 @@ if [[ "${SKIP_RUN:-0}" != "1" ]]; then
   while [[ "$PLAMEN_EXIT" -eq 2 || "$PLAMEN_EXIT" -eq 42 ]]; do
     RESUME_ATTEMPT=$((RESUME_ATTEMPT + 1))
     if [[ "$RESUME_ATTEMPT" -gt "$PLAMEN_MAX_RESUME_ATTEMPTS" ]]; then
-      MSG="[audit-one] ERROR: Plamen rate-limited (exit ${PLAMEN_EXIT}); exhausted ${PLAMEN_MAX_RESUME_ATTEMPTS} resume attempts"
+      MSG="[audit-one] ERROR: Plamen provider quota/rate-limited (exit ${PLAMEN_EXIT}); exhausted ${PLAMEN_MAX_RESUME_ATTEMPTS} resume attempts"
       echo "$MSG" >&2
       echo "$MSG" >> "$LOG_FILE"
       exit "$PLAMEN_EXIT"
@@ -107,7 +107,7 @@ if [[ "${SKIP_RUN:-0}" != "1" ]]; then
 
     BACKOFF_SEC=$(resume_backoff_sec "$RESUME_ATTEMPT")
     BACKOFF_MIN=$((BACKOFF_SEC / 60))
-    MSG="[audit-one] Plamen exit ${PLAMEN_EXIT} (rate-limited / hibernating); resume attempt ${RESUME_ATTEMPT}/${PLAMEN_MAX_RESUME_ATTEMPTS}; sleeping ${BACKOFF_MIN}min before resume"
+    MSG="[audit-one] Plamen exit ${PLAMEN_EXIT} (provider quota/rate-limited / hibernating); resume attempt ${RESUME_ATTEMPT}/${PLAMEN_MAX_RESUME_ATTEMPTS}; sleeping ${BACKOFF_MIN}min before resume"
     echo "$MSG" >&2
     echo "$MSG" >> "$LOG_FILE"
     sleep "$BACKOFF_SEC"

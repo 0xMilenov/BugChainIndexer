@@ -8,7 +8,10 @@ ExecStart=/usr/bin/node index.js
 WorkingDirectory=/home/claude/BugChainIndexer/server/backend
 Restart=always
 RestartSec=10
-User=root
+User=claude
+Group=claude
+Environment=HOME=/home/claude
+Environment="PATH=/home/claude/.npm-global/bin:/home/claude/.plamen:/home/claude/.foundry/bin:/home/claude/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 Environment=NODE_ENV=production
 StandardOutput=syslog
 StandardError=syslog
