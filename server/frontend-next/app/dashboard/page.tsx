@@ -50,7 +50,7 @@ function SearchPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const showToast = useShowToast();
-  const { refreshAuth } = useAuth();
+  const { user, loginUrl, refreshAuth } = useAuth();
 
   useEffect(() => {
     const authError = searchParams.get("auth_error");
@@ -59,9 +59,8 @@ function SearchPageContent() {
     }
   }, [searchParams, router]);
 
-  // After OAuth success, we land with ?from=oauth; refresh auth and clear the URL
   useEffect(() => {
-    if (searchParams.get("from") === "oauth") {
+    if (searchParams.get("from") === "login") {
       refreshAuth().then(() => router.replace("/", { scroll: false }));
     }
   }, [searchParams, refreshAuth, router]);
@@ -201,6 +200,10 @@ function SearchPageContent() {
 
   const handleBookmarkToggle = useCallback(
     async (contract: { address: string; network: string }) => {
+      if (!user) {
+        router.push(loginUrl);
+        return;
+      }
       try {
         if (isBookmarked(contract.address, contract.network)) {
           await removeBookmark(contract.address, contract.network);
@@ -213,16 +216,20 @@ function SearchPageContent() {
         showToast("Failed to update bookmark.", "error");
       }
     },
-    [isBookmarked, removeBookmark, saveBookmark, showToast]
+    [isBookmarked, loginUrl, removeBookmark, router, saveBookmark, showToast, user]
   );
 
   const handleShowBookmarks = useCallback(() => {
+    if (!user) {
+      router.push(loginUrl);
+      return;
+    }
     if (bookmarks.length === 0) {
       showToast("No bookmarks saved yet.", "info");
       return;
     }
     setViewingBookmarks(true);
-  }, [bookmarks.length, showToast]);
+  }, [bookmarks.length, loginUrl, router, showToast, user]);
 
   const handleColumnSort = useCallback((col: string) => {
     setSortBy(null);

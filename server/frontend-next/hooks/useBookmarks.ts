@@ -3,36 +3,23 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Contract } from "@/types/contract";
 import { getBookmarks, addBookmarkApi, removeBookmarkApi } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
-const STORAGE_KEY = "bookmarks";
 const MAX_BOOKMARKS = 50;
 
-function loadFromStorage(): Contract[] {
-  try {
-    const raw = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveToStorage(items: Contract[]) {
-  try {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(0, MAX_BOOKMARKS)));
-    }
-  } catch {
-    // ignore
-  }
-}
-
 export function useBookmarks() {
+  const { user } = useAuth();
   const [bookmarks, setBookmarks] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!user) {
+      setBookmarks([]);
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
+    setLoading(true);
     (async () => {
       try {
         const resp = await getBookmarks();
@@ -43,13 +30,9 @@ export function useBookmarks() {
             contract_name: b.contract_name,
           }));
           setBookmarks(items);
-          saveToStorage(items);
         }
       } catch {
-        if (!cancelled) {
-          const stored = loadFromStorage();
-          setBookmarks(stored);
-        }
+        if (!cancelled) setBookmarks([]);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -57,9 +40,10 @@ export function useBookmarks() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [user]);
 
   const saveBookmark = useCallback(async (contract: Contract) => {
+    if (!user) throw new Error("Login required");
     const normalized: Contract = {
       address: contract.address,
       network: contract.network ?? "",
@@ -73,20 +57,14 @@ export function useBookmarks() {
       );
       if (exists) return prev;
       const next = [normalized, ...prev].slice(0, MAX_BOOKMARKS);
-      saveToStorage(next);
       return next;
     });
-    try {
-      await addBookmarkApi(normalized);
-    } catch {
-      // API failed - keep localStorage (already saved above), don't throw
-      // Bookmark is still saved locally
-      return true;
-    }
+    await addBookmarkApi(normalized);
     return true;
-  }, []);
+  }, [user]);
 
   const removeBookmark = useCallback(async (address: string, network: string) => {
+    if (!user) throw new Error("Login required");
     const addr = address;
     const net = network;
     setBookmarks((prev) => {
@@ -97,15 +75,10 @@ export function useBookmarks() {
             b.network?.toLowerCase() === net?.toLowerCase()
           )
       );
-      saveToStorage(next);
       return next;
     });
-    try {
-      await removeBookmarkApi(address, network);
-    } catch {
-      // API failed - keep localStorage (already removed above), don't throw
-    }
-  }, []);
+    await removeBookmarkApi(address, network);
+  }, [user]);
 
   const isBookmarked = useCallback(
     (address: string, network: string) =>

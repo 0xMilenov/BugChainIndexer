@@ -45,12 +45,33 @@ pool.on('connect', () => {});
     await pool.query(`
       CREATE TABLE IF NOT EXISTS contract_bookmarks (
         id SERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL DEFAULT '0xmilenov',
         address TEXT NOT NULL,
         network TEXT NOT NULL,
         contract_name TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(address, network)
+        UNIQUE(user_id, address, network)
       )
+    `);
+    await pool.query(`ALTER TABLE contract_bookmarks ADD COLUMN IF NOT EXISTS user_id TEXT NOT NULL DEFAULT '0xmilenov'`);
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conname = 'contract_bookmarks_address_network_key'
+        ) THEN
+          ALTER TABLE contract_bookmarks DROP CONSTRAINT contract_bookmarks_address_network_key;
+        END IF;
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conname = 'contract_bookmarks_user_address_network_key'
+        ) THEN
+          ALTER TABLE contract_bookmarks
+          ADD CONSTRAINT contract_bookmarks_user_address_network_key
+          UNIQUE (user_id, address, network);
+        END IF;
+      END $$;
     `);
     // Audit run tracking columns. The audit-one.sh / ingest.js pipeline only
     // writes 'completed' rows on success — these columns let us track running
@@ -59,9 +80,11 @@ pool.on('connect', () => {});
     await pool.query(`ALTER TABLE contract_audits ADD COLUMN IF NOT EXISTS phase TEXT`);
     await pool.query(`ALTER TABLE contract_audits ADD COLUMN IF NOT EXISTS log_path TEXT`);
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS github_tokens (
-        user_id TEXT PRIMARY KEY,
-        access_token_encrypted TEXT NOT NULL,
+      CREATE TABLE IF NOT EXISTS local_users (
+        username TEXT PRIMARY KEY,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'user',
+        disabled BOOLEAN NOT NULL DEFAULT false,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       )

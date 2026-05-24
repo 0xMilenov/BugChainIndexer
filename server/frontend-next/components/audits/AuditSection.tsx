@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
   cancelContractAudit,
   getContractAudit,
@@ -13,6 +14,7 @@ import {
 import { AuditMarkdown } from "./AuditMarkdown";
 import { SeverityBadges } from "./SeverityBadges";
 import { Loader2, Play, AlertTriangle, RefreshCcw, Activity, X } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 interface AuditSectionProps {
   address: string;
@@ -141,6 +143,7 @@ function StatusPill({ status }: { status: string }) {
 }
 
 export function AuditSection({ address, network }: AuditSectionProps) {
+  const { user, loginUrl } = useAuth();
   /** Status row from contract_audits (lightweight, polled). */
   const [status, setStatus] = useState<ContractAuditStatus | null>(null);
   /** Full audit including findings — fetched only when status is 'completed'. */
@@ -216,6 +219,10 @@ export function AuditSection({ address, network }: AuditSectionProps) {
   }, [refreshStatus]);
 
   const handleRun = useCallback(async () => {
+    if (!user) {
+      setTriggerError("Login required");
+      return;
+    }
     setTriggering(true);
     setTriggerError(null);
     try {
@@ -238,9 +245,13 @@ export function AuditSection({ address, network }: AuditSectionProps) {
     } finally {
       setTriggering(false);
     }
-  }, [address, network, refreshStatus]);
+  }, [address, network, refreshStatus, user]);
 
   const handleCancel = useCallback(async () => {
+    if (!user) {
+      setCancelError("Login required");
+      return;
+    }
     if (!window.confirm("Stop the in-flight audit? Any progress will be lost.")) return;
     setCancelling(true);
     setCancelError(null);
@@ -257,7 +268,7 @@ export function AuditSection({ address, network }: AuditSectionProps) {
     } finally {
       setCancelling(false);
     }
-  }, [address, network]);
+  }, [address, network, user]);
 
   const isRunning = status?.status === "running" || status?.status === "pending";
   const isCompleted = status?.status === "completed";
@@ -312,24 +323,33 @@ export function AuditSection({ address, network }: AuditSectionProps) {
               Run a Plamen audit to surface critical / high / medium findings. The
               run takes ~1–5 hours depending on contract size.
             </p>
-            <button
-              type="button"
-              onClick={handleRun}
-              disabled={triggering}
-              className="mt-4 inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-bg-primary transition hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {triggering ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Starting…
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4" />
-                  Run audit
-                </>
-              )}
-            </button>
+            {user ? (
+              <button
+                type="button"
+                onClick={handleRun}
+                disabled={triggering}
+                className="mt-4 inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-bg-primary transition hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {triggering ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Starting…
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4" />
+                    Run audit
+                  </>
+                )}
+              </button>
+            ) : (
+              <Link
+                href={loginUrl}
+                className="mt-4 inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-5 py-2 text-sm font-semibold text-accent transition hover:bg-accent/20"
+              >
+                Log in
+              </Link>
+            )}
             {triggerError && (
               <p className="mt-3 text-xs text-red-400">{triggerError}</p>
             )}
@@ -378,24 +398,33 @@ export function AuditSection({ address, network }: AuditSectionProps) {
                 The page polls every 5s. You can leave and come back — findings
                 will appear here once the run finishes.
               </p>
-              <button
-                type="button"
-                onClick={handleCancel}
-                disabled={cancelling}
-                className="inline-flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-red-400 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {cancelling ? (
-                  <>
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Stopping…
-                  </>
-                ) : (
-                  <>
-                    <X className="h-3 w-3" />
-                    Stop audit
-                  </>
-                )}
-              </button>
+              {user ? (
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  disabled={cancelling}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-red-400 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {cancelling ? (
+                    <>
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Stopping…
+                    </>
+                  ) : (
+                    <>
+                      <X className="h-3 w-3" />
+                      Stop audit
+                    </>
+                  )}
+                </button>
+              ) : (
+                <Link
+                  href={loginUrl}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-bg-tertiary px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-text-muted transition hover:border-accent/40 hover:text-accent"
+                >
+                  Log in
+                </Link>
+              )}
             </div>
             {cancelError && (
               <p className="mt-2 text-[11px] text-red-400">{cancelError}</p>
@@ -433,19 +462,28 @@ export function AuditSection({ address, network }: AuditSectionProps) {
             {status?.error_message && (
               <p className="mt-1 text-xs text-text-muted">{status.error_message}</p>
             )}
-            <button
-              type="button"
-              onClick={handleRun}
-              disabled={triggering}
-              className="mt-3 inline-flex items-center gap-2 rounded-full border border-border bg-bg-tertiary px-4 py-1.5 text-xs font-semibold text-text-primary transition hover:border-accent/40 hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {triggering ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <RefreshCcw className="h-3 w-3" />
-              )}
-              {status?.status === "cancelled" ? "Run audit again" : "Retry audit"}
-            </button>
+            {user ? (
+              <button
+                type="button"
+                onClick={handleRun}
+                disabled={triggering}
+                className="mt-3 inline-flex items-center gap-2 rounded-full border border-border bg-bg-tertiary px-4 py-1.5 text-xs font-semibold text-text-primary transition hover:border-accent/40 hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {triggering ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <RefreshCcw className="h-3 w-3" />
+                )}
+                {status?.status === "cancelled" ? "Run audit again" : "Retry audit"}
+              </button>
+            ) : (
+              <Link
+                href={loginUrl}
+                className="mt-3 inline-flex items-center gap-2 rounded-full border border-border bg-bg-tertiary px-4 py-1.5 text-xs font-semibold text-text-primary transition hover:border-accent/40 hover:bg-accent/10"
+              >
+                Log in
+              </Link>
+            )}
             {triggerError && (
               <p className="mt-2 text-xs text-red-400">{triggerError}</p>
             )}

@@ -49,17 +49,16 @@ export interface GetBookmarksResponse {
 }
 
 export async function getBookmarks(): Promise<GetBookmarksResponse> {
-  const base = getBaseUrl();
-  const resp = await fetch(`${base}/bookmarks`);
+  const resp = await fetch(`/api/bookmarks`, { credentials: "include" });
   const data = await resp.json();
   if (!resp.ok) throw new Error(data?.error || `HTTP ${resp.status}`);
   return data;
 }
 
 export async function addBookmarkApi(contract: BookmarkContract): Promise<{ ok: boolean; error?: string }> {
-  const base = getBaseUrl();
-  const resp = await fetch(`${base}/bookmarks`, {
+  const resp = await fetch(`/api/bookmarks`, {
     method: "POST",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       address: contract.address,
@@ -73,11 +72,11 @@ export async function addBookmarkApi(contract: BookmarkContract): Promise<{ ok: 
 }
 
 export async function removeBookmarkApi(address: string, network: string): Promise<{ ok: boolean }> {
-  const base = getBaseUrl();
   const encAddr = encodeURIComponent(address);
   const encNet = encodeURIComponent(network);
-  const resp = await fetch(`${base}/bookmarks/${encNet}/${encAddr}`, {
+  const resp = await fetch(`/api/bookmarks/${encNet}/${encAddr}`, {
     method: "DELETE",
+    credentials: "include",
   });
   const data = await resp.json();
   if (!resp.ok) throw new Error(data?.error || `HTTP ${resp.status}`);
@@ -305,6 +304,7 @@ export async function triggerContractAudit(
     : `/api/contract/${encNet}/${encAddr}/audit/run`;
   const resp = await fetch(url, {
     method: "POST",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ mode }),
   });
@@ -330,6 +330,7 @@ export async function cancelContractAudit(
     : `/api/contract/${encNet}/${encAddr}/audit/cancel`;
   const resp = await fetch(url, {
     method: "POST",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
   });
   const data = await resp.json();

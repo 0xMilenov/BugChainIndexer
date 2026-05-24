@@ -10,18 +10,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   backend_unreachable:
     "Backend is not running. Start it with: ./run-local-ui.sh start",
   not_configured:
-    "GitHub OAuth is not configured. Go to /auth/setup to set it up.",
+    "Authentication is not configured.",
   unknown: "An unknown error occurred during sign-in.",
-  redirect_uri_mismatch:
-    "GitHub OAuth callback URL mismatch. Ensure your GitHub OAuth app has Authorization callback URL set to: http://localhost:3001/auth/github/callback (or your frontend URL + /auth/github/callback)",
-  access_denied: "You denied access to the application.",
-  missing_code_or_state:
-    "OAuth callback missing code or state. Try: 1) Clear cookies for localhost:3001, then click Log in again. 2) GitHub OAuth app callback must be exactly: http://localhost:3001/auth/github/callback (use localhost, not 127.0.0.1). 3) Use a private/incognito window. 4) Do not refresh during the GitHub redirect.",
-  wrong_callback_url:
-    "GitHub is redirecting to the wrong URL. Your GitHub OAuth app must have Authorization callback URL set to the FRONTEND (not the backend). For local dev: http://localhost:3001/auth/github/callback — Go to GitHub → Settings → Developer settings → OAuth Apps → your app → Edit → fix the callback URL.",
-  invalid_state: "Invalid OAuth state. Try again from the Log in button.",
-  token_exchange_failed:
-    "Failed to exchange GitHub code for token. The code may have expired, or the callback URL in your GitHub OAuth app does not match.",
+  access_denied: "Access denied.",
 };
 
 function AuthErrorContent() {
@@ -65,7 +56,7 @@ function AuthErrorContent() {
               Back to search
             </Link>
             <Link
-              href="/auth/github"
+              href="/auth/login"
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-accent text-accent hover:bg-accent/10 transition"
             >
               Try again

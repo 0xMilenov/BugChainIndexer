@@ -51,6 +51,7 @@ export async function getServerAuth(): Promise<{
       user: {
         username: data.username,
         avatar_url: data.avatar_url ?? null,
+        role: data.role ?? null,
       },
       authConfigured,
     };

@@ -36,7 +36,7 @@ export default function ContractDetailPage() {
   const nativePrices = useNativePrices();
   const router = useRouter();
   const { bookmarks, saveBookmark, removeBookmark, isBookmarked } = useBookmarks();
-  const { user } = useAuth();
+  const { user, loginUrl } = useAuth();
   const showToast = useShowToast();
 
   const fetchContract = useCallback(async () => {
@@ -192,6 +192,10 @@ export default function ContractDetailPage() {
                   <button
                     type="button"
                     onClick={async () => {
+                      if (!user) {
+                        router.push(loginUrl);
+                        return;
+                      }
                       try {
                         if (isBookmarked(address, network)) {
                           await removeBookmark(address, network);
