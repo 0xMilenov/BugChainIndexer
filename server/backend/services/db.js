@@ -33,12 +33,21 @@ pool.on('connect', () => {});
         symbol TEXT NOT NULL,
         decimals INTEGER NOT NULL,
         balance_wei NUMERIC(78, 0) NOT NULL,
+        price_usd NUMERIC(30, 8),
+        value_usd NUMERIC(30, 8),
         last_updated BIGINT NOT NULL,
         PRIMARY KEY (address, network, token_address)
       )
     `);
     await pool.query(`
       ALTER TABLE addresses ADD COLUMN IF NOT EXISTS native_balance NUMERIC(78, 0) DEFAULT 0
+    `);
+    await pool.query(`
+      ALTER TABLE addresses ADD COLUMN IF NOT EXISTS fund_usd NUMERIC(30, 8) DEFAULT 0
+    `);
+    await pool.query(`
+      ALTER TABLE contract_token_balances ADD COLUMN IF NOT EXISTS price_usd NUMERIC(30, 8);
+      ALTER TABLE contract_token_balances ADD COLUMN IF NOT EXISTS value_usd NUMERIC(30, 8)
     `);
     // EVMBENCH / GetRecon-specific schema (addresses.evmbench/getrecon, audit_reports, fuzz_reports)
     // is no longer required by the simplified backend and is intentionally not created here.

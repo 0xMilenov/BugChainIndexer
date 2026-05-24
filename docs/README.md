@@ -76,7 +76,7 @@ This directory contains detailed documentation about BugChain Indexer's architec
 **Audience**: Backend developers, DevOps engineers
 
 ### 7. [getLogs Optimization](./GETLOGS_OPTIMIZATION.md)
-- **Topic**: Alchemy getLogs API optimization system
+- **Topic**: Historical getLogs optimization notes. Current scanner defaults use validated public RPC endpoints only.
 - **Contents**:
   - Tier-based profiles (Free/Premium)
   - Density-based profiles (Ultra-high/High/Medium/Low)
@@ -172,7 +172,7 @@ const profile = getLogsOptimization('ultra-high-density', 'premium');
 
 ### Scanner Code
 - **DB Schema**: `scanners/common/database.js`
-- **Alchemy RPC**: `scanners/common/alchemyRpc.js`
+- **Public RPC Core**: `scanners/common/core.js`
 - **Unified Scanner**: `scanners/core/UnifiedScanner.js`
 - **Fund Updater**: `scanners/core/FundUpdater.js`
 - **Scanner Base**: `scanners/common/Scanner.js`
@@ -303,7 +303,7 @@ const profile = getLogsOptimization('ultra-high-density', 'premium');
 - PostgreSQL Official Docs: https://www.postgresql.org/docs/
 - Redis Official Docs: https://redis.io/documentation
 - Node.js Redis Client: https://github.com/redis/node-redis
-- Alchemy API Docs: https://docs.alchemy.com/reference/api-overview
+- Sourcify API Docs: https://docs.sourcify.dev/docs/api/
 
 ---
 

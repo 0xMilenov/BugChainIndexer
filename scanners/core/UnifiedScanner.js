@@ -167,13 +167,50 @@ class UnifiedScanner extends Scanner {
     
     this.log(`🔍 Finding blocks for last ${targetHours} hours...`);
     
-    // getBlockByTime now handles validation internally
-    const fromBlock = await this.getBlockByTime(targetTimestamp);
     const currentBlock = await this.getBlockNumber();
+    const fallbackFromBlock = await this.getBlockByTime(targetTimestamp);
+    const cursorBlock = await this.getScannerCursor();
+    const fromBlock = cursorBlock && cursorBlock > 0
+      ? Math.min(cursorBlock + 1, currentBlock + 1)
+      : fallbackFromBlock;
     
-    
-    this.log(`📈 Scan range: blocks ${fromBlock} → ${currentBlock} (${currentBlock - fromBlock} blocks)`);
+    if (cursorBlock && cursorBlock > 0) {
+      this.log(`📍 Resuming from persistent cursor at block ${cursorBlock}`);
+    }
+
+    this.log(`📈 Scan range: blocks ${fromBlock} → ${currentBlock} (${Math.max(0, currentBlock - fromBlock + 1)} blocks)`);
     return { fromBlock, toBlock: currentBlock };
+  }
+
+  async getScannerCursor() {
+    try {
+      const result = await this.queryDB(
+        `SELECT last_block FROM scanner_cursors WHERE network = $1 AND scanner_name = $2`,
+        [this.network, this.name]
+      );
+      const lastBlock = Number(result.rows[0]?.last_block);
+      return Number.isFinite(lastBlock) ? lastBlock : null;
+    } catch (error) {
+      this.log(`⚠️ Failed to read scanner cursor: ${error.message}`, 'warn');
+      return null;
+    }
+  }
+
+  async saveScannerCursor(lastBlock) {
+    if (!Number.isFinite(Number(lastBlock)) || Number(lastBlock) <= 0) return;
+    try {
+      await this.queryDB(
+        `INSERT INTO scanner_cursors (network, scanner_name, last_block, updated_at)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (network, scanner_name) DO UPDATE SET
+           last_block = GREATEST(scanner_cursors.last_block, EXCLUDED.last_block),
+           updated_at = EXCLUDED.updated_at`,
+        [this.network, this.name, Number(lastBlock), this.currentTime]
+      );
+      this.log(`📍 Saved scanner cursor at block ${lastBlock}`);
+    } catch (error) {
+      this.log(`⚠️ Failed to save scanner cursor: ${error.message}`, 'warn');
+    }
   }
 
   async filterExistingAddresses(addresses) {
@@ -777,12 +814,12 @@ class UnifiedScanner extends Scanner {
       slowMultiplier: PERFORMANCE.SLOW_MULTIPLIER
     };
 
-    // Cap maxBatchSize to Alchemy tier limits
+    // Cap maxBatchSize to the active provider tier limits.
     const maxBatchSize = Math.min(logsOptimization.maxBatchSize, this.maxLogsBlockRange || 1000);
     const minBatchSize = logsOptimization.minBatchSize;
     let currentBatchSize = Math.min(logsOptimization.initialBatchSize, maxBatchSize);
 
-    this.log(`Batch size limits: ${minBatchSize}-${maxBatchSize} blocks (initial: ${currentBatchSize}, Alchemy ${this.alchemyTier} tier)`);
+    this.log(`Batch size limits: ${minBatchSize}-${maxBatchSize} blocks (initial: ${currentBatchSize}, ${this.alchemyTier} tier)`);
 
     let currentBlock = fromBlock;
     
@@ -1231,8 +1268,6 @@ class UnifiedScanner extends Scanner {
       this.blockRetryCount.set(blockKey, retryCount + 1);
       this.log(`Batch ${batchNum} fetch timeout (retry ${retryCount + 1}/5)`, 'warn');
 
-      // Note: Alchemy RPC handles load balancing internally, no manual RPC switching needed
-
       const newBatchSize = Math.max(minBatchSize, Math.floor(currentBatchSize * 0.5));
       if (newBatchSize < currentBatchSize) {
         this.log(`Reducing batch size from ${currentBatchSize} to ${newBatchSize}: blocks ${currentBlock}-${endBlock}`, 'info');
@@ -1358,7 +1393,13 @@ class UnifiedScanner extends Scanner {
 
         try {
           const tokensData = JSON.parse(fs.readFileSync(tokensFilePath, 'utf8'));
-          tokenAddresses = tokensData.map(t => t.address.toLowerCase()).filter(Boolean);
+          const tokenLimit = parseInt(process.env.ERC20_TOKEN_LIMIT || '15', 10);
+          tokenAddresses = tokensData
+            .filter(t => t.symbol && t.address)
+            .sort((a, b) => (a.rank || Infinity) - (b.rank || Infinity))
+            .slice(0, tokenLimit)
+            .map(t => t.address.toLowerCase())
+            .filter(Boolean);
           this.log(`📋 Loaded ${tokenAddresses.length} token addresses for balance check`);
         } catch (error) {
           this.log(`⚠️ Failed to load tokens file: ${error.message}`, 'warn');
@@ -1492,9 +1533,14 @@ class UnifiedScanner extends Scanner {
 
     // Get target block range
     const { fromBlock, toBlock } = await this.getTargetBlocks();
+    if (fromBlock > toBlock) {
+      this.log(`✅ Scanner cursor is already current at block ${toBlock}`);
+      return;
+    }
     
     // Execute streaming pipeline with parallel processing
     const { processedAddresses, totalProcessed } = await this.executeStreamingPipeline(fromBlock, toBlock);
+    await this.saveScannerCursor(toBlock);
     
     // Update stats
     this.stats.transferAddresses = processedAddresses;

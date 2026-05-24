@@ -103,11 +103,16 @@ export interface Erc20BalanceWithValue {
 export function getSortedErc20Balances(balances: Erc20Balance[] | undefined): Erc20BalanceWithValue[] {
   if (!Array.isArray(balances) || !balances.length) return [];
   return balances
-    .map((b) => ({
-      ...b,
-      decimals: b.decimals ?? 18,
-      value: weiToDisplay(b.balance, b.decimals ?? 18),
-    }))
+    .map((b) => {
+      const valueUsd = Number(b.value_usd);
+      return {
+        ...b,
+        decimals: b.decimals ?? 18,
+        value: Number.isFinite(valueUsd) && valueUsd > 0
+          ? valueUsd
+          : weiToDisplay(b.balance, b.decimals ?? 18),
+      };
+    })
     .sort((a, b) => b.value - a.value);
 }
 
@@ -150,6 +155,11 @@ export function formatFund(
     if (v >= 1_000) return `$${(v / 1_000).toFixed(0)}K`;
     return `$${Math.round(v)}`;
   };
+
+  const fundUsd = Number(row?.fund_usd);
+  if (Number.isFinite(fundUsd) && fundUsd > 0) {
+    return fmtUsdShort(fundUsd);
+  }
 
   if (nativeCfg?.symbol) {
     const weiSource =

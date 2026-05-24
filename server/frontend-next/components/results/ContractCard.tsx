@@ -98,7 +98,7 @@ export function ContractCard({ contract, nativePrices, isBookmarked = false, onB
         </div>
       )}
       <div className="mt-3 flex flex-col rounded-lg bg-bg-tertiary px-2 py-1.5 text-xs">
-        <span className="text-text-muted">Native</span>
+        <span className="text-text-muted">Funds</span>
         <span className="mt-0.5 font-semibold text-accent">
           {formatFund(contract, nativePrices)}
         </span>

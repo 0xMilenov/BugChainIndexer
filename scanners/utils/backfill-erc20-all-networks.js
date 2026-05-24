@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Backfill ERC-20 token balances across multiple networks.
- * Uses Etherscan tokenbalance API. Run to seed contract_token_balances for all chains.
+ * Uses public JSON-RPC balanceOf calls. Run to seed contract_token_balances for all chains.
  * Uses backend's DB connection so data is written to the same DB the API reads from.
  *
  * Usage:
@@ -14,22 +14,18 @@ const fs = require('fs');
 require('dotenv').config({ path: path.join(__dirname, '../../server/backend/.env') });
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const { pool } = require('../../server/backend/services/db');
-const { getTokenBalanceEtherscan } = require('../common/core');
+const { contractCall } = require('../common/core');
 const { normalizeAddress } = require('../common');
 const { NETWORKS } = require('../config/networks.js');
 
 const DEFAULT_NETWORKS = [
   'ethereum', 'binance', 'optimism', 'base', 'arbitrum', 'polygon', 'avalanche',
   'gnosis', 'linea', 'scroll', 'mantle', 'megaeth',
-  'arbitrum-nova', 'celo', 'cronos', 'moonbeam', 'moonriver', 'opbnb', 'polygon-zkevm'
+  'arbitrum-nova', 'celo', 'cronos', 'opbnb', 'polygon-zkevm'
 ];
 
 const DEFAULT_PER_NETWORK = 100;  // Contracts per network for initial seed
-const DEFAULT_TOKEN_LIMIT = 100;  // All tokens from JSON (~100 per chain) - RPC batch has no rate limit
-
-// Etherscan: 3 calls/sec. 400ms delay = 2.5 calls/sec (safe margin).
-const ERC20_API_DELAY_MS = parseInt(process.env.ERC20_API_DELAY_MS || '400', 10);
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const DEFAULT_TOKEN_LIMIT = 15;
 
 const CONTRACT_LIST_WHERE_VERIFIED = `(tags IS NULL OR NOT 'EOA' = ANY(tags)) AND verified = true AND EXISTS (SELECT 1 FROM contract_sources cs WHERE cs.address = addresses.address AND cs.network = addresses.network)`;
 const CONTRACT_LIST_WHERE_ALL = `(tags IS NULL OR NOT 'EOA' = ANY(tags))`;
@@ -86,13 +82,15 @@ async function backfillNetwork(network, perNetwork, tokenLimit) {
 
   const now = Math.floor(Date.now() / 1000);
   let totalStored = 0;
+  const tokenAddresses = tokens.map(t => t.address);
+  const balancesByAddress = await contractCall.fetchErc20Balances(network, addresses, tokenAddresses);
 
   for (const address of addresses) {
     const nonZero = [];
+    const tokenMap = balancesByAddress.get(address) || balancesByAddress.get(address.toLowerCase()) || new Map();
     for (const token of tokens) {
       try {
-        await sleep(ERC20_API_DELAY_MS);
-        const balanceStr = await getTokenBalanceEtherscan(network, address, token.address);
+        const balanceStr = tokenMap.get(token.address)?.balance || '0';
         const balanceWei = BigInt(balanceStr);
         if (balanceWei > 0n) {
           nonZero.push({
@@ -106,7 +104,7 @@ async function backfillNetwork(network, perNetwork, tokenLimit) {
           });
         }
       } catch (err) {
-        // Continue - rate limits are common
+        // Continue with other tokens.
       }
     }
     for (const b of nonZero) {

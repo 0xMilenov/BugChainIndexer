@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the comprehensive optimization system for Alchemy's `eth_getLogs` API calls, designed to minimize costs while maximizing efficiency across multiple blockchain networks with varying log densities.
+Historical note: this document was written during the Alchemy-backed scanner era. The current scanner defaults to validated public no-key RPC endpoints, but the density and batch-size ideas still apply to `eth_getLogs`.
 
 ## Background
 
@@ -218,7 +218,7 @@ Validates:
 
 #### 2. Integration Test (`test-scanner-integration.js`)
 ```bash
-NETWORK=ethereum ALCHEMY_API_KEY=xxx node scanners/tests/test-scanner-integration.js
+NETWORK=ethereum PUBLIC_RPC_ONLY=true node scanners/tests/test-scanner-integration.js
 ```
 Tests:
 - ✅ Scanner initialization
@@ -229,7 +229,7 @@ Tests:
 
 #### 3. Learning Persistence (`test-learning-persistence.js`)
 ```bash
-NETWORK=mantle ALCHEMY_API_KEY=xxx node scanners/tests/test-learning-persistence.js
+NETWORK=mantle PUBLIC_RPC_ONLY=true node scanners/tests/test-learning-persistence.js
 ```
 Verifies:
 - ✅ First run learns and saves

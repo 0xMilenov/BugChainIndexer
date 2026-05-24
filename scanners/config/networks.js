@@ -12,20 +12,54 @@ const envArray = (name, fallback = []) => {
   return value ? value.split(/[,\s]+/).filter(Boolean) : fallback;
 };
 
-// Alchemy API configuration
-const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY || 'demo';
+// Public-RPC-only is the production default. Private/keyed RPCs may be used
+// only by explicitly setting PUBLIC_RPC_ONLY=false in a private environment.
+const PUBLIC_RPC_ONLY = process.env.PUBLIC_RPC_ONLY !== 'false';
 
-// Alchemy proxy configuration
-const USE_ALCHEMY_PROXY = process.env.USE_ALCHEMY_PROXY === 'true';
-const ALCHEMY_PROXY_URL = process.env.ALCHEMY_PROXY_URL || 'http://localhost:3001';
+const PRIVATE_RPC_PATTERNS = [
+  /alchemy/i,
+  /infura/i,
+  /quiknode/i,
+  /quicknode/i,
+  /alchemy-blast/i,
+  /apikey=/i,
+  /api_key=/i,
+  /access[-_]?token=/i,
+  /auth[-_]?token=/i,
+  /\/v3\/[a-z0-9]{16,}/i,
+  /\/v2\/[a-z0-9_-]{16,}/i,
+];
 
-// Logs optimization configurations based on network activity tier and Alchemy tier
-// IMPORTANT: Alchemy has a 10,000 logs per request limit
+function isPublicRpcUrl(url) {
+  const value = String(url || '').trim();
+  if (!value) return false;
+  if (/[{}<>$]/.test(value)) return false;
+  if (/your[_-]?(key|token|api)/i.test(value)) return false;
+  return !PRIVATE_RPC_PATTERNS.some((pattern) => pattern.test(value));
+}
+
+function assertPublicRpcUrls(networks = NETWORKS) {
+  if (!PUBLIC_RPC_ONLY) return;
+  const offenders = [];
+  for (const [network, config] of Object.entries(networks)) {
+    for (const url of config.rpcUrls || []) {
+      if (!isPublicRpcUrl(url)) offenders.push(`${network}: ${url}`);
+    }
+  }
+  if (offenders.length > 0) {
+    throw new Error(
+      `PUBLIC_RPC_ONLY is enabled, but private/keyed RPC URLs are configured:\n${offenders.join('\n')}`
+    );
+  }
+}
+
+// Logs optimization configurations based on network activity tier and provider tier
+// IMPORTANT: public RPCs commonly enforce smaller getLogs ranges and response caps.
 // targetLogsPerRequest set to 80-90% of limit for safety margin
 //
 // Tier-specific optimizations:
-// - Free tier: 10 blocks per request limit
-// - PAYG/Growth tier: Unlimited blocks (Ethereum/L2) or 2K-10K blocks (other chains)
+// - Free tier: conservative public-RPC range
+// - Premium tier: opt-in private/provider range
 //
 // Density profiles (logs per block):
 // - ultra-high-density: 150+ logs/block (Ethereum, Binance)
@@ -142,7 +176,7 @@ const LOGS_OPTIMIZATION = {
     minBatchSize: 10,
     maxBatchSize: 10,
     targetDuration: 10000,        // 10 seconds acceptable response time
-    targetLogsPerRequest: 9000,   // Expanded to 9K (90% of Alchemy limit)
+    targetLogsPerRequest: 9000,   // 90% safety margin for common provider response caps
     fastMultiplier: 1.0,
     slowMultiplier: 1.0
   },
@@ -152,7 +186,7 @@ const LOGS_OPTIMIZATION = {
     minBatchSize: 10,
     maxBatchSize: 200,            // Increased max for longer acceptable duration
     targetDuration: 10000,        // 10 seconds acceptable response time
-    targetLogsPerRequest: 9000,   // Expanded to 9K (90% of Alchemy limit)
+    targetLogsPerRequest: 9000,   // 90% safety margin for common provider response caps
     fastMultiplier: 1.5,          // Can increase more aggressively
     slowMultiplier: 0.7
   },
@@ -162,7 +196,7 @@ const LOGS_OPTIMIZATION = {
     minBatchSize: 10,
     maxBatchSize: 200,            // Increased max for longer acceptable duration
     targetDuration: 10000,        // 10 seconds acceptable response time
-    targetLogsPerRequest: 9000,   // Expanded to 9K (90% of Alchemy limit)
+    targetLogsPerRequest: 9000,   // 90% safety margin for common provider response caps
     fastMultiplier: 1.5,          // Can increase more aggressively
     slowMultiplier: 0.7
   },
@@ -297,7 +331,7 @@ const LOGS_OPTIMIZATION = {
 };
 
 /**
- * Get optimized logs configuration based on activity profile and detected Alchemy tier
+ * Get optimized logs configuration based on activity profile and detected provider tier
  * @param {string} activityProfile - 'high-activity', 'medium-activity', or 'low-activity'
  * @param {string} alchemyTier - 'free', 'payg', 'premium', or 'growth'
  * @returns {object} Optimized configuration for the given profile and tier
@@ -329,42 +363,6 @@ const getLogsOptimization = (activityProfile, alchemyTier) => {
   return LOGS_OPTIMIZATION[`medium-activity-${normalizedTier}`] || LOGS_OPTIMIZATION['medium-activity'];
 };
 
-// Helper function to generate Alchemy URL or proxy URL
-const getAlchemyUrl = (network) => {
-  // If Alchemy proxy is enabled, return proxy URL
-  if (USE_ALCHEMY_PROXY) {
-    return `${ALCHEMY_PROXY_URL}/rpc/${network}`;
-  }
-  
-  // Otherwise use direct Alchemy API
-  const networkMap = {
-    'ethereum': 'eth-mainnet',
-    'polygon': 'polygon-mainnet',
-    'arbitrum': 'arb-mainnet',
-    'optimism': 'opt-mainnet',
-    'base': 'base-mainnet',
-    'binance': 'bnb-mainnet',  // BNB Smart Chain
-    'avalanche': 'avax-mainnet',  // Avalanche C-Chain
-    'polygon-zkevm': 'polygonzkevm-mainnet',  // Polygon zkEVM
-    'linea': 'linea-mainnet',  // Linea
-    'scroll': 'scroll-mainnet',  // Scroll
-    'mantle': 'mantle-mainnet',  // Mantle
-    'arbitrum-nova': 'arbnova-mainnet',  // Arbitrum Nova
-    'moonbeam': 'moonbeam-mainnet',  // Moonbeam
-    'moonriver': 'moonriver-mainnet',  // Moonriver
-    'gnosis': 'gnosis-mainnet',  // Gnosis (xDAI)
-    'celo': 'celo-mainnet',  // Celo
-    'cronos': 'cronos-mainnet',  // Cronos
-    'opbnb': 'opbnb-mainnet',  // opBNB
-    'megaeth': 'megaeth-mainnet'  // MegaETH Mainnet
-  };
-  
-  const alchemyNetwork = networkMap[network];
-  if (!alchemyNetwork) return null;
-  
-  return `https://${alchemyNetwork}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
-};
-
 // Default API keys - now loaded from environment variables
 const DEFAULT_ETHERSCAN_KEYS = envArray('DEFAULT_ETHERSCAN_KEYS', []);
 
@@ -381,44 +379,20 @@ const NETWORKS = {
     explorerApiUrl: 'https://api.etherscan.io/api',
 
     rpcUrls: envArray('ETHEREUM_RPC_URL', [
-      // Alchemy RPC (prioritized for reliability)
-      getAlchemyUrl('ethereum'),
-      'https://eth.llamarpc.com',
-      'https://ethereum-rpc.publicnode.com',
-      'https://1rpc.io/eth',
+      // Public no-key RPCs only.
       'https://rpc.mevblocker.io',
       'https://rpc.flashbots.net',
-      'https://eth.meowrpc.com',
       'https://eth.drpc.org',
-      'https://endpoints.omniatech.io/v1/eth/mainnet/public',
-      'https://cloudflare-eth.com',
-      'https://ethereum.blockpi.network/v1/rpc/public',
       'https://eth-mainnet.public.blastapi.io',
-      'https://api.securerpc.com/v1',
-      'https://virginia.rpc.blxrbdn.com',
-      'https://uk.rpc.blxrbdn.com',
-      'https://singapore.rpc.blxrbdn.com',
       'https://eth.api.onfinality.io/public',
-      'https://core.gashawk.io/rpc',
-      // Additional RPC endpoints from chainlist.org
-      // Note: Some endpoints removed due to persistent errors:
-      // - rpc.builder0x69.io (DNS not found)
-      // - api.stateless.solutions (SSL certificate issue)
-      'https://eth.merkle.io',
-      'https://rpc.lokibuilder.xyz/wallet',
-      'https://rpc.polysplit.cloud/v1/chain/1',
-      'https://rpc.nodifi.ai/api/rpc/free',
-      'https://rpc.public.curie.radiumblock.co/http/ethereum',
       'https://eth.blockrazor.xyz',
-      'https://ethereum.therpc.io',
-      'https://ethereum-json-rpc.stakely.io',
       'https://rpc.eth.gateway.fm'
     ].filter(Boolean)),
     apiKeys: DEFAULT_ETHERSCAN_KEYS,
     contractValidator: '0xfE53a230a2AEd6E52f2dEf488DA408d47a80A8bF',
     nativeCurrency: 'ETH',
     BalanceHelper: '0xF6eDe5F60e6fB769F7571Ad635bF1Db0735a7386',
-    // Alchemy getLogs block range limits
+    // getLogs block range limits
     maxLogsBlockRange: {
       free: 10,          // Free tier
       premium: 999999    // Premium/PAYG/Growth tier (unlimited for Ethereum)
@@ -436,27 +410,9 @@ const NETWORKS = {
     explorerApiUrl: 'https://api.bscscan.com/api',
 
     rpcUrls: envArray('BSC_RPC_URL', [
-      // Alchemy RPC for BNB Smart Chain
-      getAlchemyUrl('binance'),
-      'https://1rpc.io/bnb',
-      'https://bsc.meowrpc.com',
-      'https://bsc-rpc.publicnode.com',
-      'https://endpoints.omniatech.io/v1/bsc/mainnet/public',
-      'https://rpc.polysplit.cloud/v1/chain/56',
-      'https://binance.llamarpc.com',
-      'https://bsc.blockpi.network/v1/rpc/public',
+      // Public no-key RPCs only.
       'https://bnb.api.onfinality.io/public',
-      'https://bsc-dataseed1.bnbchain.org',
-      'https://bsc-dataseed2.bnbchain.org',
-      'https://bsc-dataseed3.bnbchain.org',
-      'https://bsc-dataseed4.bnbchain.org',
-      'https://bsc-dataseed1.defibit.io',
-      'https://bsc-dataseed2.defibit.io',
-      'https://bsc-dataseed3.defibit.io',
-      'https://bsc-dataseed4.defibit.io',
-      'https://bsc-dataseed1.ninicoin.io',
-      'https://bsc-dataseed2.ninicoin.io',
-      'https://bsc.drpc.org',
+      'https://bsc.drpc.org'
     ].filter(Boolean)),
     apiKeys: DEFAULT_ETHERSCAN_KEYS,
     contractValidator: '0x91Ce20223F35b82E34aC4913615845C7AaA0e2B7',
@@ -477,26 +433,11 @@ const NETWORKS = {
     explorerApiUrl: 'https://api.polygonscan.com/api',
 
     rpcUrls: envArray('POLYGON_RPC_URL', [
-      // Alchemy RPC
-      getAlchemyUrl('polygon'),
-      'https://1rpc.io/matic',
-      'https://polygon-bor-rpc.publicnode.com',
+      // Public no-key RPCs only.
       'https://polygon.drpc.org',
-      'https://polygon.meowrpc.com',
-      'https://endpoints.omniatech.io/v1/matic/mainnet/public',
       'https://polygon-public.nodies.app',
-      'https://polygon-mainnet.public.blastapi.io',
-      'https://polygon.llamarpc.com',
-      'https://polygon-rpc.com',
-      'https://rpc-mainnet.matic.network',
-      'https://rpc-mainnet.maticvigil.com',
-      'https://rpc-mainnet.matic.quiknode.pro',
-      'https://polygon-mainnet.g.alchemy.com/v2/demo',
-      'https://polygon.blockpi.network/v1/rpc/public',
-      'https://polygon.gateway.tenderly.co',
       'https://polygon.api.onfinality.io/public',
-      'https://gateway.tenderly.co/public/polygon',
-      'https://polygon-mainnet.rpcfast.com?api_key=xbhWBI1Wkguk8SNMu1bvvLurPGLXmgwYeC4S6g2H7WdwFigZSmPWVZRxrskEQwIf'
+      'https://gateway.tenderly.co/public/polygon'
     ].filter(Boolean)),
     apiKeys: DEFAULT_ETHERSCAN_KEYS,
     contractValidator: '0xC7bAd40fE8c4B8aA380cBfAE63B9b39a9684F8B4',
@@ -517,26 +458,10 @@ const NETWORKS = {
     explorerApiUrl: 'https://api.arbiscan.io/api',
 
     rpcUrls: envArray('ARBITRUM_RPC_URL', [
-      // Alchemy RPC
-      getAlchemyUrl('arbitrum'),
-      'https://1rpc.io/arb',
-      'https://arbitrum-one-rpc.publicnode.com',
-      'https://arbitrum.meowrpc.com',
-      'https://arbitrum.drpc.org',
-      'https://api.stateless.solutions/arbitrum-one/v1/demo',
-      'https://arbitrum-one.public.nodies.app',
-      'https://arbitrum.blockpi.network/v1/rpc/public',
+      // Public no-key RPCs only.
       'https://arbitrum-one.public.blastapi.io',
       'https://arb1.arbitrum.io/rpc',
-      'https://arbitrum.llamarpc.com',
-      'https://endpoints.omniatech.io/v1/arbitrum/one/public',
-      'https://arb-mainnet.g.alchemy.com/v2/demo',
-      'https://arbitrum-mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
-      'https://arb-mainnet-public.unifra.io',
-      'https://arbitrum.gateway.tenderly.co',
-      'https://gateway.tenderly.co/public/arbitrum',
-      'https://arbitrum-one.publicnode.com',
-      'https://api.zan.top/node/v1/arb/one/public'
+      'https://arbitrum.gateway.tenderly.co'
     ].filter(Boolean)),
     apiKeys: DEFAULT_ETHERSCAN_KEYS,
     contractValidator: '0x20f776Bd5FA50822fb872573C80453dA18A8CA34',
@@ -557,27 +482,12 @@ const NETWORKS = {
     explorerApiUrl: 'https://api-optimistic.etherscan.io/api',
 
     rpcUrls: envArray('OPTIMISM_RPC_URL', [
-      // Alchemy RPC
-      getAlchemyUrl('optimism'),
-      'https://1rpc.io/op',
-      'https://optimism-rpc.publicnode.com',
-      'https://optimism.meowrpc.com',
-      'https://api.stateless.solutions/optimism/v1/demo',
-      'https://endpoints.omniatech.io/v1/op/mainnet/public',
-      'https://optimism.public.blastapi.io',
+      // Public no-key RPCs only.
       'https://optimism-public.nodies.app',
-      'https://optimism.api.onfinality.io/public',
       'https://mainnet.optimism.io',
-      'https://optimism.llamarpc.com',
       'https://optimism.drpc.org',
-      'https://optimism.blockpi.network/v1/rpc/public',
-      'https://opt-mainnet.g.alchemy.com/v2/demo',
-      'https://optimism-mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
       'https://optimism.gateway.tenderly.co',
-      'https://gateway.tenderly.co/public/optimism',
-      'https://optimism-mainnet.public.blastapi.io',
-      'https://optimism.publicnode.com',
-      'https://api.zan.top/node/v1/opt/mainnet/public'
+      'https://gateway.tenderly.co/public/optimism'
     ].filter(Boolean)),
     apiKeys: DEFAULT_ETHERSCAN_KEYS,
     contractValidator: '0xeAbB01920C41e1C010ba74628996EEA65Df03550',
@@ -598,26 +508,14 @@ const NETWORKS = {
     explorerApiUrl: 'https://api.basescan.org/api',
 
     rpcUrls: envArray('BASE_RPC_URL', [
-      // Alchemy RPC
-      getAlchemyUrl('base'),
-      'https://base.llamarpc.com',
-      'https://1rpc.io/base',
-      'https://base.meowrpc.com',
-      'https://base-rpc.publicnode.com',
-      'https://base.drpc.org',
-      'https://base.blockpi.network/v1/rpc/public',
+      // Public no-key RPCs only.
       'https://base-public.nodies.app',
       'https://base.gateway.tenderly.co',
       'https://mainnet.base.org',
       'https://developer-access-mainnet.base.org',
-      'https://base-mainnet.diamondswap.org/rpc',
-      'https://rpc.notadegen.com/base',
       'https://base-mainnet.public.blastapi.io',
-      'https://endpoints.omniatech.io/v1/base/mainnet/public',
       'https://base-pokt.nodies.app',
-      'https://base.publicnode.com',
-      'https://gateway.tenderly.co/public/base',
-      'https://base-mainnet-rpc.allthatnode.com',
+      'https://gateway.tenderly.co/public/base'
     ].filter(Boolean)),
     apiKeys: DEFAULT_ETHERSCAN_KEYS,
     contractValidator: '0x6F4A97C44669a74Ee6b6EE95D2cD6C4803F6b384',
@@ -638,24 +536,9 @@ const NETWORKS = {
     explorerApiUrl: 'https://api.snowtrace.io/api',
 
     rpcUrls: envArray('AVALANCHE_RPC_URL', [
-      // Public RPCs first (Alchemy AVAX not enabled on free tier)
-      'https://avalanche-c-chain-rpc.publicnode.com',
+      // Public no-key RPCs only.
       'https://api.avax.network/ext/bc/C/rpc',
-      'https://1rpc.io/avax/c',
-      'https://endpoints.omniatech.io/v1/avax/mainnet/public',
-      'https://avax.meowrpc.com',
-      'https://avalanche.drpc.org',
-      'https://avalanche-mainnet.public.nodies.app',
-      'https://avalanche.blockpi.network/v1/rpc/public',
-      'https://ava-mainnet.public.blastapi.io/ext/bc/C/rpc',
-      'https://avalancheapi.terminet.io/ext/bc/C/rpc',
-      'https://avalanche-evm.publicnode.com',
-      'https://avalanche.public.blastapi.io',
-      'https://avalanche.api.onfinality.io/public/ext/bc/C/rpc',
-      'https://avax.network/ext/bc/C/rpc',
-      'https://blastapi.io/public-api/avalanche',
-      // Alchemy RPC (last fallback - requires AVAX enabled in dashboard)
-      getAlchemyUrl('avalanche')
+      'https://avalanche.drpc.org'
     ].filter(Boolean)),
     apiKeys: DEFAULT_ETHERSCAN_KEYS,
     contractValidator: '0x235a064473515789e2781B051bbd9e24AFb46DAc',
@@ -680,14 +563,8 @@ const ADDITIONAL_NETWORKS = {
     // explorerApiUrl: 'https://api.gnosisscan.io/api',
 
     rpcUrls: envArray('GNOSIS_RPC_URL', [
-      getAlchemyUrl('gnosis'),
       'https://gnosis.drpc.org',
-      'https://endpoints.omniatech.io/v1/gnosis/mainnet/public',
-      'https://gnosis-rpc.publicnode.com',
-      'https://1rpc.io/gnosis',
-      'https://gnosis-public.nodies.app',
-      'https://gnosis.blockpi.network/v1/rpc/public',
-      'https://gnosis.therpc.io'
+      'https://gnosis-public.nodies.app'
     ].filter(Boolean)),
     contractValidator: '0x06318Df33cea02503afc45FE65cdEAb8FAb3E20A',
     nativeCurrency: 'xDAI',
@@ -708,12 +585,8 @@ const ADDITIONAL_NETWORKS = {
     // explorerApiUrl: 'https://api.lineascan.build/api',
 
     rpcUrls: envArray('LINEA_RPC_URL', [
-      getAlchemyUrl('linea'),
       'https://rpc.linea.build',
-      'https://1rpc.io/linea',
-      'https://linea.drpc.org',
-      'https://linea.decubate.com',
-      'https://linea.publicnode.com'
+      'https://linea.drpc.org'
     ].filter(Boolean)),
     contractValidator: '0xeabb01920c41e1c010ba74628996eea65df03550',
     nativeCurrency: 'ETH',
@@ -734,13 +607,8 @@ const ADDITIONAL_NETWORKS = {
     // explorerApiUrl: 'https://api.scrollscan.com/api',
 
     rpcUrls: envArray('SCROLL_RPC_URL', [
-      getAlchemyUrl('scroll'),
       'https://rpc.scroll.io',
-      'https://1rpc.io/scroll',
-      'https://scroll.drpc.org',
-      'https://endpoints.omniatech.io/v1/scroll/mainnet/public',
-      'https://scroll-mainnet.public.blastapi.io',
-      'https://scroll-mainnet.unifra.io'
+      'https://scroll.drpc.org'
     ].filter(Boolean)),
     contractValidator: '0xeAbB01920C41e1C010ba74628996EEA65Df03550',
     nativeCurrency: 'ETH',
@@ -761,12 +629,8 @@ const ADDITIONAL_NETWORKS = {
     // explorerApiUrl: 'https://api.mantlescan.info/api',
 
     rpcUrls: envArray('MANTLE_RPC_URL', [
-      getAlchemyUrl('mantle'),
       'https://rpc.mantle.xyz',
-      'https://mantle-rpc.publicnode.com',
-      'https://mantle.drpc.org',
-      'https://1rpc.io/mantle',
-      'https://endpoints.omniatech.io/v1/mantle/mainnet/public'
+      'https://mantle.drpc.org'
     ].filter(Boolean)),
     contractValidator: '0x235a064473515789e2781B051bbd9e24AFb46DAc',
     nativeCurrency: 'MNT',
@@ -780,7 +644,7 @@ const ADDITIONAL_NETWORKS = {
   },
 
   unichain: {
-    chainId: 1301,
+    chainId: 130,
     name: 'Unichain',
     alchemyNetwork: 'unichain-mainnet',
     // Unichain uses Etherscan v2 API - avoids separate API key requirement
@@ -788,10 +652,7 @@ const ADDITIONAL_NETWORKS = {
 
     rpcUrls: envArray('UNICHAIN_RPC_URL', [
       'https://mainnet.unichain.org',
-      'https://unichain-rpc.publicnode.com',
       'https://unichain.drpc.org',
-      'https://1rpc.io/unichain',
-      'https://rpc.unichain.org',
       'https://unichain.gateway.tenderly.co'
     ].filter(Boolean)),
     contractValidator: '0x235a064473515789e2781B051bbd9e24AFb46DAc',
@@ -806,7 +667,7 @@ const ADDITIONAL_NETWORKS = {
   },
 
   berachain: {
-    chainId: 80084,
+    chainId: 80094,
     name: 'Berachain',
     alchemyNetwork: 'berachain-mainnet',
     // Berachain uses Etherscan v2 API - avoids separate API key requirement
@@ -814,11 +675,7 @@ const ADDITIONAL_NETWORKS = {
 
     rpcUrls: envArray('BERACHAIN_RPC_URL', [
       'https://rpc.berachain.com',
-      'https://berachain.drpc.org',
-      'https://1rpc.io/berachain',
-      'https://bartio.rpc.berachain.com',
-      'https://berachain-rpc.publicnode.com',
-      'https://bera.rpc.thirdweb.com'
+      'https://berachain.drpc.org'
     ].filter(Boolean)),
     contractValidator: '0x235a064473515789e2781B051bbd9e24AFb46DAc',
     nativeCurrency: 'BERA',
@@ -836,11 +693,7 @@ const ADDITIONAL_NETWORKS = {
     name: 'Arbitrum Nova',
     alchemyNetwork: 'arbnova-mainnet',
     rpcUrls: envArray('ARBITRUM_NOVA_RPC_URL', [
-      getAlchemyUrl('arbitrum-nova'),
-      'https://nova.arbitrum.io/rpc',
-      'https://arbitrum-nova-rpc.publicnode.com',
-      'https://arbitrum-nova.drpc.org',
-      'https://1rpc.io/arb-nova'
+      'https://nova.arbitrum.io/rpc'
     ].filter(Boolean)),
     contractValidator: '0x235a064473515789e2781B051bbd9e24AFb46DAc',
     nativeCurrency: 'ETH',
@@ -854,11 +707,7 @@ const ADDITIONAL_NETWORKS = {
     name: 'Celo Mainnet',
     alchemyNetwork: 'celo-mainnet',
     rpcUrls: envArray('CELO_RPC_URL', [
-      getAlchemyUrl('celo'),
-      'https://forno.celo.org',
-      'https://celo.drpc.org',
-      'https://1rpc.io/celo',
-      'https://celo-mainnet-rpc.publicnode.com'
+      'https://forno.celo.org'
     ].filter(Boolean)),
     contractValidator: '0x235a064473515789e2781B051bbd9e24AFb46DAc',
     nativeCurrency: 'CELO',
@@ -872,11 +721,8 @@ const ADDITIONAL_NETWORKS = {
     name: 'Cronos',
     alchemyNetwork: 'cronos-mainnet',
     rpcUrls: envArray('CRONOS_RPC_URL', [
-      getAlchemyUrl('cronos'),
       'https://evm.cronos.org',
-      'https://cronos-evm.publicnode.com',
-      'https://cronos.drpc.org',
-      'https://1rpc.io/cro'
+      'https://cronos.drpc.org'
     ].filter(Boolean)),
     contractValidator: '0x235a064473515789e2781B051bbd9e24AFb46DAc',
     nativeCurrency: 'CRO',
@@ -890,11 +736,7 @@ const ADDITIONAL_NETWORKS = {
     name: 'Moonbeam',
     alchemyNetwork: 'moonbeam-mainnet',
     rpcUrls: envArray('MOONBEAM_RPC_URL', [
-      getAlchemyUrl('moonbeam'),
-      'https://moonbeam.drpc.org',
-      'https://1rpc.io/glmr',
-      'https://moonbeam-rpc.dwellir.com',
-      'https://moonbeam.publicnode.com'
+      // No public no-key endpoint currently passes the full scanner smoke test.
     ].filter(Boolean)),
     contractValidator: '0x235a064473515789e2781B051bbd9e24AFb46DAc',
     nativeCurrency: 'GLMR',
@@ -908,11 +750,7 @@ const ADDITIONAL_NETWORKS = {
     name: 'Moonriver',
     alchemyNetwork: 'moonriver-mainnet',
     rpcUrls: envArray('MOONRIVER_RPC_URL', [
-      getAlchemyUrl('moonriver'),
-      'https://moonriver.drpc.org',
-      'https://1rpc.io/movr',
-      'https://moonriver-rpc.dwellir.com',
-      'https://moonriver.publicnode.com'
+      // No public no-key endpoint currently passes the full scanner smoke test.
     ].filter(Boolean)),
     contractValidator: '0x235a064473515789e2781B051bbd9e24AFb46DAc',
     nativeCurrency: 'MOVR',
@@ -926,11 +764,8 @@ const ADDITIONAL_NETWORKS = {
     name: 'opBNB',
     alchemyNetwork: 'opbnb-mainnet',
     rpcUrls: envArray('OPBNB_RPC_URL', [
-      getAlchemyUrl('opbnb'),
       'https://opbnb-mainnet-rpc.bnbchain.org',
-      'https://opbnb.drpc.org',
-      'https://1rpc.io/opbnb',
-      'https://opbnb-mainnet.publicnode.com'
+      'https://opbnb.drpc.org'
     ].filter(Boolean)),
     contractValidator: '0x235a064473515789e2781B051bbd9e24AFb46DAc',
     nativeCurrency: 'BNB',
@@ -944,11 +779,8 @@ const ADDITIONAL_NETWORKS = {
     name: 'Polygon zkEVM',
     alchemyNetwork: 'polygon-zkevm-mainnet',
     rpcUrls: envArray('POLYGON_ZKEVM_RPC_URL', [
-      getAlchemyUrl('polygon-zkevm'),
       'https://zkevm-rpc.com',
-      'https://polygon-zkevm.drpc.org',
-      'https://1rpc.io/zkevm',
-      'https://polygon-zkevm-bor-rpc.publicnode.com'
+      'https://polygon-zkevm.drpc.org'
     ].filter(Boolean)),
     contractValidator: '0x235a064473515789e2781B051bbd9e24AFb46DAc',
     nativeCurrency: 'ETH',
@@ -965,11 +797,8 @@ const ADDITIONAL_NETWORKS = {
     // explorerApiUrl: 'https://api.mega.etherscan.io/api',
 
     rpcUrls: envArray('MEGAETH_RPC_URL', [
-      getAlchemyUrl('megaeth'),
       'https://mainnet.megaeth.com/rpc',
-      'https://megaeth.drpc.org',
-      'https://1rpc.io/megaeth',
-      'https://megaeth-rpc.publicnode.com'
+      'https://megaeth.drpc.org'
     ].filter(Boolean)),
     // No contractValidator on MegaETH - scanner uses individual eth_getCode (correct contract detection)
     nativeCurrency: 'ETH',
@@ -985,7 +814,7 @@ const ADDITIONAL_NETWORKS = {
   subtensor: {
     chainId: 964,
     name: 'Bittensor EVM',
-    // Alchemy does not support Bittensor; rely on the public RPC fallbacks below.
+    // Public RPC fallbacks for Bittensor EVM.
     explorerApiUrl: 'https://evm.taostats.io/api',
     // Bittensor's Blockscout-based explorer is not on Etherscan v2's chain list.
     // Routes contract/account calls to evm.taostats.io and proxy calls through JSON-RPC.
@@ -1013,7 +842,6 @@ const ADDITIONAL_NETWORKS = {
     suiNetwork: 'mainnet',
 
     rpcUrls: envArray('SUI_RPC_URL', [
-      `https://sui-mainnet.alchemy-blast.com/v2/${ALCHEMY_API_KEY}`,
       'https://fullnode.mainnet.sui.io:443'
     ].filter(Boolean)),
     nativeCurrency: 'SUI',
@@ -1033,6 +861,8 @@ Object.entries(ADDITIONAL_NETWORKS).forEach(([key, config]) => {
     apiKeys: DEFAULT_ETHERSCAN_KEYS
   };
 });
+
+assertPublicRpcUrls(NETWORKS);
 
 // Global settings
 const CONFIG = {
@@ -1068,5 +898,8 @@ module.exports = {
   NETWORKS,
   CONFIG,
   LOGS_OPTIMIZATION,
-  getLogsOptimization
+  getLogsOptimization,
+  isPublicRpcUrl,
+  assertPublicRpcUrls,
+  PUBLIC_RPC_ONLY
 };

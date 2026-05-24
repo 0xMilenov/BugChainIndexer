@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Backfill ERC-20 token balances for a specific address (or small batch).
- * Uses Etherscan tokenbalance API. Run to populate contract_token_balances for testing.
+ * Uses public JSON-RPC balanceOf calls. Run to populate contract_token_balances for testing.
  * Uses backend's DB connection so data is written to the same DB the API reads from.
  *
  * Usage:
@@ -14,16 +14,14 @@ const fs = require('fs');
 require('dotenv').config({ path: path.join(__dirname, '../../server/backend/.env') });
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const { pool } = require('../../server/backend/services/db');
-const { getTokenBalanceEtherscan, sleep } = require('../common/core');
-
-const ERC20_API_DELAY_MS = parseInt(process.env.ERC20_API_DELAY_MS || '400', 10);
+const { contractCall } = require('../common/core');
 const { normalizeAddress } = require('../common');
 const { NETWORKS } = require('../config/networks.js');
 
 const CONTRACT_LIST_WHERE_VERIFIED = `(tags IS NULL OR NOT 'EOA' = ANY(tags)) AND verified = true AND EXISTS (SELECT 1 FROM contract_sources cs WHERE cs.address = addresses.address AND cs.network = addresses.network)`;
 const CONTRACT_LIST_WHERE_ALL = `(tags IS NULL OR NOT 'EOA' = ANY(tags))`;
 
-async function loadTokens(network, limit = 50) {
+async function loadTokens(network, limit = 15) {
   const tokensFilePath = path.join(__dirname, '..', 'tokens', `${network}.json`);
   try {
     const tokensData = JSON.parse(fs.readFileSync(tokensFilePath, 'utf8'));
@@ -94,10 +92,13 @@ async function main() {
       await pool.query('DELETE FROM contract_token_balances WHERE address = $1 AND network = $2', [address, network]);
     }
     const nonZero = [];
+    const tokenAddresses = tokens.map(t => t.address);
+    const balances = await contractCall.fetchErc20Balances(network, [address], tokenAddresses);
+    const tokenMap = balances.get(address) || balances.get(address.toLowerCase()) || new Map();
+
     for (const token of tokens) {
       try {
-        await sleep(ERC20_API_DELAY_MS);
-        const balanceStr = await getTokenBalanceEtherscan(network, address, token.address);
+        const balanceStr = tokenMap.get(token.address)?.balance || '0';
         const balanceWei = BigInt(balanceStr);
         if (balanceWei > 0n) {
           nonZero.push({
@@ -114,7 +115,6 @@ async function main() {
         }
       } catch (err) {
         console.warn(`  ${token.symbol}: ${err.message}`);
-        // Continue with other tokens - Etherscan rate limits are common
       }
     }
     for (const b of nonZero) {

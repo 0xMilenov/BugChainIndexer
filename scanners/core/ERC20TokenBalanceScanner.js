@@ -1,13 +1,13 @@
 /* eslint-disable no-console */
 /**
  * ERC20 Token Balance Scanner
- * Fetches ERC-20 token balances via BalanceHelper RPC (batch) or Etherscan API (fallback).
+ * Fetches ERC-20 token balances through public JSON-RPC calls only.
  * Uses well-known tokens from scanners/tokens/{network}.json.
  */
 const Scanner = require('../common/Scanner');
 const fs = require('fs');
 const path = require('path');
-const { getTokenBalanceEtherscan, sleep, contractCall } = require('../common/core');
+const { contractCall } = require('../common/core');
 const { normalizeAddress } = require('../common');
 
 const CONTRACT_LIST_WHERE_VERIFIED = `(tags IS NULL OR NOT 'EOA' = ANY(tags)) AND verified = true AND EXISTS (SELECT 1 FROM contract_sources cs WHERE cs.address = addresses.address AND cs.network = addresses.network)`;
@@ -20,14 +20,12 @@ class ERC20TokenBalanceScanner extends Scanner {
       batchSizes: {}
     });
 
-    this.batchSize = parseInt(process.env.ERC20_BATCH_SIZE || '2000', 10);
+    this.batchSize = parseInt(process.env.ERC20_BATCH_SIZE || '250', 10);
     this.pilotLimit = process.env.ERC20_PILOT_LIMIT ? parseInt(process.env.ERC20_PILOT_LIMIT, 10) : null;
     this.contractLimit = process.env.ERC20_CONTRACT_LIMIT ? parseInt(process.env.ERC20_CONTRACT_LIMIT, 10) : null;
-    this.tokenLimit = parseInt(process.env.ERC20_TOKEN_LIMIT || '100', 10);  // All tokens from JSON (~100) - RPC batch has no rate limit
-    this.apiDelayMs = parseInt(process.env.ERC20_API_DELAY_MS || '400', 10);  // 400ms = 2.5 calls/sec (Etherscan limit: 3/sec)
+    this.tokenLimit = parseInt(process.env.ERC20_TOKEN_LIMIT || '15', 10);
     this.maxAgeDays = parseInt(process.env.ERC20_MAX_AGE_DAYS || '7', 10);
     this.currentTime = Math.floor(Date.now() / 1000);
-    this.badTokens = new Set();
   }
 
   /**
@@ -121,12 +119,11 @@ class ERC20TokenBalanceScanner extends Scanner {
     }
 
     const balanceHelper = contractCall.getBalanceContract(this.network);
-    this.useRpc = !!balanceHelper;
-    if (this.useRpc) {
-      this.log('Starting ERC-20 token balance scan via BalanceHelper RPC (batch)');
-    } else {
-      this.log(`No BalanceHelper for ${this.network}, using Etherscan fallback`);
-    }
+    this.log(
+      balanceHelper
+        ? 'Starting ERC-20 token balance scan via BalanceHelper RPC batch'
+        : 'Starting ERC-20 token balance scan via direct ERC-20 balanceOf RPC fallback'
+    );
 
     const tokens = this.loadTokens();
     if (tokens.length === 0) {
@@ -147,11 +144,7 @@ class ERC20TokenBalanceScanner extends Scanner {
       return;
     }
 
-    if (this.useRpc) {
-      await this.runViaRpc(contracts, tokens);
-    } else {
-      await this.runViaEtherscan(contracts, tokens);
-    }
+    await this.runViaRpc(contracts, tokens);
   }
 
   /**
@@ -206,66 +199,6 @@ class ERC20TokenBalanceScanner extends Scanner {
     this.log(`Completed: ${erc20Map.size} contracts processed, ${allNonZero.length} non-zero token balances stored`);
   }
 
-  /**
-   * Fallback: per-contract per-token via Etherscan API (rate limited)
-   */
-  async runViaEtherscan(contracts, tokens) {
-    let processed = 0;
-    let totalNonZero = 0;
-
-    for (let i = 0; i < contracts.length; i++) {
-      const { address: rawAddress, hasExistingData } = contracts[i];
-      const address = normalizeAddress(rawAddress);
-      try {
-        if (hasExistingData) {
-          await this.deleteContractBalances(address);
-        }
-
-        const nonZeroBalances = [];
-        for (const token of tokens) {
-          try {
-            await sleep(this.apiDelayMs);
-            const balanceStr = await getTokenBalanceEtherscan(this.network, address, token.address);
-            const balanceWei = BigInt(balanceStr);
-            if (balanceWei > 0n) {
-              nonZeroBalances.push({
-                address,
-                network: this.network,
-                token_address: token.address,
-                symbol: token.symbol,
-                decimals: token.decimals,
-                balance_wei: balanceStr,
-                last_updated: this.currentTime
-              });
-            }
-          } catch (err) {
-            const isNotOk = String(err.message || '').toUpperCase().includes('NOTOK');
-            const tokenKey = `${token.symbol}:${token.address}`;
-            if (isNotOk && !this.badTokens.has(tokenKey)) {
-              this.badTokens.add(tokenKey);
-              this.log(`Token ${token.symbol} returns NOTOK (skipping for remaining contracts)`, 'warn');
-            } else if (!isNotOk) {
-              this.log(`Token ${token.symbol} for ${address}: ${err.message}`, 'warn');
-            }
-          }
-        }
-
-        if (nonZeroBalances.length > 0) {
-          await this.insertBalances(nonZeroBalances);
-          totalNonZero += nonZeroBalances.length;
-        }
-
-        processed++;
-        if (processed % 10 === 0) {
-          this.log(`Progress: ${processed}/${contracts.length} contracts`);
-        }
-      } catch (error) {
-        this.log(`Failed to process ${address}: ${error.message}`, 'warn');
-      }
-    }
-
-    this.log(`Completed: ${processed} contracts processed, ${totalNonZero} non-zero token balances stored`);
-  }
 }
 
 if (require.main === module) {

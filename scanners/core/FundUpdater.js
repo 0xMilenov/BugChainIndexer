@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 /**
  * Fund Updater Scanner
- * Updates asset prices and balances using Alchemy API
+ * Updates asset prices and balances using public RPC and free CoinGecko prices
  */
 const Scanner = require('../common/Scanner');
 const fs = require('fs');
@@ -10,6 +10,7 @@ const path = require('path');
 const { batchUpdateFunds, normalizeAddress } = require('../common');
 const { CONFIG } = require('../config/networks.js');
 const TokenPriceCache = require('../common/TokenPriceCache');
+const { CoinGeckoPriceProvider } = require('../common/CoinGeckoPriceProvider');
 
 class FundUpdater extends Scanner {
   constructor(network) {
@@ -23,6 +24,7 @@ class FundUpdater extends Scanner {
 
     this.delayDays = CONFIG.FUNDUPDATEDELAY || 7;
     this.priceCache = new TokenPriceCache();
+    this.priceProvider = new CoinGeckoPriceProvider();
 
     // Dynamic batch sizing for balance calls (for BalanceHelper mode)
     this.currentBatchSize = 200;  // Start with 200
@@ -76,12 +78,11 @@ class FundUpdater extends Scanner {
     try {
       const tokensData = JSON.parse(fs.readFileSync(tokensFilePath, 'utf8'));
 
-      // 🔧 TEMPORARY: Limit to top 50 tokens by rank for testing
-      const TEST_TOKEN_LIMIT = 50;
+      const tokenLimit = parseInt(process.env.FUND_TOKEN_LIMIT || process.env.ERC20_TOKEN_LIMIT || '15', 10);
       const sortedTokens = tokensData
         .filter(token => token.symbol && token.address)
         .sort((a, b) => (a.rank || Infinity) - (b.rank || Infinity))
-        .slice(0, TEST_TOKEN_LIMIT);
+        .slice(0, tokenLimit);
 
       sortedTokens.forEach(token => {
         const addressLower = token.address.toLowerCase();
@@ -95,7 +96,7 @@ class FundUpdater extends Scanner {
         };
       });
 
-      this.log(`📋 Loaded ${tokenAddresses.length} token addresses from tokens/${this.network}.json (limited to top ${TEST_TOKEN_LIMIT} for testing)`);
+      this.log(`📋 Loaded ${tokenAddresses.length} token addresses from tokens/${this.network}.json (top ${tokenLimit})`);
     } catch (error) {
       this.log(`⚠️  Failed to load tokens from file: ${error.message}`, 'warn');
       this.log('📋 Falling back to empty token list', 'warn');
@@ -141,9 +142,9 @@ class FundUpdater extends Scanner {
       const fundParamIndex = allFlag ? '$2' : '$4';
       const limitParamIndex = allFlag ? '$3' : '$5';
 
-      query += ` AND fund >= ${fundParamIndex}`;
+      query += ` AND COALESCE(fund_usd, fund, 0) >= ${fundParamIndex}`;
       params.push(minFund);
-      query += ` ORDER BY fund DESC, last_fund_updated ASC NULLS FIRST LIMIT ${limitParamIndex}`;
+      query += ` ORDER BY COALESCE(fund_usd, fund, 0) DESC, last_fund_updated ASC NULLS FIRST LIMIT ${limitParamIndex}`;
       params.push(maxBatch);
 
       this.log(`🏛️ High fund mode enabled: targeting addresses with fund >= ${minFund.toLocaleString()}`);
@@ -169,29 +170,29 @@ class FundUpdater extends Scanner {
   }
 
   /**
-   * Fetch and update token prices using Alchemy Prices API (by symbol)
-   * Also fetches decimals from alchemy_getTokenMetadata if not available
+   * Fetch and update token prices using CoinGecko's free simple price API.
+   * Decimals remain sourced from scanners/tokens/{network}.json.
    */
   async updateTokenPrices() {
-    // Use advisory lock to prevent concurrent symbol_prices updates across networks
-    const lockId = 12345; // Fixed ID for symbol_prices table updates
+    const lockId = 12345;
 
     try {
-      // Acquire advisory lock
       this.log('🔒 Acquiring lock for symbol_prices updates...');
       await this.queryDB('SELECT pg_advisory_lock($1)', [lockId]);
       this.log('✅ Lock acquired');
 
-      // Load all tokens from tokens/{network}.json
-      const { addressToSymbolMap, addressToTokenMap } = this.loadTokenAddressMapping();
+      const { addressToSymbolMap } = this.loadTokenAddressMapping();
       const allSymbols = [...new Set(Object.values(addressToSymbolMap))];
+      const nativeSymbol = CONFIG[this.network]?.nativeCurrency;
+      if (nativeSymbol && !allSymbols.includes(nativeSymbol)) {
+        allSymbols.push(nativeSymbol);
+      }
 
       if (allSymbols.length === 0) {
         this.log('⚠️ No symbols found in tokens file', 'warn');
         return;
       }
 
-      // Filter symbols that need update (7 days old or never updated)
       const cutoffTime = this.currentTime - (this.delayDays * 24 * 60 * 60);
       const checkQuery = `
         SELECT symbol FROM symbol_prices
@@ -210,106 +211,40 @@ class FundUpdater extends Scanner {
         return;
       }
 
-      this.log(`💰 Fetching prices for ${symbolsToUpdate.length}/${allSymbols.length} symbols from Alchemy Prices API (${allSymbols.length - symbolsToUpdate.length} already up-to-date)...`);
+      this.log(`💰 Fetching prices for ${symbolsToUpdate.length}/${allSymbols.length} symbols from CoinGecko`);
+      const prices = await this.priceProvider.fetchPricesBySymbols(symbolsToUpdate);
+      const updateQuery = `
+        INSERT INTO symbol_prices (symbol, price_usd, decimals, name, last_updated)
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (symbol) DO UPDATE SET
+          price_usd = EXCLUDED.price_usd,
+          decimals = EXCLUDED.decimals,
+          name = EXCLUDED.name,
+          last_updated = EXCLUDED.last_updated
+      `;
 
-      // Fetch token prices from Alchemy API (max 25 symbols per call to avoid 400 errors)
-      const batchSize = 25;
       let totalUpdated = 0;
-      let tokensNeedingDecimals = [];
-
-      for (let i = 0; i < symbolsToUpdate.length; i += batchSize) {
-        const symbolBatch = symbolsToUpdate.slice(i, i + batchSize);
-
-        try {
-          const pricesResult = await this.alchemyClient.getTokenPricesBySymbol(symbolBatch);
-
-          if (!pricesResult || !pricesResult.data) {
-            this.log(`⚠️ No price data returned for batch ${Math.floor(i / batchSize) + 1}`, 'warn');
-            continue;
-          }
-
-          // Update symbol_prices table with fetched prices
-          const updateQuery = `
-            INSERT INTO symbol_prices (symbol, price_usd, decimals, name, last_updated)
-            VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (symbol) DO UPDATE SET
-              price_usd = EXCLUDED.price_usd,
-              decimals = EXCLUDED.decimals,
-              name = EXCLUDED.name,
-              last_updated = EXCLUDED.last_updated
-          `;
-
-          for (const tokenData of pricesResult.data) {
-            const symbol = tokenData.symbol;
-
-            if (!symbol || !tokenData.prices || tokenData.prices.length === 0) {
-              continue;
-            }
-
-            const priceUsd = tokenData.prices[0]?.value || 0;
-            const name = tokenData.name || symbol;
-            const decimals = tokenData.decimals || null;
-
-            // If decimals is not available, mark for fetching via getTokenMetadata
-            if (!decimals) {
-              // Find token address from addressToTokenMap
-              const tokenAddress = Object.keys(addressToSymbolMap).find(addr => addressToSymbolMap[addr] === symbol);
-              if (tokenAddress) {
-                tokensNeedingDecimals.push({ symbol, address: tokenAddress });
-              }
-            }
-
-            await this.queryDB(updateQuery, [
-              symbol,
-              priceUsd,
-              decimals || 18, // Default to 18 if not available
-              name,
-              this.currentTime
-            ]);
-
-            totalUpdated++;
-          }
-
-          this.log(`✅ Updated prices for batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(symbolsToUpdate.length / batchSize)} (${totalUpdated} symbols)`);
-        } catch (error) {
-          this.log(`❌ Failed to fetch prices for batch: ${error.message}`, 'warn');
+      for (const symbol of symbolsToUpdate) {
+        const priceData = prices.get(symbol.toLowerCase());
+        if (!priceData) {
+          this.log(`⚠️ No CoinGecko price mapping for ${symbol}; keeping price at 0`, 'warn');
+          await this.queryDB(updateQuery, [symbol, 0, 18, symbol, this.currentTime]);
+          continue;
         }
-
-        // Rate limiting
-        if (i + batchSize < symbolsToUpdate.length) {
-          await this.sleep(300);
-        }
+        await this.queryDB(updateQuery, [
+          symbol,
+          priceData.price,
+          18,
+          priceData.name || symbol,
+          this.currentTime
+        ]);
+        totalUpdated++;
       }
 
-      // Fetch decimals for tokens that didn't have it
-      if (tokensNeedingDecimals.length > 0) {
-        this.log(`🔍 Fetching decimals for ${tokensNeedingDecimals.length} tokens via getTokenMetadata...`);
-
-        for (const token of tokensNeedingDecimals) {
-          try {
-            const metadata = await this.alchemyClient.getTokenMetadata(token.address);
-
-            if (metadata && metadata.decimals !== null && metadata.decimals !== undefined) {
-              await this.queryDB(
-                'UPDATE symbol_prices SET decimals = $1 WHERE symbol = $2',
-                [metadata.decimals, token.symbol]
-              );
-              this.log(`  ✅ Updated decimals for ${token.symbol}: ${metadata.decimals}`);
-            }
-          } catch (error) {
-            this.log(`  ⚠️ Failed to fetch metadata for ${token.symbol}: ${error.message}`, 'warn');
-          }
-
-          // Rate limiting
-          await this.sleep(100);
-        }
-      }
-
-      this.log(`✅ Updated ${totalUpdated}/${symbolsToUpdate.length} token prices from Alchemy Prices API`);
+      this.log(`✅ Updated ${totalUpdated}/${symbolsToUpdate.length} token prices from CoinGecko`);
     } catch (error) {
       this.log(`❌ Failed to update token prices: ${error.message}`, 'error');
     } finally {
-      // Always release the lock
       try {
         await this.queryDB('SELECT pg_advisory_unlock($1)', [lockId]);
         this.log('🔓 Lock released');
@@ -392,20 +327,14 @@ class FundUpdater extends Scanner {
     }
   }
 
-  // Update address funds using BalanceHelper contract (batch method)
+  // Update address funds using BalanceHelper when available, otherwise direct public RPC.
   async updateAddressFunds(addresses) {
-    this.log('🔗 Using BalanceHelper contract for batch balance fetching');
-
-    // Check if using Alchemy proxy (affects rate limiting)
-    const useAlchemyProxy = process.env.USE_ALCHEMY_PROXY === 'true';
-    if (useAlchemyProxy) {
-      this.log('ℹ️  Using Alchemy proxy - rate limit delays disabled');
-    }
+    this.log('🔗 Fetching native and token balances through public RPC');
 
     // Insert missing symbols before fetching prices
     await this.insertMissingSymbols();
 
-    // Update token prices from Alchemy Prices API
+    // Update token prices from CoinGecko/free cache
     await this.updateTokenPrices();
 
     // Load token data from tokens/{network}.json file (includes decimals for each token)
@@ -458,17 +387,11 @@ class FundUpdater extends Scanner {
                 this.log(`❌ Individual balance call failed for ${address}: ${individualError.message}`, 'warn');
                 nativeBalances.push('0'); // Use 0 as fallback
               }
-              // Rate limiting for individual calls (skip if using proxy)
-              if (!useAlchemyProxy) {
-                await this.sleep(100);
-              }
+              await this.sleep(Number(process.env.PUBLIC_RPC_INDIVIDUAL_DELAY_MS || 100));
             }
           }
 
-          // Rate limiting between chunks (skip if using proxy)
-          if (!useAlchemyProxy) {
-            await this.sleep(200);
-          }
+          await this.sleep(Number(process.env.PUBLIC_RPC_CHUNK_DELAY_MS || 200));
         }
       } catch (error) {
         this.log(`❌ Critical error in native balance processing: ${error.message}`, 'error');
@@ -587,7 +510,8 @@ class FundUpdater extends Scanner {
         });
 
         // DEBUG: Log if total fund is abnormally large
-        const finalFund = Math.floor(totalValue);
+        const finalFundUsd = Number.isFinite(totalValue) ? totalValue : 0;
+        const finalFund = Math.floor(finalFundUsd);
         if (finalFund > 10000000) { // > 10M USD
           this.log(`🔍 [FUND-DEBUG][${address}] Large fund value detected: $${finalFund.toLocaleString()}`, 'warn');
           this.log(`   Native: $${debugValues.native.toFixed(2)}`, 'warn');
@@ -601,6 +525,7 @@ class FundUpdater extends Scanner {
           address: normalizeAddress(address),
           network: this.network,
           fund: finalFund,
+          fundUsd: finalFundUsd.toFixed(8),
           lastFundUpdated: this.currentTime,
           nativeBalance: nativeBalance
         };
@@ -614,10 +539,10 @@ class FundUpdater extends Scanner {
       return updates.length;
     };
 
-    return this.processBatch(addresses, processor, {
+      return this.processBatch(addresses, processor, {
       batchSize: this.batchSizes.addresses,
       concurrency: 3,
-      delayMs: useAlchemyProxy ? 50 : 500  // Reduced delay when using proxy
+      delayMs: Number(process.env.PUBLIC_RPC_BATCH_DELAY_MS || 500)
     });
   }
 

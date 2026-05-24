@@ -119,6 +119,7 @@ export interface SearchByCodeResponse {
     verified?: boolean;
     deployed?: number;
     fund?: number;
+    fund_usd?: number | string | null;
   }>;
   error?: string;
 }
@@ -129,6 +130,7 @@ export interface ContractDetail {
   contract_name?: string;
   deployed?: number;
   fund?: number;
+  fund_usd?: number | string | null;
   native_balance?: string | number;
   first_seen?: number;
   verified?: boolean;
@@ -155,7 +157,13 @@ export interface ContractDetail {
   constructor_arguments?: string;
   library?: string;
   license_type?: string;
-  erc20_balances?: Array<{ symbol: string; balance: string; decimals?: number }>;
+  erc20_balances?: Array<{
+    symbol: string;
+    balance: string;
+    decimals?: number;
+    price_usd?: number | string | null;
+    value_usd?: number | string | null;
+  }>;
   critical_count?: number;
   high_count?: number;
   medium_count?: number;

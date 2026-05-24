@@ -29,17 +29,18 @@ Core engine for collecting, analyzing, and storing blockchain data.
 
 ```
 common/
-├── core.js                # Core blockchain functions (Alchemy integration)
+├── core.js                # Core blockchain functions (public JSON-RPC by default)
 ├── database.js            # PostgreSQL database connection and queries
 ├── Scanner.js             # Base scanner class (dual RPC clients)
-├── alchemyRpc.js          # Alchemy RPC client (includes Prices API)
+├── CoinGeckoPriceProvider.js # Free cached price provider
+├── alchemyRpc.js          # Legacy optional private adapter, disabled by default
 ├── TokenPriceCache.js     # Token price caching system
 ├── addressUtils.js        # EIP-55 address validation and normalization
 └── chunkOptimizer.js      # Batch size optimization
 ```
 
 **Key Features:**
-- Stable data access with Alchemy API integration
+- Stable data access through validated no-key public RPC endpoints
 - Address validation using EIP-55 checksum
 - Dynamic batch size adjustment (50-1000 addresses)
 - Token price caching (7-day TTL)
@@ -51,7 +52,7 @@ core/
 ├── UnifiedScanner.js      # Main analysis pipeline (5-in-1)
 ├── FundUpdater.js         # Asset tracker (uses Advisory Locks)
 ├── DataRevalidator.js     # Data validation and reclassification
-└── ERC20TokenBalanceScanner.js  # ERC-20 token balances via Etherscan API
+└── ERC20TokenBalanceScanner.js  # ERC-20 token balances via RPC balanceOf calls
 ```
 
 **UnifiedScanner.js** - 5-in-1 integrated pipeline:
@@ -62,7 +63,7 @@ core/
 5. Database storage
 
 **FundUpdater.js** - Portfolio tracking:
-- Uses Alchemy Prices API
+- Uses CoinGecko/free cached prices
 - Concurrency control with PostgreSQL Advisory Locks
 - Network-specific token decimals accuracy
 - Includes ERC20 balance checks
@@ -80,9 +81,8 @@ config/
 ```
 
 **Network Configuration Includes:**
-- RPC endpoints
-- Etherscan API URLs
-- Alchemy network IDs
+- Public no-key RPC endpoints
+- Etherscan API URLs for budgeted source-code fallback
 - BalanceHelper contract addresses
 
 #### scanners/tokens/ - Token Configurations
@@ -510,11 +510,10 @@ idx_token_price_cache_updated
 ### Required Variables
 
 ```bash
-# Alchemy API (required for FundUpdater)
-ALCHEMY_API_KEY=your_alchemy_key
-
-# Etherscan API
+# Optional Etherscan API keys for budgeted source-code enrichment
 DEFAULT_ETHERSCAN_KEYS=key1,key2,key3
+ETHERSCAN_DAILY_SOFT_LIMIT=80000
+PUBLIC_RPC_ONLY=true
 
 # PostgreSQL
 PGHOST=localhost
@@ -527,9 +526,7 @@ PGPASSWORD=your_password
 ### Optional Variables
 
 ```bash
-# Proxy servers
-USE_ALCHEMY_PROXY=true
-ALCHEMY_PROXY_URL=http://localhost:3002
+# Optional proxy server for Etherscan source-code fallback
 USE_ETHERSCAN_PROXY=true
 ETHERSCAN_PROXY_URL=http://localhost:3000
 
@@ -604,24 +601,27 @@ node scripts/direct-deploy.js
 
 ## Migration History
 
-### Moralis → Alchemy Migration
+### Moralis -> Public RPC Migration
 
 **Removed:**
 - Moralis SDK dependencies
 - Moralis-supported networks (Cronos, Moonriver, etc.)
+- Default private RPC dependency
 
 **Added:**
-- Alchemy Data API v1 (token balances, metadata)
+- Public JSON-RPC discovery and RPC `balanceOf` balance checks
+- CoinGecko/free cached USD prices
+- Sourcify-first source-code enrichment
 - Token price caching (7-day TTL)
 - Improved address validation with ethers.getAddress()
-- Optimized deployment time with Alchemy RPC
+- RPC validation and budget tracking for public endpoints
 
 **Performance Improvements:**
 - Multi-network queries: 99.5% improvement
 
 **Breaking Changes:**
-- `MORALIS_API_KEY` → `ALCHEMY_API_KEY`
-- FundUpdater requires Alchemy API key
+- `MORALIS_API_KEY`/`ALCHEMY_API_KEY` are no longer scanner prerequisites
+- FundUpdater now depends on public RPC, token lists, and cached free prices
 
 ---
 

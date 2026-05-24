@@ -40,14 +40,13 @@ Edit the `.env` file with your configuration:
 
 ```bash
 # ================================
-# API KEYS (REQUIRED)
+# EXPLORER KEYS (OPTIONAL, BUDGETED)
 # ================================
 
-# Alchemy API key (required for FundUpdater)
-ALCHEMY_API_KEY=your_alchemy_key
-
-# Default Etherscan API keys (comma-separated for failover)
+# Etherscan V2 keys are used only for source-code enrichment under a daily budget.
 DEFAULT_ETHERSCAN_KEYS=your_key1,your_key2,your_key3
+ETHERSCAN_DAILY_SOFT_LIMIT=80000
+PUBLIC_RPC_ONLY=true
 
 # ================================
 # DATABASE (PostgreSQL)
@@ -75,25 +74,10 @@ RUN_VERIFY_CONTRACTS=true      # Verify contracts via Etherscan
 
 ## 🔑 API Key Setup
 
-### Required API Keys
+### Optional API Keys
 
-#### 1. Alchemy API Key
-**Required for FundUpdater** - Token balance and portfolio tracking
-
-1. Visit [Alchemy.com](https://www.alchemy.com/)
-2. Create a free account
-3. Create a new app
-4. Copy the API key from dashboard
-5. Add to `.env` as `ALCHEMY_API_KEY`
-
-**Features:**
-- Token balances across 12 networks
-- Token metadata (symbol, name, decimals)
-- Token prices in USD
-- 30-day metadata cache, 4-hour price cache
-
-#### 2. Etherscan API Keys
-**Free tier available** - Required for contract verification
+#### 1. Etherscan API Keys
+**Free tier available** - Used only for source-code enrichment fallback after Sourcify.
 
 1. Visit [Etherscan.io](https://etherscan.io/apis)
 2. Create an account
@@ -353,12 +337,13 @@ pg_isready -h $PGHOST -p $PGPORT
 echo "SELECT version();" | psql $PGDATABASE
 ```
 
-### API Keys Test
+### Public RPC And Explorer Test
 ```bash
-# Test Etherscan API (replace with your key)
-curl "https://api.etherscan.io/api?module=account&action=balance&address=0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045&tag=latest&apikey=YOUR_KEY"
+# Validate configured no-key public RPC endpoints.
+node scanners/utils/validate-public-rpcs.js
 
-# Should return: {"status":"1","message":"OK","result":"..."}
+# Optional: test Etherscan source-code access only if keys are configured.
+curl "https://api.etherscan.io/v2/api?chainid=1&module=contract&action=getsourcecode&address=0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045&apikey=YOUR_KEY"
 ```
 
 ### End-to-End Test
