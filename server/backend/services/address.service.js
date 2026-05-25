@@ -107,15 +107,15 @@ exports.getDailyCollectionStats = async ({ fromTs, toTs } = {}) => {
         COUNT(DISTINCT LOWER(a.network))::bigint AS networks
       FROM addresses a
       WHERE ${baseWhere}
-        AND COALESCE(a.first_seen, 0) >= $1
-        AND COALESCE(a.first_seen, 0) < $2
+        AND a.first_seen >= $1
+        AND a.first_seen < $2
     `, [safeFrom, safeTo]),
     pool.query(`
       SELECT LOWER(a.network) AS network, COUNT(*)::bigint AS count
       FROM addresses a
       WHERE ${baseWhere}
-        AND COALESCE(a.first_seen, 0) >= $1
-        AND COALESCE(a.first_seen, 0) < $2
+        AND a.first_seen >= $1
+        AND a.first_seen < $2
       GROUP BY LOWER(a.network)
       ORDER BY count DESC, network ASC
       LIMIT 6
@@ -133,8 +133,8 @@ exports.getDailyCollectionStats = async ({ fromTs, toTs } = {}) => {
         a.native_balance
       FROM addresses a
       WHERE ${baseWhere}
-        AND COALESCE(a.first_seen, 0) >= $1
-        AND COALESCE(a.first_seen, 0) < $2
+        AND a.first_seen >= $1
+        AND a.first_seen < $2
       ORDER BY
         COALESCE(a.fund_usd, 0)::numeric DESC,
         COALESCE(a.native_balance, a.fund, 0)::numeric DESC,
