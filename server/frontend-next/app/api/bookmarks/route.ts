@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const getBackendUrl = (request: NextRequest) => {
+  const configuredBackendUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
+  if (configuredBackendUrl) return configuredBackendUrl;
   const host = request.headers.get("host") ?? request.nextUrl.host ?? "";
   if (host.includes("localhost")) return "http://localhost:8005";
-  return process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://localhost:8000";
+  return "http://localhost:8000";
 };
 
 async function proxy(request: NextRequest, method: "GET" | "POST") {
