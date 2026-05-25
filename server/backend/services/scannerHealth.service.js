@@ -137,7 +137,7 @@ async function getLatestNetworkLogs() {
 
     const latest = Array.from(latestByNetwork.values()).slice(0, 24);
     return Promise.all(latest.map(async (item) => {
-      const contents = await readTail(path.join(SCANNER_LOG_DIR, item.file));
+      const contents = await readTail(path.join(SCANNER_LOG_DIR, item.file), 2 * 1024 * 1024);
       return parseNetworkLog(item.file, contents, item.mtimeMs);
     }));
   } catch (_) {
