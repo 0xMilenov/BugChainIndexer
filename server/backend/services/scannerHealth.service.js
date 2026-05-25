@@ -66,6 +66,11 @@ function parseDurationToSeconds(value) {
   return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]);
 }
 
+function isScannerErrorLine(line) {
+  if (/errorRate/i.test(line)) return false;
+  return /(\bERROR\b|\bfailed\b|\btimeout\b|rate limit|too many requests|\[TEMPORARY\]|\[PERMANENT\]|\[TIMEOUT\])/i.test(line);
+}
+
 function parseNetworkLog(fileName, contents, mtimeMs) {
   const nameMatch = fileName.match(/^UnifiedScanner-(.+)-(\d{8}_\d{6})\.log$/);
   const network = nameMatch ? nameMatch[1] : fileName.replace(/^UnifiedScanner-/, '').replace(/\.log$/, '');
@@ -93,7 +98,7 @@ function parseNetworkLog(fileName, contents, mtimeMs) {
     const storedMatch = line.match(/Stored:\s+(\d+)\s+verified contracts/);
     if (storedMatch) stored += Number(storedMatch[1]);
     if (line.includes('PIPELINE COMPLETE')) completed = true;
-    if (/error|failed|timeout|rate limit|too many requests/i.test(line)) errorCount += 1;
+    if (isScannerErrorLine(line)) errorCount += 1;
   }
 
   const avgGetLogsMs = getLogsDurations.length

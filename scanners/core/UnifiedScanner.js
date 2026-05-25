@@ -97,13 +97,13 @@ class UnifiedScanner extends Scanner {
   }
 
   getMaxBlocksPerRun() {
-    const configured = Number(process.env.PUBLIC_RPC_MAX_BLOCKS_PER_RUN || process.env.MAX_BLOCKS_PER_RUN || 300);
-    return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 300;
+    const configured = Number(process.env.PUBLIC_RPC_MAX_BLOCKS_PER_RUN || process.env.MAX_BLOCKS_PER_RUN || 60);
+    return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 60;
   }
 
   getMaxContractsPerRun() {
-    const configured = Number(process.env.PUBLIC_RPC_MAX_CONTRACTS_PER_RUN || process.env.MAX_CONTRACTS_PER_RUN || 75);
-    return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 75;
+    const configured = Number(process.env.PUBLIC_RPC_MAX_CONTRACTS_PER_RUN || process.env.MAX_CONTRACTS_PER_RUN || 25);
+    return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 25;
   }
 
   selectContractsForRun(contracts) {
