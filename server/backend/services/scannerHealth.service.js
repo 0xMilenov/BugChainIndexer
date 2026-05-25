@@ -8,7 +8,7 @@ const execFileAsync = promisify(execFile);
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 const SCANNER_LOG_DIR = process.env.SCANNER_LOG_DIR || path.join(PROJECT_ROOT, 'scanners', 'logs');
 const RUNNER_LOG = path.join(SCANNER_LOG_DIR, 'runner.log');
-const SCANNER_PROCESS_PATTERN = /\b(UnifiedScanner|FundUpdater|ERC20TokenBalanceScanner|DataRevalidator)\b|run\.sh\s+(unified|funds|erc20|revalidate)/i;
+const SCANNER_PROCESS_PATTERN = /\b(UnifiedScanner|FundUpdater|ERC20TokenBalanceScanner|DataRevalidator)\b|run\.sh\s+(unified|funds|erc20|revalidate)|cron-unified-(cautious|fast|slow)\.sh/i;
 
 function nowSec() {
   return Math.floor(Date.now() / 1000);
@@ -177,18 +177,61 @@ async function getRunningScanners() {
   }
 }
 
-function computeNextEveryFourHours(from = new Date()) {
-  const next = new Date(from);
-  next.setMinutes(0, 0, 0);
-  const hour = next.getHours();
-  const nextHour = Math.floor(hour / 4) * 4 + 4;
-  if (nextHour >= 24) {
-    next.setDate(next.getDate() + 1);
-    next.setHours(0);
-  } else {
-    next.setHours(nextHour);
+function cronFieldMatches(field, value, min, max) {
+  if (field === '*') return true;
+
+  return field.split(',').some((part) => {
+    const stepMatch = part.match(/^\*\/(\d+)$/);
+    if (stepMatch) {
+      const step = Number(stepMatch[1]);
+      return Number.isFinite(step) && step > 0 && (value - min) % step === 0;
+    }
+
+    const rangeMatch = part.match(/^(\d+)-(\d+)(?:\/(\d+))?$/);
+    if (rangeMatch) {
+      const start = Number(rangeMatch[1]);
+      const end = Number(rangeMatch[2]);
+      const step = rangeMatch[3] ? Number(rangeMatch[3]) : 1;
+      return value >= start && value <= end && (value - start) % step === 0;
+    }
+
+    const n = Number(part);
+    if (!Number.isFinite(n)) return false;
+    if (max === 7 && n === 7) return value === 0;
+    return value === n;
+  });
+}
+
+function cronScheduleMatches(fields, date) {
+  return (
+    cronFieldMatches(fields[0], date.getMinutes(), 0, 59) &&
+    cronFieldMatches(fields[1], date.getHours(), 0, 23) &&
+    cronFieldMatches(fields[2], date.getDate(), 1, 31) &&
+    cronFieldMatches(fields[3], date.getMonth() + 1, 1, 12) &&
+    cronFieldMatches(fields[4], date.getDay(), 0, 7)
+  );
+}
+
+function computeNextCronRun(schedule, from = new Date()) {
+  const fields = String(schedule || '').trim().split(/\s+/).slice(0, 5);
+  if (fields.length !== 5) return null;
+
+  const next = new Date(from.getTime() + 60 * 1000);
+  next.setSeconds(0, 0);
+
+  for (let i = 0; i < 60 * 24 * 14; i += 1) {
+    if (cronScheduleMatches(fields, next)) {
+      return Math.floor(next.getTime() / 1000);
+    }
+    next.setMinutes(next.getMinutes() + 1);
   }
-  return Math.floor(next.getTime() / 1000);
+
+  return null;
+}
+
+function getScannerProfileFromCron(line) {
+  const match = line.match(/cron-unified-(cautious|fast|slow)\.sh/);
+  return match?.[1] || 'unified';
 }
 
 async function getCronStatus() {
@@ -201,15 +244,28 @@ async function getCronStatus() {
       .split(/\r?\n/)
       .map((line) => line.trim())
       .filter((line) => line && !line.startsWith('#'));
-    const unified = activeLines.find((line) => /cron-unified(-cautious)?\.sh/.test(line)) || null;
+    const scannerLines = activeLines.filter((line) => /cron-unified(-cautious|-fast|-slow)?\.sh/.test(line));
+    const jobs = scannerLines
+      .map((line) => {
+        const schedule = line.split(/\s+/).slice(0, 5).join(' ');
+        return {
+          profile: getScannerProfileFromCron(line),
+          schedule,
+          command: line.replace(/\s+#.*$/, ''),
+          next_run_at: computeNextCronRun(schedule),
+        };
+      })
+      .sort((a, b) => (a.next_run_at || Number.MAX_SAFE_INTEGER) - (b.next_run_at || Number.MAX_SAFE_INTEGER));
+
     return {
-      enabled: Boolean(unified),
-      schedule: unified ? unified.split(/\s+/).slice(0, 5).join(' ') : null,
-      command: unified ? unified.replace(/\s+#.*$/, '') : null,
-      next_run_at: unified && unified.startsWith('0 */4') ? computeNextEveryFourHours() : null,
+      enabled: jobs.length > 0,
+      schedule: jobs.length === 1 ? jobs[0].schedule : (jobs.length ? `${jobs.length} scanner jobs` : null),
+      command: jobs.length === 1 ? jobs[0].command : null,
+      next_run_at: jobs[0]?.next_run_at || null,
+      jobs,
     };
   } catch (_) {
-    return { enabled: false, schedule: null, command: null, next_run_at: null };
+    return { enabled: false, schedule: null, command: null, next_run_at: null, jobs: [] };
   }
 }
 

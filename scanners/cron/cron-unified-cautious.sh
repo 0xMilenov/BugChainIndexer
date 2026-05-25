@@ -16,11 +16,12 @@ export PUBLIC_RPC_MAX_BLOCKS_PER_RUN="${PUBLIC_RPC_MAX_BLOCKS_PER_RUN:-60}"
 export PUBLIC_RPC_MAX_CONTRACTS_PER_RUN="${PUBLIC_RPC_MAX_CONTRACTS_PER_RUN:-25}"
 
 SCANNER_MAX_PARALLEL="${SCANNER_MAX_PARALLEL:-2}"
+SCANNER_PROFILE="${SCANNER_PROFILE:-custom}"
 NETWORKS_CSV="${SCANNER_NETWORKS:-ethereum,binance,optimism,base,arbitrum,polygon,avalanche,gnosis,linea,scroll,mantle,megaeth,arbitrum-nova,celo,cronos,opbnb,polygon-zkevm,subtensor}"
 IFS=',' read -r -a NETWORKS <<< "$NETWORKS_CSV"
 
 mkdir -p "$SCRIPT_DIR/logs"
-LOG_FILE="$SCRIPT_DIR/logs/cron-unified-cautious-$(date +%Y%m%d_%H%M%S).log"
+LOG_FILE="$SCRIPT_DIR/logs/cron-unified-cautious-${SCANNER_PROFILE}-$(date +%Y%m%d_%H%M%S).log"
 exec >> "$LOG_FILE" 2>&1
 
 LOCK_FILE="/tmp/scanner-unified-cautious.lock"
@@ -31,6 +32,7 @@ if ! flock -n 200; then
 fi
 
 echo "====== CAUTIOUS UNIFIED STARTED: $(date) ======"
+echo "Profile: $SCANNER_PROFILE"
 echo "Networks: ${NETWORKS[*]}"
 echo "Max parallel: $SCANNER_MAX_PARALLEL"
 echo "TIMEDELAY_HOURS=$TIMEDELAY_HOURS TIMEOUT_SECONDS=$TIMEOUT_SECONDS PUBLIC_RPC_MAX_BLOCKS_PER_RUN=$PUBLIC_RPC_MAX_BLOCKS_PER_RUN PUBLIC_RPC_MAX_CONTRACTS_PER_RUN=$PUBLIC_RPC_MAX_CONTRACTS_PER_RUN"

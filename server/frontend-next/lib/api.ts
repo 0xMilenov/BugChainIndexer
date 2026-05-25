@@ -131,7 +131,14 @@ export interface ScannerHealth {
   cron: {
     enabled: boolean;
     schedule?: string | null;
+    command?: string | null;
     next_run_at?: number | null;
+    jobs?: Array<{
+      profile: string;
+      schedule: string;
+      command?: string | null;
+      next_run_at?: number | null;
+    }>;
   };
   db: {
     collected_today: number;

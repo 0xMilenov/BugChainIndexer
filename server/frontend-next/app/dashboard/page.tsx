@@ -193,6 +193,7 @@ function SearchPageContent() {
       .map((n) => `${NETWORK_DISPLAY_NAMES[n.network] ?? n.network}: ${n.get_logs_requests} RPC`)
       .join(" • ") || "";
   const scannerNextRun = scannerHealth?.cron?.next_run_at ?? null;
+  const scannerCronJobs = scannerHealth?.cron?.jobs?.length ?? (scannerHealth?.cron?.enabled ? 1 : 0);
   const scannerRpcAverage = scannerHealth?.rpc?.avg_get_logs_ms ?? null;
   const scannerErrors = scannerHealth?.rpc?.errors ?? 0;
 
@@ -605,7 +606,9 @@ function SearchPageContent() {
                 {scannerHealthLoading ? "..." : formatTimestamp(scannerLastRun)}
               </div>
               <div className="mt-1 truncate text-xs text-text-muted">
-                Next {scannerHealth?.cron?.enabled ? formatTimestamp(scannerNextRun) : "off"}
+                {scannerHealth?.cron?.enabled
+                  ? `Next ${formatTimestamp(scannerNextRun)} • ${scannerCronJobs} job${scannerCronJobs === 1 ? "" : "s"}`
+                  : "Cron off"}
               </div>
             </div>
             <div className="min-w-0">
