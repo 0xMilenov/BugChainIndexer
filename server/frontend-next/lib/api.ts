@@ -94,6 +94,35 @@ export async function getNetworkCounts(refresh = false): Promise<{
   return resp.json();
 }
 
+export interface DailyCollectionStats {
+  ok: boolean;
+  from: number;
+  to: number;
+  total: number;
+  verified: number;
+  networks: number;
+  by_network: Array<{ network: string; count: number }>;
+  top_contract?: ContractDetail | null;
+  error?: string;
+}
+
+export async function getDailyCollectionStats(params: {
+  from: number;
+  to: number;
+}): Promise<DailyCollectionStats> {
+  const base = getBaseUrl();
+  const qp = new URLSearchParams({
+    from: String(params.from),
+    to: String(params.to),
+  });
+  const resp = await fetch(`${base}/dailyCollectionStats?${qp.toString()}`, {
+    cache: "no-store",
+  });
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data?.error || `HTTP ${resp.status}`);
+  return data;
+}
+
 export async function getNativePrices(): Promise<{
   ok: boolean;
   prices: Record<string, number>;

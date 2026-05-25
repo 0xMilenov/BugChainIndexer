@@ -110,6 +110,20 @@ exports.getLandingStats = async (req, res) => {
   }
 };
 
+exports.getDailyCollectionStats = async (req, res) => {
+  try {
+    const stats = await service.getDailyCollectionStats({
+      fromTs: parseNumber(req.query?.from),
+      toTs: parseNumber(req.query?.to),
+    });
+    res.set('Cache-Control', 'public, max-age=30');
+    res.json({ ok: true, ...stats });
+  } catch (err) {
+    console.error('getDailyCollectionStats failed:', err?.message || err);
+    res.status(500).json({ ok: false, error: 'Internal Server Error' });
+  }
+};
+
 exports.getNetworkCounts = async (req, res) => {
   try {
     const refresh = req.query?.refresh === '1' || req.query?.refresh === 'true';

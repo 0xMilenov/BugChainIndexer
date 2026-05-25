@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Layout } from "@/components/Layout";
 import { Sidebar } from "@/components/Sidebar";
@@ -15,7 +16,8 @@ import { useAuth } from "@/context/AuthContext";
 import { useShowToast } from "@/context/ToastContext";
 import { useSearchContracts } from "@/hooks/useSearchContracts";
 import { useBookmarks } from "@/hooks/useBookmarks";
-import { searchByCode, addContract } from "@/lib/api";
+import { searchByCode, addContract, getDailyCollectionStats } from "@/lib/api";
+import type { DailyCollectionStats } from "@/lib/api";
 import { useNativePrices } from "@/hooks/useNativePrices";
 import { sortResults } from "@/lib/sort";
 import {
@@ -27,11 +29,13 @@ import {
   getDeployerAddress,
   getContractTimestamp,
   formatErc20Balances,
+  formatFund,
 } from "@/lib/contract-utils";
-import { Info } from "lucide-react";
+import type { Contract } from "@/types/contract";
+import { CalendarDays, Info, Trophy } from "lucide-react";
 import { AddContractModal } from "@/components/AddContractModal";
 import { Button } from "@/components/ui/Button";
-import { FUND_UI_MAX } from "@/lib/constants";
+import { FUND_UI_MAX, NETWORK_DISPLAY_NAMES } from "@/lib/constants";
 import { Suspense } from "react";
 
 function downloadFile(content: string, filename: string, mimeType: string) {
@@ -91,6 +95,8 @@ function SearchPageContent() {
   const [codeSearchLoading, setCodeSearchLoading] = useState(false);
   const [codeSearchError, setCodeSearchError] = useState<string | null>(null);
   const [addContractModalOpen, setAddContractModalOpen] = useState(false);
+  const [dailyStats, setDailyStats] = useState<DailyCollectionStats | null>(null);
+  const [dailyStatsLoading, setDailyStatsLoading] = useState(true);
 
   const {
     results,
@@ -138,6 +144,22 @@ function SearchPageContent() {
     const pageIndex = cursorStack.length + 1;
     return `Showing ${sortedResults.length} contracts on page ${pageIndex}${totalCount != null ? ` of ${totalCount} total` : ""}.`;
   }, [codeSearchMode, codeSearchLoading, codeSearchResults.length, viewingBookmarks, bookmarks.length, hasSearched, results.length, loading, sortedResults.length, cursorStack.length, totalCount]);
+
+  const dailyTopContract = dailyStats?.top_contract ?? null;
+  const dailyTopContractName = dailyTopContract
+    ? getCanonicalContractName(dailyTopContract as Contract)
+    : null;
+  const dailyTopNetwork = dailyTopContract?.network?.toLowerCase() ?? "";
+  const dailyTopNetworkLabel =
+    NETWORK_DISPLAY_NAMES[dailyTopNetwork] ?? dailyTopContract?.network ?? "";
+  const dailyTopValue = dailyTopContract
+    ? formatFund(dailyTopContract as Contract, nativePrices)
+    : "-";
+  const dailyNetworkSummary =
+    dailyStats?.by_network
+      ?.slice(0, 3)
+      .map((n) => `${NETWORK_DISPLAY_NAMES[n.network] ?? n.network}: ${n.count}`)
+      .join(" • ") || "";
 
   const updateURL = useCallback(() => {
     const params = new URLSearchParams();
@@ -303,6 +325,34 @@ function SearchPageContent() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    const now = new Date();
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 1);
+
+    setDailyStatsLoading(true);
+    getDailyCollectionStats({
+      from: Math.floor(start.getTime() / 1000),
+      to: Math.floor(end.getTime() / 1000),
+    })
+      .then((stats) => {
+        if (!cancelled) setDailyStats(stats);
+      })
+      .catch(() => {
+        if (!cancelled) setDailyStats(null);
+      })
+      .finally(() => {
+        if (!cancelled) setDailyStatsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
       const inEditable = tag === "input" || tag === "textarea";
@@ -402,6 +452,63 @@ function SearchPageContent() {
           </Button>
         </div>
       </div>
+      <section className="mb-4 rounded-lg border border-border bg-bg-secondary px-4 py-3">
+        <div className="grid gap-4 md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] md:items-center">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-accent/30 bg-accent/10 text-accent">
+              <CalendarDays className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <div className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                Today
+              </div>
+              <div className="mt-1 text-2xl font-semibold tabular-nums text-text-primary">
+                {dailyStatsLoading
+                  ? "..."
+                  : (dailyStats?.total ?? 0).toLocaleString("en-US")}
+              </div>
+              <div className="mt-1 text-xs text-text-muted">
+                {dailyStatsLoading
+                  ? "Loading daily collection..."
+                  : `${(dailyStats?.verified ?? 0).toLocaleString("en-US")} verified • ${(dailyStats?.networks ?? 0).toLocaleString("en-US")} networks${dailyNetworkSummary ? ` • ${dailyNetworkSummary}` : ""}`}
+              </div>
+            </div>
+          </div>
+          <div className="flex min-w-0 items-start gap-3 border-t border-border pt-3 md:border-l md:border-t-0 md:pl-4 md:pt-0">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-bg-tertiary text-text-muted">
+              <Trophy className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <div className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                Largest today
+              </div>
+              {dailyTopContract ? (
+                <>
+                  <Link
+                    href={`/contract/${dailyTopContract.network}/${dailyTopContract.address}`}
+                    className="mt-1 block truncate text-sm font-semibold text-accent hover:underline"
+                    title={dailyTopContract.address}
+                  >
+                    {dailyTopContractName || dailyTopContract.address}
+                  </Link>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-muted">
+                    <span>{dailyTopValue}</span>
+                    <span>{dailyTopNetworkLabel}</span>
+                    <span className="font-mono">
+                      {dailyTopContract.address.slice(0, 6)}...
+                      {dailyTopContract.address.slice(-4)}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div className="mt-1 text-sm text-text-muted">
+                  {dailyStatsLoading ? "Checking..." : "No contracts collected yet."}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
       <AddContractModal
         open={addContractModalOpen}
         onClose={() => setAddContractModalOpen(false)}

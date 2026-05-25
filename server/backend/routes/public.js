@@ -20,6 +20,7 @@ router.get('/getAddressesByFilter', ctrl.getAddressesByFilter);
 router.get('/getContractCount', ctrl.getContractCount);
 router.get('/getVerifiedContractStats', ctrl.getVerifiedContractStats);
 router.get('/networkCounts', ctrl.getNetworkCounts);
+router.get('/dailyCollectionStats', ctrl.getDailyCollectionStats);
 router.get('/landingStats', ctrl.getLandingStats);
 router.get('/nativePrices', ctrl.getNativePrices);
 router.post('/searchByCode', ctrl.searchByCode);

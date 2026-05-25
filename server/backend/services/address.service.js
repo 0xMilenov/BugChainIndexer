@@ -86,6 +86,92 @@ exports.getVerifiedContractStats = async (byNetwork = false) => {
   };
 }
 
+exports.getDailyCollectionStats = async ({ fromTs, toTs } = {}) => {
+  ensureDbUrl();
+  const nowSec = Math.floor(Date.now() / 1000);
+  const to = Number.isFinite(Number(toTs)) && Number(toTs) > 0
+    ? Math.floor(Number(toTs))
+    : nowSec;
+  const from = Number.isFinite(Number(fromTs)) && Number(fromTs) > 0
+    ? Math.floor(Number(fromTs))
+    : to - 86400;
+  const safeFrom = Math.min(from, to);
+  const safeTo = Math.max(from, to);
+  const baseWhere = `(a.tags IS NULL OR NOT 'EOA' = ANY(COALESCE(a.tags, '{}')))`;
+
+  const [summary, byNetwork, topContract] = await Promise.all([
+    pool.query(`
+      SELECT
+        COUNT(*)::bigint AS total,
+        COUNT(*) FILTER (WHERE a.verified = true)::bigint AS verified,
+        COUNT(DISTINCT LOWER(a.network))::bigint AS networks
+      FROM addresses a
+      WHERE ${baseWhere}
+        AND COALESCE(a.first_seen, 0) >= $1
+        AND COALESCE(a.first_seen, 0) < $2
+    `, [safeFrom, safeTo]),
+    pool.query(`
+      SELECT LOWER(a.network) AS network, COUNT(*)::bigint AS count
+      FROM addresses a
+      WHERE ${baseWhere}
+        AND COALESCE(a.first_seen, 0) >= $1
+        AND COALESCE(a.first_seen, 0) < $2
+      GROUP BY LOWER(a.network)
+      ORDER BY count DESC, network ASC
+      LIMIT 6
+    `, [safeFrom, safeTo]),
+    pool.query(`
+      SELECT
+        a.address,
+        a.network,
+        a.contract_name,
+        a.verified,
+        a.first_seen,
+        a.deployed,
+        a.fund,
+        a.fund_usd,
+        a.native_balance
+      FROM addresses a
+      WHERE ${baseWhere}
+        AND COALESCE(a.first_seen, 0) >= $1
+        AND COALESCE(a.first_seen, 0) < $2
+      ORDER BY
+        COALESCE(a.fund_usd, 0)::numeric DESC,
+        COALESCE(a.native_balance, a.fund, 0)::numeric DESC,
+        a.first_seen DESC NULLS LAST,
+        a.address ASC
+      LIMIT 1
+    `, [safeFrom, safeTo]),
+  ]);
+
+  const row = summary.rows[0] || {};
+  const top = topContract.rows[0] || null;
+  return {
+    from: safeFrom,
+    to: safeTo,
+    total: Number(row.total || 0),
+    verified: Number(row.verified || 0),
+    networks: Number(row.networks || 0),
+    by_network: byNetwork.rows.map((r) => ({
+      network: r.network,
+      count: Number(r.count || 0),
+    })),
+    top_contract: top
+      ? {
+          address: top.address,
+          network: top.network,
+          contract_name: top.contract_name,
+          verified: top.verified,
+          first_seen: top.first_seen ? Number(top.first_seen) : null,
+          deployed: top.deployed ? Number(top.deployed) : null,
+          fund: top.fund,
+          fund_usd: top.fund_usd,
+          native_balance: top.native_balance,
+        }
+      : null,
+  };
+};
+
 // Generate cache key for count queries
 function getCountCacheKey(filters, hideUnnamed) {
   const { deployedFrom, deployedTo, fundFrom, fundTo, networks, tags, address, contractName } = filters;
