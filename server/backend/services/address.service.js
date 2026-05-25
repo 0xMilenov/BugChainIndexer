@@ -86,15 +86,17 @@ exports.getVerifiedContractStats = async (byNetwork = false) => {
   };
 }
 
+function normalizeEpochSeconds(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.floor(parsed > 9999999999 ? parsed / 1000 : parsed);
+}
+
 exports.getDailyCollectionStats = async ({ fromTs, toTs } = {}) => {
   ensureDbUrl();
   const nowSec = Math.floor(Date.now() / 1000);
-  const to = Number.isFinite(Number(toTs)) && Number(toTs) > 0
-    ? Math.floor(Number(toTs))
-    : nowSec;
-  const from = Number.isFinite(Number(fromTs)) && Number(fromTs) > 0
-    ? Math.floor(Number(fromTs))
-    : to - 86400;
+  const to = normalizeEpochSeconds(toTs, nowSec);
+  const from = normalizeEpochSeconds(fromTs, to - 86400);
   const safeFrom = Math.min(from, to);
   const safeTo = Math.max(from, to);
   const baseWhere = `(a.tags IS NULL OR NOT 'EOA' = ANY(COALESCE(a.tags, '{}')))`;
