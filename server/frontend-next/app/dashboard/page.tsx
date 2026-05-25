@@ -16,8 +16,8 @@ import { useAuth } from "@/context/AuthContext";
 import { useShowToast } from "@/context/ToastContext";
 import { useSearchContracts } from "@/hooks/useSearchContracts";
 import { useBookmarks } from "@/hooks/useBookmarks";
-import { searchByCode, addContract, getDailyCollectionStats } from "@/lib/api";
-import type { DailyCollectionStats } from "@/lib/api";
+import { searchByCode, addContract, getDailyCollectionStats, getScannerHealth } from "@/lib/api";
+import type { DailyCollectionStats, ScannerHealth } from "@/lib/api";
 import { useNativePrices } from "@/hooks/useNativePrices";
 import { sortResults } from "@/lib/sort";
 import {
@@ -32,7 +32,7 @@ import {
   formatFund,
 } from "@/lib/contract-utils";
 import type { Contract } from "@/types/contract";
-import { CalendarDays, Info, Trophy } from "lucide-react";
+import { Activity, CalendarDays, Clock, Info, RadioTower, Trophy } from "lucide-react";
 import { AddContractModal } from "@/components/AddContractModal";
 import { Button } from "@/components/ui/Button";
 import { FUND_UI_MAX, NETWORK_DISPLAY_NAMES } from "@/lib/constants";
@@ -48,6 +48,22 @@ function downloadFile(content: string, filename: string, mimeType: string) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+function formatTimestamp(ts?: number | null) {
+  if (!ts) return "-";
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(ts * 1000));
+}
+
+function formatDurationMs(ms?: number | null) {
+  if (!ms) return "-";
+  if (ms >= 1000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${ms}ms`;
 }
 
 function SearchPageContent() {
@@ -97,6 +113,8 @@ function SearchPageContent() {
   const [addContractModalOpen, setAddContractModalOpen] = useState(false);
   const [dailyStats, setDailyStats] = useState<DailyCollectionStats | null>(null);
   const [dailyStatsLoading, setDailyStatsLoading] = useState(true);
+  const [scannerHealth, setScannerHealth] = useState<ScannerHealth | null>(null);
+  const [scannerHealthLoading, setScannerHealthLoading] = useState(true);
 
   const {
     results,
@@ -160,6 +178,23 @@ function SearchPageContent() {
       ?.slice(0, 3)
       .map((n) => `${NETWORK_DISPLAY_NAMES[n.network] ?? n.network}: ${n.count}`)
       .join(" • ") || "";
+  const scannerStatus = scannerHealthLoading
+    ? "Checking"
+    : scannerHealth?.running
+      ? `Running (${scannerHealth.running_count})`
+      : "Idle";
+  const scannerLastRun =
+    scannerHealth?.runner?.last_start?.timestamp ||
+    scannerHealth?.recent_networks?.[0]?.updated_at ||
+    null;
+  const scannerRecentNetworks =
+    scannerHealth?.recent_networks
+      ?.slice(0, 4)
+      .map((n) => `${NETWORK_DISPLAY_NAMES[n.network] ?? n.network}: ${n.get_logs_requests} RPC`)
+      .join(" • ") || "";
+  const scannerNextRun = scannerHealth?.cron?.next_run_at ?? null;
+  const scannerRpcAverage = scannerHealth?.rpc?.avg_get_logs_ms ?? null;
+  const scannerErrors = scannerHealth?.rpc?.errors ?? 0;
 
   const updateURL = useCallback(() => {
     const params = new URLSearchParams();
@@ -353,6 +388,33 @@ function SearchPageContent() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    const loadScannerHealth = () => {
+      setScannerHealthLoading(true);
+      getScannerHealth()
+        .then((health) => {
+          if (!cancelled) setScannerHealth(health);
+        })
+        .catch(() => {
+          if (!cancelled) setScannerHealth(null);
+        })
+        .finally(() => {
+          if (!cancelled) setScannerHealthLoading(false);
+        });
+    };
+
+    loadScannerHealth();
+    interval = setInterval(loadScannerHealth, 30000);
+
+    return () => {
+      cancelled = true;
+      if (interval) clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
       const inEditable = tag === "input" || tag === "textarea";
@@ -505,6 +567,73 @@ function SearchPageContent() {
                   {dailyStatsLoading ? "Checking..." : "No contracts collected yet."}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      </section>
+      <section className="mb-4 rounded-lg border border-border bg-bg-secondary px-4 py-3">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-center">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${
+              scannerHealth?.running
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                : "border-border bg-bg-tertiary text-text-muted"
+            }`}>
+              <Activity className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <div className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                Scanner health
+              </div>
+              <div className="mt-1 text-xl font-semibold text-text-primary">
+                {scannerStatus}
+              </div>
+              <div className="mt-1 text-xs text-text-muted">
+                {scannerHealthLoading
+                  ? "Loading scanner state..."
+                  : `${(scannerHealth?.db?.collected_today ?? 0).toLocaleString("en-US")} collected today • ${(scannerHealth?.db?.explorer_requests_today ?? 0).toLocaleString("en-US")} explorer calls`}
+              </div>
+            </div>
+          </div>
+          <div className="grid min-w-0 gap-3 border-t border-border pt-3 sm:grid-cols-3 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                <Clock className="h-3.5 w-3.5" />
+                Last run
+              </div>
+              <div className="mt-1 truncate text-sm font-medium text-text-primary">
+                {scannerHealthLoading ? "..." : formatTimestamp(scannerLastRun)}
+              </div>
+              <div className="mt-1 truncate text-xs text-text-muted">
+                Next {scannerHealth?.cron?.enabled ? formatTimestamp(scannerNextRun) : "off"}
+              </div>
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                <RadioTower className="h-3.5 w-3.5" />
+                RPC
+              </div>
+              <div className="mt-1 text-sm font-medium text-text-primary">
+                {scannerHealthLoading
+                  ? "..."
+                  : `${(scannerHealth?.rpc?.get_logs_requests ?? 0).toLocaleString("en-US")} calls`}
+              </div>
+              <div className="mt-1 truncate text-xs text-text-muted">
+                Avg {formatDurationMs(scannerRpcAverage)} • {scannerErrors.toLocaleString("en-US")} errors
+              </div>
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                Recent networks
+              </div>
+              <div className="mt-1 truncate text-sm font-medium text-text-primary">
+                {scannerHealthLoading
+                  ? "..."
+                  : `${scannerHealth?.recent_networks?.length ?? 0} tracked`}
+              </div>
+              <div className="mt-1 truncate text-xs text-text-muted">
+                {scannerRecentNetworks || "No scanner logs yet"}
+              </div>
             </div>
           </div>
         </div>

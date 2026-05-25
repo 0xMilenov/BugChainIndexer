@@ -123,6 +123,60 @@ export async function getDailyCollectionStats(params: {
   return data;
 }
 
+export interface ScannerHealth {
+  ok: boolean;
+  generated_at: number;
+  running: boolean;
+  running_count: number;
+  cron: {
+    enabled: boolean;
+    schedule?: string | null;
+    next_run_at?: number | null;
+  };
+  db: {
+    collected_today: number;
+    verified_today: number;
+    last_contract_at?: number | null;
+    explorer_requests_today: number;
+    rpc_health: {
+      endpoints: number;
+      healthy: number;
+      avg_latency_ms?: number | null;
+      last_checked?: number | null;
+    };
+  };
+  rpc: {
+    get_logs_requests: number;
+    avg_get_logs_ms?: number | null;
+    errors: number;
+  };
+  runner: {
+    last_start?: { timestamp?: number | null; line?: string | null } | null;
+    last_completion?: { timestamp?: number | null; line?: string | null } | null;
+    last_failure?: { timestamp?: number | null; line?: string | null } | null;
+  };
+  recent_networks: Array<{
+    network: string;
+    updated_at: number;
+    completed: boolean;
+    get_logs_requests: number;
+    avg_get_logs_ms?: number | null;
+    stored: number;
+    errors: number;
+    scan_range?: { from_block: number; to_block: number; blocks: number } | null;
+    last_line?: string | null;
+  }>;
+  error?: string;
+}
+
+export async function getScannerHealth(): Promise<ScannerHealth> {
+  const base = getBaseUrl();
+  const resp = await fetch(`${base}/scannerHealth`, { cache: "no-store" });
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data?.error || `HTTP ${resp.status}`);
+  return data;
+}
+
 export async function getNativePrices(): Promise<{
   ok: boolean;
   prices: Record<string, number>;

@@ -6,7 +6,7 @@
 set -e
 
 # Remove scanner jobs, keep DB optimization and cleanup.
-crontab -l 2>/dev/null | grep -v 'cron-unified\.sh' | grep -v 'cron-funds\.sh' | grep -v 'cron-funds-high\.sh' | grep -v 'cron-revalidate\.sh' | grep -v '^$' > /tmp/crontab.new
+crontab -l 2>/dev/null | grep -v 'cron-unified.*\.sh' | grep -v 'cron-funds\.sh' | grep -v 'cron-funds-high\.sh' | grep -v 'cron-revalidate\.sh' | grep -v '^$' > /tmp/crontab.new
 echo "" >> /tmp/crontab.new
 echo "# Scanner jobs disabled $(date) - no scanner RPC/explorer calls" >> /tmp/crontab.new
 echo "# To re-enable: cd $(dirname "$0")/.. && ./cron/setup-cron.sh --auto-setup" >> /tmp/crontab.new

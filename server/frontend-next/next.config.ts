@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
       { source: "/getVerifiedContractStats", destination: `${apiUrl}/getVerifiedContractStats` },
       { source: "/networkCounts", destination: `${apiUrl}/networkCounts` },
       { source: "/dailyCollectionStats", destination: `${apiUrl}/dailyCollectionStats` },
+      { source: "/scannerHealth", destination: `${apiUrl}/scannerHealth` },
       { source: "/landingStats", destination: `${apiUrl}/landingStats` },
       { source: "/nativePrices", destination: `${apiUrl}/nativePrices` },
       { source: "/searchByCode", destination: `${apiUrl}/searchByCode` },

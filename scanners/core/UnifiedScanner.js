@@ -67,6 +67,66 @@ class UnifiedScanner extends Scanner {
 
   }
 
+  getApproxBlockTimeSeconds() {
+    const envName = `${this.network.toUpperCase().replace(/-/g, '_')}_BLOCK_TIME_SECONDS`;
+    const envValue = Number(process.env[envName] || process.env.BLOCK_TIME_SECONDS);
+    if (Number.isFinite(envValue) && envValue > 0) return envValue;
+
+    const defaults = {
+      ethereum: 12,
+      binance: 3,
+      optimism: 2,
+      base: 2,
+      arbitrum: 0.25,
+      polygon: 2,
+      avalanche: 2,
+      gnosis: 5,
+      linea: 12,
+      scroll: 3,
+      mantle: 2,
+      megaeth: 1,
+      'arbitrum-nova': 0.25,
+      celo: 5,
+      cronos: 6,
+      opbnb: 1,
+      'polygon-zkevm': 10,
+      subtensor: 12
+    };
+    return defaults[this.network] || 12;
+  }
+
+  getMaxBlocksPerRun() {
+    const configured = Number(process.env.PUBLIC_RPC_MAX_BLOCKS_PER_RUN || process.env.MAX_BLOCKS_PER_RUN || 300);
+    return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 300;
+  }
+
+  estimateFromBlock(currentBlock, targetHours) {
+    const blockTimeSeconds = this.getApproxBlockTimeSeconds();
+    const desiredBlocks = Math.max(1, Math.ceil((targetHours * 60 * 60) / blockTimeSeconds));
+    const maxBlocks = this.getMaxBlocksPerRun();
+    const blocks = Math.min(desiredBlocks, maxBlocks);
+    const fromBlock = Math.max(0, currentBlock - blocks + 1);
+    this.log(`🧭 Estimated scan window: ${blocks} blocks (${blockTimeSeconds}s/block, cap ${maxBlocks})`);
+    return fromBlock;
+  }
+
+  async getFallbackFromBlock(currentBlock, targetTimestamp, targetHours) {
+    if (process.env.EXPLORER_BLOCK_TIME_LOOKUP !== 'true') {
+      return this.estimateFromBlock(currentBlock, targetHours);
+    }
+
+    const timeoutMs = Number(process.env.BLOCK_TIME_LOOKUP_TIMEOUT_MS || 15000);
+    try {
+      return await Promise.race([
+        this.getBlockByTime(targetTimestamp),
+        new Promise((_, reject) => setTimeout(() => reject(new Error(`block time lookup timeout after ${timeoutMs}ms`)), timeoutMs))
+      ]);
+    } catch (error) {
+      this.log(`⚠️ Block timestamp lookup failed: ${error.message}; using estimated window`, 'warn');
+      return this.estimateFromBlock(currentBlock, targetHours);
+    }
+  }
+
   async withContractVerificationLock(work) {
     const previous = this.contractVerificationMutex;
     let release;
@@ -168,11 +228,21 @@ class UnifiedScanner extends Scanner {
     this.log(`🔍 Finding blocks for last ${targetHours} hours...`);
     
     const currentBlock = await this.getBlockNumber();
-    const fallbackFromBlock = await this.getBlockByTime(targetTimestamp);
     const cursorBlock = await this.getScannerCursor();
-    const fromBlock = cursorBlock && cursorBlock > 0
+    const fallbackFromBlock = cursorBlock && cursorBlock > 0
+      ? null
+      : await this.getFallbackFromBlock(currentBlock, targetTimestamp, targetHours);
+    let fromBlock = cursorBlock && cursorBlock > 0
       ? Math.min(cursorBlock + 1, currentBlock + 1)
       : fallbackFromBlock;
+
+    const maxBlocks = this.getMaxBlocksPerRun();
+    const blockCount = Math.max(0, currentBlock - fromBlock + 1);
+    if (blockCount > maxBlocks) {
+      const cappedFromBlock = Math.max(0, currentBlock - maxBlocks + 1);
+      this.log(`⚠️ Scan window ${blockCount} blocks exceeds cap ${maxBlocks}; starting at ${cappedFromBlock}`, 'warn');
+      fromBlock = cappedFromBlock;
+    }
     
     if (cursorBlock && cursorBlock > 0) {
       this.log(`📍 Resuming from persistent cursor at block ${cursorBlock}`);
@@ -182,8 +252,25 @@ class UnifiedScanner extends Scanner {
     return { fromBlock, toBlock: currentBlock };
   }
 
+  async ensureScannerCursorTable() {
+    try {
+      await this.queryDB(`
+        CREATE TABLE IF NOT EXISTS scanner_cursors (
+          network TEXT NOT NULL,
+          scanner_name TEXT NOT NULL,
+          last_block BIGINT NOT NULL DEFAULT 0,
+          updated_at BIGINT NOT NULL,
+          PRIMARY KEY (network, scanner_name)
+        )
+      `);
+    } catch (error) {
+      this.log(`⚠️ Failed to ensure scanner cursor table: ${error.message}`, 'warn');
+    }
+  }
+
   async getScannerCursor() {
     try {
+      await this.ensureScannerCursorTable();
       const result = await this.queryDB(
         `SELECT last_block FROM scanner_cursors WHERE network = $1 AND scanner_name = $2`,
         [this.network, this.name]
@@ -199,6 +286,7 @@ class UnifiedScanner extends Scanner {
   async saveScannerCursor(lastBlock) {
     if (!Number.isFinite(Number(lastBlock)) || Number(lastBlock) <= 0) return;
     try {
+      await this.ensureScannerCursorTable();
       await this.queryDB(
         `INSERT INTO scanner_cursors (network, scanner_name, last_block, updated_at)
          VALUES ($1, $2, $3, $4)
