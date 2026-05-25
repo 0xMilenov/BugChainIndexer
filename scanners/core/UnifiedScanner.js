@@ -64,6 +64,7 @@ class UnifiedScanner extends Scanner {
 
     // Prevent multiple concurrent verification loops from overwhelming Etherscan.
     this.contractVerificationMutex = Promise.resolve();
+    this.contractsSelectedForEnrichment = 0;
 
   }
 
@@ -98,6 +99,27 @@ class UnifiedScanner extends Scanner {
   getMaxBlocksPerRun() {
     const configured = Number(process.env.PUBLIC_RPC_MAX_BLOCKS_PER_RUN || process.env.MAX_BLOCKS_PER_RUN || 300);
     return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 300;
+  }
+
+  getMaxContractsPerRun() {
+    const configured = Number(process.env.PUBLIC_RPC_MAX_CONTRACTS_PER_RUN || process.env.MAX_CONTRACTS_PER_RUN || 75);
+    return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 75;
+  }
+
+  selectContractsForRun(contracts) {
+    const maxContracts = this.getMaxContractsPerRun();
+    const remaining = maxContracts - this.contractsSelectedForEnrichment;
+    if (remaining <= 0) {
+      this.log(`⚠️ Contract enrichment cap reached (${maxContracts}/run); skipping ${contracts.length} contracts`, 'warn');
+      return [];
+    }
+
+    const selected = contracts.slice(0, remaining);
+    this.contractsSelectedForEnrichment += selected.length;
+    if (selected.length < contracts.length) {
+      this.log(`⚠️ Contract enrichment capped: processing ${selected.length}/${contracts.length} contracts this batch (${this.contractsSelectedForEnrichment}/${maxContracts} run cap)`, 'warn');
+    }
+    return selected;
   }
 
   estimateFromBlock(currentBlock, targetHours) {
@@ -1133,16 +1155,19 @@ class UnifiedScanner extends Scanner {
   async saveLogDensityStats() {
     try {
       const stats = this.logDensityStats;
+      if (!stats.samples.length || stats.totalBlocks <= 0) return;
 
       // Calculate standard deviation
-      const mean = stats.avgLogsPerBlock;
+      const mean = Number.isFinite(stats.avgLogsPerBlock) ? stats.avgLogsPerBlock : 0;
       const squaredDiffs = stats.samples.map(s => Math.pow(s.logsPerBlock - mean, 2));
       const stddev = Math.sqrt(squaredDiffs.reduce((a, b) => a + b, 0) / stats.samples.length);
 
       // Determine optimal batch size based on avg logs per block
       // Target: ~8000 logs per request (80% of 10K limit)
       const targetLogs = 8000;
-      const optimalBatchSize = Math.max(10, Math.floor(targetLogs / stats.avgLogsPerBlock));
+      const optimalBatchSize = mean > 0
+        ? Math.max(10, Math.floor(targetLogs / mean))
+        : this.getMaxBlocksPerRun();
 
       // Recommend profile based on log density
       let recommendedProfile;
@@ -1178,10 +1203,10 @@ class UnifiedScanner extends Scanner {
 
       await this.queryDB(query, [
         this.network,
-        stats.avgLogsPerBlock.toFixed(2),
-        stddev.toFixed(2),
-        Math.floor(stats.minLogsPerBlock),
-        Math.ceil(stats.maxLogsPerBlock),
+        mean.toFixed(2),
+        Number.isFinite(stddev) ? stddev.toFixed(2) : '0.00',
+        Number.isFinite(stats.minLogsPerBlock) ? Math.floor(stats.minLogsPerBlock) : 0,
+        Number.isFinite(stats.maxLogsPerBlock) ? Math.ceil(stats.maxLogsPerBlock) : 0,
         optimalBatchSize,
         recommendedProfile,
         stats.sampleCount,
@@ -1464,6 +1489,7 @@ class UnifiedScanner extends Scanner {
 
       // Perform EOA filtering and contract detection
       const { eoas, contracts } = await this.performEOAFiltering(newAddresses);
+      const contractsForRun = this.selectContractsForRun(contracts);
 
       // Skip EOA persistence - we only store verified contracts with source code
       // if (eoas.length > 0) { await this.storeResults(eoas, []); }
@@ -1472,7 +1498,7 @@ class UnifiedScanner extends Scanner {
       let verifiedContracts = [];
       let contractsWithBalance = [];
 
-      if (contracts.length > 0) {
+      if (contractsForRun.length > 0) {
         // Load token addresses from tokens/{network}.json
         const fs = require('fs');
         const path = require('path');
@@ -1494,14 +1520,14 @@ class UnifiedScanner extends Scanner {
         }
 
         // Get balances for all contracts using BalanceHelper contract
-        const contractAddresses = contracts.map(c => c.address);
+        const contractAddresses = contractsForRun.map(c => c.address);
 
         let nativeBalances = [];
         try {
           nativeBalances = await this.getNativeBalances(contractAddresses);
         } catch (error) {
           this.log(`⚠️ Native balance check failed (BalanceHelper may not be deployed): ${error.message}`, 'warn');
-          this.log(`📦 Will store all ${contracts.length} contracts as unverified`);
+          this.log(`📦 Will store all ${contractsForRun.length} contracts as unverified`);
         }
 
         // Get ERC20 token balances
@@ -1519,8 +1545,8 @@ class UnifiedScanner extends Scanner {
         const contractsWithFunds = [];
         const contractsWithoutFunds = [];
 
-        for (let i = 0; i < contracts.length; i++) {
-          const contract = contracts[i];
+        for (let i = 0; i < contractsForRun.length; i++) {
+          const contract = contractsForRun[i];
           const address = contract.address.toLowerCase();
 
           // Check native balance (empty array when BalanceHelper failed)
