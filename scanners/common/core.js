@@ -730,6 +730,11 @@ async function etherscanRequestInternal(network, params, maxRetries = 3) {
 }
 
 async function etherscanRequest(network, params, maxRetries = 3) {
+  const configuredMaxRetries = Number(process.env.ETHERSCAN_MAX_RETRIES);
+  const effectiveMaxRetries = Number.isFinite(configuredMaxRetries) && configuredMaxRetries > 0
+    ? Math.floor(configuredMaxRetries)
+    : maxRetries;
+
   // Dedicated-explorer chains route module=proxy calls through JSON-RPC
   // (Blockscout-family APIs don't expose the Etherscan proxy module).
   // We MUST short-circuit before entering the Etherscan queue: the proxy
@@ -746,7 +751,7 @@ async function etherscanRequest(network, params, maxRetries = 3) {
   await reserveExplorerBudget(network, params);
 
   return globalAPILimiter.queueEtherscanRequest(
-    () => etherscanRequestInternal(network, params, maxRetries),
+    () => etherscanRequestInternal(network, params, effectiveMaxRetries),
     network,
     description
   );
@@ -792,7 +797,9 @@ function isTransientEtherscanError(error) {
 }
 
 async function callEtherscanWithBackoff(scanner, params, options = {}) {
-  const maxAttempts = options.maxAttempts || 4;
+  const configuredMaxAttempts = Number(process.env.ETHERSCAN_BACKOFF_MAX_ATTEMPTS);
+  const maxAttempts = options.maxAttempts
+    || (Number.isFinite(configuredMaxAttempts) && configuredMaxAttempts > 0 ? Math.floor(configuredMaxAttempts) : 4);
   const baseDelayMs = options.baseDelayMs || 500;
   let lastError;
 
