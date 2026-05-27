@@ -8,7 +8,7 @@ const execFileAsync = promisify(execFile);
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 const SCANNER_LOG_DIR = process.env.SCANNER_LOG_DIR || path.join(PROJECT_ROOT, 'scanners', 'logs');
 const RUNNER_LOG = path.join(SCANNER_LOG_DIR, 'runner.log');
-const SCANNER_PROCESS_PATTERN = /\b(UnifiedScanner|FundUpdater|ERC20TokenBalanceScanner|DataRevalidator)\b|run\.sh\s+(unified|funds|erc20|revalidate)|cron-unified-(cautious|fast|slow)\.sh/i;
+const SCANNER_PROCESS_PATTERN = /\b(UnifiedScanner|FundUpdater|ERC20TokenBalanceScanner|DataRevalidator)\b|run\.sh\s+(unified|funds|erc20|revalidate)|cron-unified-(cautious|fast|slow|celo)\.sh/i;
 
 function nowSec() {
   return Math.floor(Date.now() / 1000);
@@ -230,7 +230,7 @@ function computeNextCronRun(schedule, from = new Date()) {
 }
 
 function getScannerProfileFromCron(line) {
-  const match = line.match(/cron-unified-(cautious|fast|slow)\.sh/);
+  const match = line.match(/cron-unified-(cautious|fast|slow|celo)\.sh/);
   return match?.[1] || 'unified';
 }
 
@@ -244,7 +244,7 @@ async function getCronStatus() {
       .split(/\r?\n/)
       .map((line) => line.trim())
       .filter((line) => line && !line.startsWith('#'));
-    const scannerLines = activeLines.filter((line) => /cron-unified(-cautious|-fast|-slow)?\.sh/.test(line));
+    const scannerLines = activeLines.filter((line) => /cron-unified(-cautious|-fast|-slow|-celo)?\.sh/.test(line));
     const jobs = scannerLines
       .map((line) => {
         const schedule = line.split(/\s+/).slice(0, 5).join(' ');
