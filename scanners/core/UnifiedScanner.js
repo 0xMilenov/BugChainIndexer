@@ -106,6 +106,29 @@ class UnifiedScanner extends Scanner {
     return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 25;
   }
 
+  getContractEnrichmentTimeoutMs() {
+    const configured = Number(process.env.CONTRACT_ENRICHMENT_TIMEOUT_MS || 45000);
+    return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 45000;
+  }
+
+  async withContractEnrichmentTimeout(work, address) {
+    const timeoutMs = this.getContractEnrichmentTimeoutMs();
+    let timeout;
+    try {
+      return await Promise.race([
+        work(),
+        new Promise((_, reject) => {
+          timeout = setTimeout(
+            () => reject(new Error(`contract enrichment timeout after ${timeoutMs}ms for ${address}`)),
+            timeoutMs
+          );
+        })
+      ]);
+    } finally {
+      if (timeout) clearTimeout(timeout);
+    }
+  }
+
   selectContractsForRun(contracts) {
     const maxContracts = this.getMaxContractsPerRun();
     const remaining = maxContracts - this.contractsSelectedForEnrichment;
@@ -672,7 +695,10 @@ class UnifiedScanner extends Scanner {
       const batchPromises = batch.map(async (contract) => {
         const contractAddr = contract.address || contract;
         try {
-          const enrichment = await getContractEtherscanEnrichment(this, contractAddr);
+          const enrichment = await this.withContractEnrichmentTimeout(
+            () => getContractEtherscanEnrichment(this, contractAddr),
+            contractAddr
+          );
           return {
             address: contractAddr,
             network: this.network,
