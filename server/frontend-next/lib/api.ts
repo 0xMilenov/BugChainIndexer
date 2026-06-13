@@ -457,7 +457,20 @@ export async function addContract(
       signal: controller.signal,
     });
     const responseText = await resp.text();
-    const data = JSON.parse(responseText) as AddContractResponse;
+    let data: AddContractResponse;
+    try {
+      data = responseText
+        ? (JSON.parse(responseText) as AddContractResponse)
+        : { ok: false, error: `HTTP ${resp.status}` };
+    } catch {
+      const trimmed = responseText.trim();
+      const looksLikeHtml = trimmed.startsWith("<");
+      throw new Error(
+        looksLikeHtml
+          ? `Add contract service returned an HTML error page (HTTP ${resp.status}). Please try again.`
+          : trimmed.slice(0, 160) || `HTTP ${resp.status}`
+      );
+    }
     if (!resp.ok) throw new Error(data?.error || `HTTP ${resp.status}`);
     return data;
   } catch (err) {

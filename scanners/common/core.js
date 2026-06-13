@@ -664,28 +664,32 @@ async function etherscanRequestInternal(network, params, maxRetries = 3) {
         params,
         timeout: timeoutMs
       });
+      const data = normalizeExplorerResponseData(response);
 
       // Handle proxy module differently (no status field)
       if (cleanedParams.module === 'proxy') {
+        if (data?.status === '0') {
+          throw new Error(getExplorerErrorMessage(data, 'Etherscan proxy API error'));
+        }
         // Proxy responses have jsonrpc format without status field
-        if (response.data?.result !== undefined) {
-          return response.data.result;
+        if (data?.result !== undefined) {
+          return data.result;
         }
         // If proxy call has an error, it will be in response.data.error
-        if (response.data?.error) {
-          throw new Error(`Proxy error: ${response.data.error.message || 'Unknown proxy error'}`);
+        if (data?.error) {
+          throw new Error(`Proxy error: ${data.error.message || 'Unknown proxy error'}`);
         }
         // No result and no error - return null
         return null;
       }
       
       // Handle successful response for non-proxy modules
-      if (response.data?.status === '1') {
-        return response.data.result;
+      if (data?.status === '1') {
+        return data.result;
       }
       
       // Handle NOTOK responses
-      const message = response.data?.message || 'Etherscan API error';
+      const message = getExplorerErrorMessage(data);
       
       // Check if this is a "no data" response (not an error, just no data available)
       const isNoDataResponse = message.includes('No data found') ||
@@ -727,6 +731,33 @@ async function etherscanRequestInternal(network, params, maxRetries = 3) {
       throw error;
     }
   }
+}
+
+function normalizeExplorerResponseData(response) {
+  const data = response?.data;
+  if (typeof data !== 'string') return data;
+
+  const trimmed = data.trim();
+  if (!trimmed) {
+    throw new Error('Block explorer returned an empty response');
+  }
+
+  try {
+    return JSON.parse(trimmed);
+  } catch (_) {
+    if (trimmed.startsWith('<')) {
+      throw new Error('Block explorer returned HTML instead of JSON');
+    }
+    throw new Error(`Block explorer returned non-JSON response: ${trimmed.slice(0, 120)}`);
+  }
+}
+
+function getExplorerErrorMessage(data, fallback = 'Etherscan API error') {
+  const message = typeof data?.message === 'string' ? data.message.trim() : '';
+  const result = typeof data?.result === 'string' ? data.result.trim() : '';
+
+  if (message && result && result !== message) return `${message}: ${result}`;
+  return result || message || fallback;
 }
 
 async function etherscanRequest(network, params, maxRetries = 3) {

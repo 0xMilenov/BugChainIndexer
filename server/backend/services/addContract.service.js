@@ -13,6 +13,7 @@ const { pool } = require('./db');
 const { NETWORKS } = require('../../../scanners/config/networks');
 const {
   etherscanRequest,
+  createRpcClient,
   getContractEtherscanEnrichment,
 } = require('../../../scanners/common/core');
 const {
@@ -52,14 +53,10 @@ async function addContract(address, network) {
   };
 
   try {
-    // 2. Check: Is it a smart contract?
-    const codeResult = await etherscanRequest(normalizedNetwork, {
-      module: 'proxy',
-      action: 'eth_getCode',
-      address: normalizedAddr,
-      tag: 'latest',
-    });
+    const rpcClient = createRpcClient(normalizedNetwork).logsClient;
 
+    // 2. Check: Is it a smart contract?
+    const codeResult = await rpcClient.getCode(normalizedAddr);
     const code = typeof codeResult === 'string' ? codeResult : String(codeResult || '');
     if (!code || code === '0x' || code === '0x0') {
       return { ok: false, error: 'Address is not a smart contract (EOA)' };
@@ -80,12 +77,7 @@ async function addContract(address, network) {
     // 4. Fetch native balance
     let nativeBalance = '0';
     try {
-      const balanceResult = await etherscanRequest(normalizedNetwork, {
-        module: 'proxy',
-        action: 'eth_getBalance',
-        address: normalizedAddr,
-        tag: 'latest',
-      });
+      const balanceResult = await rpcClient.getBalance(normalizedAddr);
       const balanceHex = typeof balanceResult === 'string' ? balanceResult : String(balanceResult || '0x0');
       try {
         nativeBalance = BigInt(balanceHex.startsWith('0x') ? balanceHex : '0x' + balanceHex).toString();
@@ -175,6 +167,28 @@ async function addContract(address, network) {
     }
     if (msg.includes('No Etherscan API keys') || msg.includes('No Etherscan API keys configured')) {
       return { ok: false, error: 'Block explorer API not configured. Please set DEFAULT_ETHERSCAN_KEYS in scanners/.env.' };
+    }
+    if (msg.includes('Missing/Invalid API Key') || msg.includes('Invalid API Key')) {
+      return { ok: false, error: 'Block explorer API key is missing or invalid.' };
+    }
+    if (msg.includes('Free API access is not supported for this chain')) {
+      return { ok: false, error: 'Block explorer API plan does not support this network.' };
+    }
+    if (
+      msg.includes('returned HTML instead of JSON') ||
+      msg.includes('returned non-JSON response') ||
+      msg.includes('deprecated V1 endpoint')
+    ) {
+      return { ok: false, error: 'Block explorer returned an invalid response. Please try again later.' };
+    }
+    if (
+      msg.includes('RPC Error') ||
+      msg.includes('No RPC endpoints') ||
+      msg.includes('No RPC URLs') ||
+      msg.includes('Too many request') ||
+      msg.includes('all RPCs failed')
+    ) {
+      return { ok: false, error: 'Network RPC request failed. Please try again later.' };
     }
     if (msg.includes('timeout') || msg.includes('ETIMEDOUT') || msg.includes('ECONNABORTED')) {
       return { ok: false, error: 'Block explorer request timed out. Please try again.' };
