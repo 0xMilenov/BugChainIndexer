@@ -1146,7 +1146,7 @@ async function resolveDeploymentData(scanner, address) {
   }
 }
 
-async function getContractEtherscanEnrichment(scanner, address) {
+async function getContractEtherscanEnrichment(scanner, address, options = {}) {
   const normalizedAddress = normalizeNullableAddress(address);
   const fetchedAt = new Date().toISOString();
   if (!normalizedAddress) {
@@ -1183,7 +1183,16 @@ async function getContractEtherscanEnrichment(scanner, address) {
   // Verification must only come from ContractName in getsourcecode.
   const verified = Boolean(proxyContractName);
   const canonicalName = (isProxy && implementationContractName) || proxyContractName || null;
-  const deploymentData = await resolveDeploymentData(scanner, normalizedAddress);
+  const deploymentData = options.includeDeploymentData === false
+    ? {
+        deployTxHash: null,
+        deployerAddress: null,
+        deployBlockNumber: null,
+        deployedAtTimestamp: null,
+        deployedAt: null,
+        confidence: 'source-only'
+      }
+    : await resolveDeploymentData(scanner, normalizedAddress);
 
   // For storage: use implementation source for proxies, otherwise direct contract source
   const sourceDataForStorage = isProxy && implSourceData ? implSourceData : sourceData;

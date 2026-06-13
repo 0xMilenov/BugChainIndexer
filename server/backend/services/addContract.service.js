@@ -33,6 +33,36 @@ function isValidEvmAddress(address) {
   return normalized && EVM_ADDRESS_REGEX.test(normalized);
 }
 
+async function getExistingVerifiedContract(address, network) {
+  const result = await pool.query(`
+    SELECT a.address, a.network, a.contract_name, a.verified, a.deployed, a.native_balance
+    FROM addresses a
+    WHERE LOWER(a.address) = LOWER($1)
+      AND LOWER(a.network) = LOWER($2)
+      AND a.verified = true
+      AND EXISTS (
+        SELECT 1
+        FROM contract_sources cs
+        WHERE LOWER(cs.address) = LOWER(a.address)
+          AND LOWER(cs.network) = LOWER(a.network)
+          AND NULLIF(BTRIM(cs.source_code), '') IS NOT NULL
+      )
+    LIMIT 1
+  `, [address, network]);
+
+  const row = result.rows[0];
+  if (!row) return null;
+
+  return {
+    address: row.address,
+    network: row.network,
+    contract_name: row.contract_name,
+    verified: true,
+    deployed: row.deployed,
+    native_balance: row.native_balance,
+  };
+}
+
 async function addContract(address, network) {
   const normalizedAddr = normalizeAddress(address);
   const normalizedNetwork = (network || '').trim().toLowerCase();
@@ -45,6 +75,11 @@ async function addContract(address, network) {
   const config = NETWORKS[normalizedNetwork];
   if (!config || !config.chainId) {
     return { ok: false, error: 'Unsupported network' };
+  }
+
+  const existingContract = await getExistingVerifiedContract(normalizedAddr, normalizedNetwork);
+  if (existingContract) {
+    return { ok: true, contract: existingContract };
   }
 
   const scanner = {
@@ -63,7 +98,9 @@ async function addContract(address, network) {
     }
 
     // 3. Get verified + source code via enrichment
-    const enrichment = await getContractEtherscanEnrichment(scanner, normalizedAddr);
+    const enrichment = await getContractEtherscanEnrichment(scanner, normalizedAddr, {
+      includeDeploymentData: false,
+    });
 
     if (!enrichment.verified) {
       return { ok: false, error: 'Contract is not verified' };
