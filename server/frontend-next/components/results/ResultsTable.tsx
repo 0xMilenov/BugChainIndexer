@@ -103,6 +103,13 @@ export function ResultsTable({
                 Medium{" "}
                 <ColumnSortIcon col="medium" sortColumn={sortColumn} sortDirection={sortDirection} />
               </th>
+              <th
+                className="cursor-pointer px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-sky-400/90 transition hover:bg-border/50"
+                onClick={() => onSort("low")}
+              >
+                Low{" "}
+                <ColumnSortIcon col="low" sortColumn={sortColumn} sortDirection={sortDirection} />
+              </th>
             </tr>
           </thead>
           <tbody>

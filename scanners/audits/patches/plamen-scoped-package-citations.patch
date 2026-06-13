@@ -1,0 +1,16 @@
+diff --git a/scripts/plamen_validators.py b/scripts/plamen_validators.py
+index 64622d7..e56fdd1 100644
+--- a/scripts/plamen_validators.py
++++ b/scripts/plamen_validators.py
+@@ -10013,8 +10013,10 @@ def _validate_recon_coverage(scratchpad: Path, project_root: str,
+     # Match anything that looks like a file reference. Don't require a
+     # trailing `:` or whitespace — citations sometimes appear at end of
+     # line, inside backticks, or inside bullet lists.
++    # Scoped package paths such as `@openzeppelin/contracts/...` are valid
++    # source paths in extracted Solidity projects and must count too.
+     cite_re = re.compile(
+-        r"([A-Za-z0-9_][A-Za-z0-9_/.\\-]*?\.(?:sol|rs|move|go))"
++        r"([@A-Za-z0-9_][@A-Za-z0-9_/.\\-]*?\.(?:sol|rs|move|go))"
+     )
+     cited_paths: set[str] = set()
+     for name in recon_files:

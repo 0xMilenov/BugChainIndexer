@@ -36,6 +36,8 @@ export interface Contract {
   critical_count?: number;
   high_count?: number;
   medium_count?: number;
+  low_count?: number;
+  informational_count?: number;
   /** Present when ANY Plamen audit row exists for this contract (listing API). */
   audit_id?: number | null;
   /**

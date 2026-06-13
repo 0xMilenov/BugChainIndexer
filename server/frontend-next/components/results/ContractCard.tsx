@@ -112,9 +112,9 @@ export function ContractCard({ contract, nativePrices, isBookmarked = false, onB
         </div>
       )}
       {hasCompletedAuditListing(contract) ? (
-        <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+        <div className="mt-2 grid grid-cols-4 gap-2 text-xs">
           <div className="flex flex-col rounded-lg bg-bg-tertiary px-2 py-1.5">
-            <span className="text-red-400/90">Critical</span>
+            <span className="text-red-400/90">Crit</span>
             <span
               className={`mt-0.5 font-mono tabular-nums ${
                 formatAuditSeverityCell(contract, "critical") === "-"
@@ -138,7 +138,7 @@ export function ContractCard({ contract, nativePrices, isBookmarked = false, onB
             </span>
           </div>
           <div className="flex flex-col rounded-lg bg-bg-tertiary px-2 py-1.5">
-            <span className="text-amber-400/90">Medium</span>
+            <span className="text-amber-400/90">Med</span>
             <span
               className={`mt-0.5 font-mono tabular-nums ${
                 formatAuditSeverityCell(contract, "medium") === "-"
@@ -147,6 +147,18 @@ export function ContractCard({ contract, nativePrices, isBookmarked = false, onB
               }`}
             >
               {formatAuditSeverityCell(contract, "medium")}
+            </span>
+          </div>
+          <div className="flex flex-col rounded-lg bg-bg-tertiary px-2 py-1.5">
+            <span className="text-sky-400/90">Low</span>
+            <span
+              className={`mt-0.5 font-mono tabular-nums ${
+                formatAuditSeverityCell(contract, "low") === "-"
+                  ? "text-text-muted"
+                  : "font-semibold text-text-primary"
+              }`}
+            >
+              {formatAuditSeverityCell(contract, "low")}
             </span>
           </div>
         </div>

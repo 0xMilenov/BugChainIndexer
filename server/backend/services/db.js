@@ -122,6 +122,35 @@ pool.on('connect', () => {});
       await addColumnIfMissing('contract_audits', 'pid', 'INTEGER');
       await addColumnIfMissing('contract_audits', 'phase', 'TEXT');
       await addColumnIfMissing('contract_audits', 'log_path', 'TEXT');
+      await addColumnIfMissing('contract_audits', 'low_count', 'INTEGER NOT NULL DEFAULT 0');
+      await addColumnIfMissing('contract_audits', 'informational_count', 'INTEGER NOT NULL DEFAULT 0');
+    }
+    if (await tableExists('contract_audit_findings')) {
+      await addColumnIfMissing('contract_audit_findings', 'original_severity', 'TEXT');
+      await addColumnIfMissing('contract_audit_findings', 'evidence_tag', 'TEXT');
+      await addColumnIfMissing('contract_audit_findings', 'evidence_tags', "TEXT[] DEFAULT '{}'");
+      await addColumnIfMissing('contract_audit_findings', 'verification_status', 'TEXT');
+      await addColumnIfMissing('contract_audit_findings', 'report_id', 'TEXT');
+      await addColumnIfMissing('contract_audit_findings', 'source_finding_id', 'TEXT');
+      await addColumnIfMissing('contract_audit_findings', 'trust_adjustment', 'TEXT');
+      await pool.query(`
+        DO $$
+        DECLARE c record;
+        BEGIN
+          FOR c IN
+            SELECT conname
+            FROM pg_constraint
+            WHERE conrelid = 'contract_audit_findings'::regclass
+              AND contype = 'c'
+              AND pg_get_constraintdef(oid) ILIKE '%severity%'
+          LOOP
+            EXECUTE format('ALTER TABLE contract_audit_findings DROP CONSTRAINT %I', c.conname);
+          END LOOP;
+          ALTER TABLE contract_audit_findings
+            ADD CONSTRAINT contract_audit_findings_severity_check
+            CHECK (severity IN ('critical','high','medium','low','informational'));
+        END $$;
+      `);
     }
     if (!(await tableExists('local_users'))) {
       await pool.query(`

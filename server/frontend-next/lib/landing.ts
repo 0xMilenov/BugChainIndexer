@@ -6,7 +6,7 @@ export { formatCompactNumber, shortAddress } from "./landing-types";
 
 const FALLBACK: LandingStats = {
   contracts: { total: 0, verified: 0, networks: 0 },
-  audits: { total: 0, critical: 0, high: 0, medium: 0, findings: 0 },
+  audits: { total: 0, critical: 0, high: 0, medium: 0, low: 0, informational: 0, findings: 0 },
   latest_findings: [],
   recent_audits: [],
   generated_at: 0,

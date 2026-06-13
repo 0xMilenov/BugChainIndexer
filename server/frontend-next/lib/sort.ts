@@ -40,6 +40,14 @@ export function sortResults(
         valA = Number(a.medium_count) || 0;
         valB = Number(b.medium_count) || 0;
         break;
+      case "low":
+        valA = Number(a.low_count) || 0;
+        valB = Number(b.low_count) || 0;
+        break;
+      case "informational":
+        valA = Number(a.informational_count) || 0;
+        valB = Number(b.informational_count) || 0;
+        break;
       default:
         return 0;
     }

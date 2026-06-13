@@ -151,19 +151,28 @@ async function ensureSchema(client) {
       critical_count INTEGER NOT NULL DEFAULT 0,
       high_count INTEGER NOT NULL DEFAULT 0,
       medium_count INTEGER NOT NULL DEFAULT 0,
+      low_count INTEGER NOT NULL DEFAULT 0,
+      informational_count INTEGER NOT NULL DEFAULT 0,
       error_message TEXT,
       UNIQUE (address, network, audit_tool),
       FOREIGN KEY (address, network) REFERENCES addresses(address, network) ON DELETE CASCADE
     )`,
     `CREATE INDEX IF NOT EXISTS idx_contract_audits_addr_net ON contract_audits(address, network)`,
     `CREATE INDEX IF NOT EXISTS idx_contract_audits_status ON contract_audits(status)`,
-    `CREATE INDEX IF NOT EXISTS idx_contract_audits_severity ON contract_audits(critical_count, high_count, medium_count) WHERE status = 'completed'`,
+    `CREATE INDEX IF NOT EXISTS idx_contract_audits_severity ON contract_audits(critical_count, high_count, medium_count, low_count) WHERE status = 'completed'`,
 
-    // Normalized findings — only critical / high / medium are persisted (by policy).
+    // Normalized findings, including demoted low/info rows with provenance.
     `CREATE TABLE IF NOT EXISTS contract_audit_findings (
       id SERIAL PRIMARY KEY,
       audit_id INTEGER NOT NULL REFERENCES contract_audits(id) ON DELETE CASCADE,
-      severity TEXT NOT NULL CHECK (severity IN ('critical','high','medium')),
+      severity TEXT NOT NULL CHECK (severity IN ('critical','high','medium','low','informational')),
+      original_severity TEXT,
+      evidence_tag TEXT,
+      evidence_tags TEXT[] DEFAULT '{}',
+      verification_status TEXT,
+      report_id TEXT,
+      source_finding_id TEXT,
+      trust_adjustment TEXT,
       title TEXT NOT NULL,
       description TEXT,
       location TEXT,
@@ -283,6 +292,47 @@ async function ensureSchema(client) {
     `);
   } catch (error) {
     console.error('Token balance price column migration warning:', error.message);
+  }
+
+  try {
+    await client.query(`
+      ALTER TABLE contract_audits
+        ADD COLUMN IF NOT EXISTS low_count INTEGER NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS informational_count INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE contract_audit_findings
+        ADD COLUMN IF NOT EXISTS original_severity TEXT,
+        ADD COLUMN IF NOT EXISTS evidence_tag TEXT,
+        ADD COLUMN IF NOT EXISTS evidence_tags TEXT[] DEFAULT '{}',
+        ADD COLUMN IF NOT EXISTS verification_status TEXT,
+        ADD COLUMN IF NOT EXISTS report_id TEXT,
+        ADD COLUMN IF NOT EXISTS source_finding_id TEXT,
+        ADD COLUMN IF NOT EXISTS trust_adjustment TEXT;
+    `);
+    await client.query(`
+      DO $$
+      DECLARE c record;
+      BEGIN
+        FOR c IN
+          SELECT conname
+          FROM pg_constraint
+          WHERE conrelid = 'contract_audit_findings'::regclass
+            AND contype = 'c'
+            AND pg_get_constraintdef(oid) ILIKE '%severity%'
+        LOOP
+          EXECUTE format('ALTER TABLE contract_audit_findings DROP CONSTRAINT %I', c.conname);
+        END LOOP;
+        ALTER TABLE contract_audit_findings
+          ADD CONSTRAINT contract_audit_findings_severity_check
+          CHECK (severity IN ('critical','high','medium','low','informational'));
+      END $$;
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_contract_audits_severity
+      ON contract_audits(critical_count, high_count, medium_count, low_count)
+      WHERE status = 'completed'
+    `);
+  } catch (error) {
+    console.error('Audit findings provenance migration warning:', error.message);
   }
 
   // contract_sources column migration (abi, contract_file_name, etc.)

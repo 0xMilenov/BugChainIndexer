@@ -79,6 +79,13 @@ if [[ "${SKIP_EXTRACT:-0}" != "1" ]]; then
     --network "$NETWORK" --address "$ADDRESS" --out "$PROJECT_DIR" >/dev/null
 fi
 
+echo "[audit-one] preparing exploit-intel sidecar (if any) ..." >&2
+node "${SCANNERS_DIR}/audits/exploit-intel.js" \
+  --network "$NETWORK" --address "$ADDRESS" \
+  --out "${PROJECT_DIR}/.scratchpad/exploit_intel.md" >&2 || {
+    echo "[audit-one] WARN: exploit-intel sidecar generation failed; continuing without it" >&2
+  }
+
 if [[ "${SKIP_RUN:-0}" != "1" ]]; then
   echo "[audit-one] running plamen ${MODE} via Codex (log: ${LOG_FILE}) ..." >&2
   PLAMEN_EXIT=0

@@ -25,6 +25,8 @@ const SEVERITY_STYLE: Record<AuditFinding["severity"], string> = {
   critical: "bg-red-500/15 text-red-400 border-red-500/40",
   high: "bg-orange-500/15 text-orange-400 border-orange-500/40",
   medium: "bg-amber-500/15 text-amber-400 border-amber-500/40",
+  low: "bg-sky-500/15 text-sky-400 border-sky-500/40",
+  informational: "bg-zinc-500/15 text-zinc-400 border-zinc-500/40",
 };
 
 /** DB / JSON may return millis as number, string, or seconds (10-digit). */
@@ -51,11 +53,30 @@ function formatDuration(ms?: number | string | null): string {
   return remMin > 0 ? `${hr}h ${remMin}m` : `${hr}h`;
 }
 
+function labelize(value?: string | null): string {
+  return String(value || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function uniqueEvidenceTags(finding: AuditFinding): string[] {
+  const tags = [
+    ...(Array.isArray(finding.evidence_tags) ? finding.evidence_tags : []),
+    finding.evidence_tag,
+  ]
+    .filter(Boolean)
+    .map((tag) => String(tag));
+  return [...new Set(tags)];
+}
+
 function FindingCard({ finding, index }: { finding: AuditFinding; index: number }) {
   const [expanded, setExpanded] = useState(false);
   const hasDetails = Boolean(
     finding.description || finding.recommendation || finding.proof_of_concept || finding.location
   );
+  const originalSeverity = finding.original_severity || finding.severity;
+  const isDemoted = Boolean(originalSeverity && originalSeverity !== finding.severity);
+  const evidenceTags = uniqueEvidenceTags(finding);
 
   return (
     <div className="rounded-lg border border-border bg-bg-tertiary/40">
@@ -73,6 +94,36 @@ function FindingCard({ finding, index }: { finding: AuditFinding; index: number 
           <div className="text-sm font-medium text-text-primary">
             <span className="text-text-muted mr-2">#{index + 1}</span>
             {finding.title}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {finding.report_id && (
+              <span className="inline-flex rounded border border-border bg-bg-primary px-1.5 py-0.5 font-mono text-[10px] text-text-muted">
+                {finding.report_id}
+              </span>
+            )}
+            {finding.source_finding_id && (
+              <span className="inline-flex rounded border border-border bg-bg-primary px-1.5 py-0.5 font-mono text-[10px] text-text-muted">
+                {finding.source_finding_id}
+              </span>
+            )}
+            {finding.verification_status && (
+              <span className="inline-flex rounded border border-border bg-bg-primary px-1.5 py-0.5 text-[10px] font-semibold uppercase text-text-muted">
+                {finding.verification_status}
+              </span>
+            )}
+            {isDemoted && (
+              <span className="inline-flex rounded border border-orange-500/30 bg-orange-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-orange-300">
+                Demoted from {labelize(originalSeverity)}
+              </span>
+            )}
+            {evidenceTags.map((tag) => (
+              <span
+                key={tag}
+                className="inline-flex rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-300"
+              >
+                {tag}
+              </span>
+            ))}
           </div>
           {finding.location && (
             <div className="mt-1 font-mono text-[11px] text-text-muted truncate">
@@ -293,6 +344,8 @@ export function AuditSection({ address, network }: AuditSectionProps) {
               critical={audit.critical_count}
               high={audit.high_count}
               medium={audit.medium_count}
+              low={audit.low_count}
+              informational={audit.informational_count}
             />
           )}
           {isCompleted && status?.completed_at && (
@@ -320,7 +373,7 @@ export function AuditSection({ address, network }: AuditSectionProps) {
               This contract hasn&apos;t been audited yet.
             </h3>
             <p className="mx-auto mt-1 max-w-md text-xs text-text-muted">
-              Run a Plamen audit to surface critical / high / medium findings. The
+              Run a Plamen audit to surface findings and their evidence trail. The
               run takes ~1–5 hours depending on contract size.
             </p>
             {user ? (
@@ -493,7 +546,7 @@ export function AuditSection({ address, network }: AuditSectionProps) {
         {/* Completed: render findings */}
         {!loading && !error && showFindings && audit.findings.length === 0 && (
           <div className="text-sm text-emerald-400">
-            Audit completed — no critical / high / medium findings.
+            Audit completed - no persisted findings.
           </div>
         )}
         {!loading && !error && showFindings && audit.findings.length > 0 && (
@@ -535,7 +588,7 @@ export function AuditSection({ address, network }: AuditSectionProps) {
             </span>
           )}
           <span>
-            Only <b>critical / high / medium</b> findings are persisted.
+            Critical through informational findings are persisted with provenance.
           </span>
         </div>
       )}

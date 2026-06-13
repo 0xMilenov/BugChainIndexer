@@ -198,10 +198,14 @@ export function hasCompletedAuditListing(row: Contract): boolean {
   const c = Number(row.critical_count);
   const h = Number(row.high_count);
   const m = Number(row.medium_count);
+  const l = Number(row.low_count);
+  const i = Number(row.informational_count);
   if (
     (Number.isFinite(c) && c > 0) ||
     (Number.isFinite(h) && h > 0) ||
-    (Number.isFinite(m) && m > 0)
+    (Number.isFinite(m) && m > 0) ||
+    (Number.isFinite(l) && l > 0) ||
+    (Number.isFinite(i) && i > 0)
   ) {
     return true;
   }
@@ -233,7 +237,7 @@ export function getRowAuditState(row: Contract): RowAuditState {
  */
 export function formatAuditSeverityCell(
   row: Contract,
-  severity: "critical" | "high" | "medium"
+  severity: "critical" | "high" | "medium" | "low" | "informational"
 ): string {
   if (!hasCompletedAuditListing(row)) return "-";
   const n =
@@ -241,7 +245,11 @@ export function formatAuditSeverityCell(
       ? Number(row.critical_count)
       : severity === "high"
         ? Number(row.high_count)
-        : Number(row.medium_count);
+        : severity === "medium"
+          ? Number(row.medium_count)
+          : severity === "low"
+            ? Number(row.low_count)
+            : Number(row.informational_count);
   const v = Number.isFinite(n) ? n : 0;
   return v > 0 ? String(v) : "-";
 }

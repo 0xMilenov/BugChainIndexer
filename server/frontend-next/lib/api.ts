@@ -257,6 +257,8 @@ export interface ContractDetail {
   critical_count?: number;
   high_count?: number;
   medium_count?: number;
+  low_count?: number;
+  informational_count?: number;
   audit_status?: string | null;
   audit_completed_at?: number | null;
 }
@@ -284,7 +286,14 @@ export async function getContract(
 
 export interface AuditFinding {
   id: number;
-  severity: "critical" | "high" | "medium";
+  severity: "critical" | "high" | "medium" | "low" | "informational";
+  original_severity?: "critical" | "high" | "medium" | "low" | "informational" | null;
+  evidence_tag?: string | null;
+  evidence_tags?: string[] | null;
+  verification_status?: string | null;
+  report_id?: string | null;
+  source_finding_id?: string | null;
+  trust_adjustment?: string | null;
   title: string;
   description?: string | null;
   location?: string | null;
@@ -308,6 +317,8 @@ export interface ContractAudit {
   critical_count: number;
   high_count: number;
   medium_count: number;
+  low_count: number;
+  informational_count: number;
   findings: AuditFinding[];
 }
 
@@ -356,6 +367,8 @@ export interface ContractAuditStatus {
   critical_count: number;
   high_count: number;
   medium_count: number;
+  low_count: number;
+  informational_count: number;
   error_message?: string | null;
   phase?: string | null;
   log_tail?: string | null;

@@ -97,7 +97,7 @@ function RecentAuditCard({
   audit: LandingRecentAudit;
   index: number;
 }) {
-  const total = audit.critical + audit.high + audit.medium;
+  const total = audit.critical + audit.high + audit.medium + audit.low + audit.informational;
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -125,6 +125,7 @@ function RecentAuditCard({
           <SeverityPill count={audit.critical} severity="critical" />
           <SeverityPill count={audit.high} severity="high" />
           <SeverityPill count={audit.medium} severity="medium" />
+          <SeverityPill count={audit.low} severity="low" />
           <span className="ml-auto text-[11px] text-text-muted">
             {total} {total === 1 ? "finding" : "findings"}
           </span>
@@ -139,12 +140,13 @@ function SeverityPill({
   severity,
 }: {
   count: number;
-  severity: "critical" | "high" | "medium";
+  severity: "critical" | "high" | "medium" | "low";
 }) {
   const color = {
     critical: count > 0 ? "border-red-500/40 bg-red-500/10 text-red-300" : "border-border/40 text-text-muted/40",
     high: count > 0 ? "border-orange-500/40 bg-orange-500/10 text-orange-300" : "border-border/40 text-text-muted/40",
     medium: count > 0 ? "border-amber-500/40 bg-amber-500/10 text-amber-300" : "border-border/40 text-text-muted/40",
+    low: count > 0 ? "border-sky-500/40 bg-sky-500/10 text-sky-300" : "border-border/40 text-text-muted/40",
   }[severity];
   const letter = severity[0].toUpperCase();
   return (

@@ -2,9 +2,9 @@
 /**
  * Parse a Plamen AUDIT_REPORT.md and persist its findings to Postgres.
  *
- * Only critical/high/medium are stored. Low and Informational findings are
- * counted but not written to contract_audit_findings — policy decision per
- * the integration spec (the dashboard shouldn't surface noise).
+ * Critical/high/medium/low/informational findings are stored. We also retain
+ * report-index metadata so demoted findings remain traceable to their original
+ * severity and proof artifacts.
  *
  * Usage:
  *   node scanners/audits/ingest.js \
@@ -19,7 +19,20 @@ const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
 
-const PERSISTED_SEVERITIES = new Set(['critical', 'high', 'medium']);
+const SEVERITIES = ['critical', 'high', 'medium', 'low', 'informational'];
+const PERSISTED_SEVERITIES = new Set(SEVERITIES);
+const EVIDENCE_TAG_ORDER = [
+  '[POC-PASS]',
+  '[MEDUSA-PASS]',
+  '[PROD-ONCHAIN]',
+  '[PROD-FORK]',
+  '[PROD-SOURCE]',
+  '[POC-FAIL]',
+  '[CODE-TRACE]'
+];
+const EVIDENCE_TAG_STRENGTH = new Map(
+  EVIDENCE_TAG_ORDER.map((tag, index) => [tag, EVIDENCE_TAG_ORDER.length - index])
+);
 
 function parseArgs(argv) {
   const args = {
@@ -70,7 +83,7 @@ function loadDatabaseUrl() {
 }
 
 /**
- * Normalize the severity string Plamen emits into our 3 stored buckets or a
+ * Normalize the severity string Plamen emits into our stored buckets or a
  * "skip" marker. We deliberately accept only exact matches — a missing/weird
  * severity field should surface, not silently degrade to Medium.
  */
@@ -144,23 +157,260 @@ function parseSummaryCounts(reportText) {
   return out;
 }
 
+function normalizeReportId(raw) {
+  if (!raw) return null;
+  const m = String(raw).trim().match(/^([CHMLI])-(\d+)$/i);
+  if (!m) return null;
+  return `${m[1].toUpperCase()}-${String(Number(m[2])).padStart(2, '0')}`;
+}
+
+function parseReportIndexEntries(reportText) {
+  const out = new Map();
+  const indexStart = reportText.search(/^##\s+Master Finding Index\b/mi);
+  if (indexStart === -1) return out;
+
+  const nextSection = reportText.slice(indexStart + 1).search(/\n##\s+/m);
+  const slice = nextSection === -1
+    ? reportText.slice(indexStart)
+    : reportText.slice(indexStart, indexStart + 1 + nextSection);
+
+  let headers = null;
+  for (const line of slice.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('|')) continue;
+
+    const cols = trimmed
+      .split('|')
+      .slice(1, -1)
+      .map((col) => col.trim());
+    if (cols.length < 2) continue;
+    if (cols.every((col) => /^-+$/.test(col.replace(/\s+/g, '')))) continue;
+    if (/^report id$/i.test(cols[0])) {
+      headers = cols.map((col) => col.toLowerCase());
+      continue;
+    }
+
+    const get = (name, fallbackIndex) => {
+      const idx = headers ? headers.indexOf(name) : -1;
+      return cols[idx >= 0 ? idx : fallbackIndex] || '';
+    };
+    const id = normalizeReportId(get('report id', 0));
+    const title = cols[1]
+      .replace(/`/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!id || !title) continue;
+    out.set(id, {
+      reportId: id,
+      title,
+      severity: normalizeSeverity(get('severity', 2)),
+      location: get('location', 3).replace(/`/g, '').replace(/\s+/g, ' ').trim() || null,
+      verificationStatus: get('verification', 4).replace(/`/g, '').trim() || null,
+      trustAdjustment: get('trust adj.', 5).replace(/`/g, '').trim() || null,
+      sourceFindingId: get('internal hypothesis', 6).replace(/`/g, '').trim() || null
+    });
+  }
+
+  return out;
+}
+
+function parseReportIndexTitles(reportText) {
+  const out = new Map();
+  for (const [id, entry] of parseReportIndexEntries(reportText)) {
+    out.set(id, entry.title);
+  }
+  return out;
+}
+
+function loadReportIndexText(reportPath) {
+  const dir = path.dirname(reportPath);
+  const candidates = [
+    path.join(dir, '.scratchpad', 'report_index.md'),
+    path.join(dir, 'report_index.md')
+  ];
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) return fs.readFileSync(candidate, 'utf8');
+    } catch {
+      // Ignore sidecar read failures; the main report can still be ingested.
+    }
+  }
+  return '';
+}
+
+function trimSectionValue(value) {
+  if (!value) return value;
+  return value
+    .replace(/\n\s*---\s*$/s, '')
+    .replace(/^\s+|\s+$/g, '') || null;
+}
+
+function cleanLocation(value) {
+  if (!value) return value;
+  return value
+    .replace(/`/g, '')
+    .replace(/\s+/g, ' ')
+    .trim() || null;
+}
+
+function normalizeEvidenceTag(raw) {
+  if (!raw) return null;
+  const m = String(raw).toUpperCase().match(/\[?(POC-PASS|POC-FAIL|CODE-TRACE|MEDUSA-PASS|PROD-ONCHAIN|PROD-SOURCE|PROD-FORK)\]?/);
+  return m ? `[${m[1]}]` : null;
+}
+
+function extractEvidenceTags(text) {
+  const out = [];
+  if (!text) return out;
+  const re = /\[?(POC-PASS|POC-FAIL|CODE-TRACE|MEDUSA-PASS|PROD-ONCHAIN|PROD-SOURCE|PROD-FORK)\]?/gi;
+  let m;
+  while ((m = re.exec(String(text))) !== null) {
+    const tag = normalizeEvidenceTag(m[1]);
+    if (tag && !out.includes(tag)) out.push(tag);
+  }
+  return out;
+}
+
+function selectBestEvidenceTag(tags) {
+  let best = null;
+  let bestScore = -1;
+  for (const tag of tags || []) {
+    const normalized = normalizeEvidenceTag(tag);
+    const score = EVIDENCE_TAG_STRENGTH.get(normalized) || 0;
+    if (normalized && score > bestScore) {
+      best = normalized;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+function parseOriginalSeverityFromTrustAdjustment(value) {
+  if (!value) return null;
+  const m = String(value).match(/\((Critical|High|Medium|Low|Informational)\)/i);
+  return normalizeSeverity(m?.[1]);
+}
+
+function titleTokens(title) {
+  const stop = new Set(['the', 'and', 'or', 'a', 'an', 'of', 'to', 'in', 'on', 'for', 'with', 'by', 'from', 'can', 'lets', 'plus']);
+  return new Set(
+    String(title || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .split(/\s+/)
+      .map((token) => token.replace(/(?:ing|ed|es|s)$/i, ''))
+      .filter((token) => token.length > 2 && !stop.has(token))
+  );
+}
+
+function titleSimilarity(a, b) {
+  const aTokens = titleTokens(a);
+  const bTokens = titleTokens(b);
+  const denom = Math.min(aTokens.size, bTokens.size);
+  if (denom === 0) return 0;
+  let overlap = 0;
+  for (const token of aTokens) {
+    if (bTokens.has(token)) overlap++;
+  }
+  return overlap / denom;
+}
+
+function parseSupportingEvidenceSections(text, sourceFile) {
+  const sections = [];
+  if (!text) return sections;
+  const re = /(^|\n)#{2,3}\s+(?:Finding\s+)?(?:\[([A-Z]+-\d+)\]\s*:?\s*)?([^\n]+)\n/g;
+  const hits = [];
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    hits.push({
+      index: m.index + m[1].length,
+      id: m[2] || null,
+      title: (m[3] || '').trim()
+    });
+  }
+  for (let i = 0; i < hits.length; i++) {
+    const start = hits[i].index;
+    const end = i + 1 < hits.length ? hits[i + 1].index : text.length;
+    const block = text.slice(start, end);
+    const firstNl = block.indexOf('\n');
+    const body = firstNl >= 0 ? block.slice(firstNl + 1).trim() : '';
+    const tags = extractEvidenceTags(block);
+    if (!tags.length) continue;
+    sections.push({
+      id: hits[i].id,
+      title: hits[i].title.replace(/^Finding\s+\[[^\]]+\]\s*:?\s*/i, '').trim(),
+      severity: normalizeSeverity(extractField(body, 'Severity')),
+      location: cleanLocation(trimSectionValue(extractField(body, 'Location'))),
+      tags,
+      sourceFile
+    });
+  }
+  return sections;
+}
+
+function loadSupportingEvidence(reportPath) {
+  const dir = path.dirname(reportPath);
+  const candidates = [
+    path.join(dir, '.scratchpad', 'medusa_fuzz_findings.md'),
+    path.join(dir, '.scratchpad', 'invariant_fuzz_findings.md'),
+    path.join(dir, '.scratchpad', 'invariant_fuzz_results.md'),
+    path.join(dir, '.scratchpad', 'poc_results.md'),
+    path.join(dir, '.scratchpad', 'poc_findings.md'),
+    path.join(dir, '.scratchpad', 'exploit_intel.md'),
+    path.join(dir, 'medusa_fuzz_findings.md'),
+    path.join(dir, 'invariant_fuzz_findings.md'),
+    path.join(dir, 'exploit_intel.md')
+  ];
+  const out = [];
+  for (const candidate of candidates) {
+    try {
+      if (!fs.existsSync(candidate)) continue;
+      const text = fs.readFileSync(candidate, 'utf8');
+      out.push(...parseSupportingEvidenceSections(text, path.basename(candidate)));
+    } catch {
+      // Sidecar evidence is best-effort; never block ingestion of the report.
+    }
+  }
+  return out;
+}
+
+function matchSupportingEvidence(finding, supportingEvidence) {
+  const sourceId = (finding.sourceFindingId || '').trim().toUpperCase();
+  const matches = [];
+  for (const entry of supportingEvidence || []) {
+    const entryId = (entry.id || '').trim().toUpperCase();
+    const sim = titleSimilarity(finding.title, entry.title);
+    if (sourceId && entryId && sourceId === entryId) {
+      matches.push({ entry, score: 1 });
+    } else if (sim >= 0.42) {
+      matches.push({ entry, score: sim });
+    }
+  }
+  return matches
+    .sort((a, b) => b.score - a.score)
+    .map((match) => match.entry);
+}
+
 function parseHeader(header) {
   // e.g. "### [C-01] Reentrancy in withdraw [VERIFIED]"
   const m = header.match(/^###\s+\[([CHMLIcmli])-(\d+)\]\s*(.+?)\s*(?:\[(VERIFIED|UNVERIFIED|CONTESTED)\])?\s*$/);
   if (!m) return null;
   const sevLetter = m[1].toUpperCase();
   const sevMap = { C: 'critical', H: 'high', M: 'medium', L: 'low', I: 'informational' };
+  const idIndex = Number(m[2]);
   return {
     severityFromId: sevMap[sevLetter] || null,
-    idIndex: Number(m[2]),
+    idIndex,
+    reportId: `${sevLetter}-${String(idIndex).padStart(2, '0')}`,
     title: m[3].trim(),
     status: m[4] || null
   };
 }
 
-function parseReport(reportText) {
+function parseReport(reportText, { indexText = '', supportingEvidence = [] } = {}) {
   const findings = [];
   const summary = parseSummaryCounts(reportText);
+  const indexEntries = parseReportIndexEntries(indexText || reportText);
   for (const { header, body } of splitFindingSections(reportText)) {
     const h = parseHeader(header);
     if (!h) continue;
@@ -168,15 +418,42 @@ function parseReport(reportText) {
     // Trust the per-finding **Severity** field over the ID letter when both
     // are present — Plamen's matrix can downgrade a finding from its initial ID.
     const severity = severityField || h.severityFromId;
+    const indexEntry = indexEntries.get(h.reportId) || null;
+    const indexedTitle = indexEntry?.title;
+    const sectionEvidenceTags = [
+      ...extractEvidenceTags(extractField(body, 'Evidence Tag')),
+      ...extractEvidenceTags(body)
+    ];
+    const preliminary = {
+      reportId: h.reportId,
+      severity,
+      title: indexedTitle || h.title,
+      sourceFindingId: indexEntry?.sourceFindingId || null
+    };
+    const matchedEvidence = matchSupportingEvidence(preliminary, supportingEvidence);
+    const supportingTags = matchedEvidence.flatMap((entry) => entry.tags || []);
+    const evidenceTags = [...new Set([...sectionEvidenceTags, ...supportingTags])];
+    const trustAdjustment = indexEntry?.trustAdjustment || null;
+    const originalSeverity =
+      parseOriginalSeverityFromTrustAdjustment(trustAdjustment) ||
+      matchedEvidence.find((entry) => entry.severity)?.severity ||
+      severity;
     findings.push({
       severity,
-      title: h.title,
-      description: extractField(body, 'Description'),
-      impact: extractField(body, 'Impact'),
-      location: extractField(body, 'Location'),
-      recommendation: extractField(body, 'Recommendation'),
-      proofOfConcept: extractField(body, 'PoC Result') || extractField(body, 'Proof of Concept'),
-      confidence: extractField(body, 'Confidence'),
+      originalSeverity,
+      reportId: h.reportId,
+      title: indexedTitle || h.title,
+      description: trimSectionValue(extractField(body, 'Description')),
+      impact: trimSectionValue(extractField(body, 'Impact')),
+      location: cleanLocation(trimSectionValue(extractField(body, 'Location'))),
+      recommendation: trimSectionValue(extractField(body, 'Recommendation')),
+      proofOfConcept: trimSectionValue(extractField(body, 'PoC Result') || extractField(body, 'Proof of Concept')),
+      confidence: trimSectionValue(extractField(body, 'Confidence')),
+      evidenceTag: selectBestEvidenceTag(evidenceTags),
+      evidenceTags,
+      verificationStatus: h.status || indexEntry?.verificationStatus || null,
+      trustAdjustment,
+      sourceFindingId: indexEntry?.sourceFindingId || null,
       status: h.status,
       idIndex: h.idIndex
     });
@@ -184,14 +461,48 @@ function parseReport(reportText) {
   return { findings, summary };
 }
 
+async function ensureAuditSchema(client) {
+  await client.query(`
+    ALTER TABLE contract_audits
+      ADD COLUMN IF NOT EXISTS low_count INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS informational_count INTEGER NOT NULL DEFAULT 0
+  `);
+  await client.query(`
+    ALTER TABLE contract_audit_findings
+      ADD COLUMN IF NOT EXISTS original_severity TEXT,
+      ADD COLUMN IF NOT EXISTS evidence_tag TEXT,
+      ADD COLUMN IF NOT EXISTS evidence_tags TEXT[] DEFAULT '{}',
+      ADD COLUMN IF NOT EXISTS verification_status TEXT,
+      ADD COLUMN IF NOT EXISTS report_id TEXT,
+      ADD COLUMN IF NOT EXISTS source_finding_id TEXT,
+      ADD COLUMN IF NOT EXISTS trust_adjustment TEXT
+  `);
+  await client.query(`
+    DO $$
+    DECLARE c record;
+    BEGIN
+      FOR c IN
+        SELECT conname
+        FROM pg_constraint
+        WHERE conrelid = 'contract_audit_findings'::regclass
+          AND contype = 'c'
+          AND pg_get_constraintdef(oid) ILIKE '%severity%'
+      LOOP
+        EXECUTE format('ALTER TABLE contract_audit_findings DROP CONSTRAINT %I', c.conname);
+      END LOOP;
+      ALTER TABLE contract_audit_findings
+        ADD CONSTRAINT contract_audit_findings_severity_check
+        CHECK (severity IN ('critical','high','medium','low','informational'));
+    END $$;
+  `);
+}
+
 async function upsertAudit(client, args, parsed, rawReport) {
   const now = Date.now();
   const counts = parsed.findings.reduce((acc, f) => {
-    if (f.severity === 'critical') acc.critical++;
-    else if (f.severity === 'high') acc.high++;
-    else if (f.severity === 'medium') acc.medium++;
+    if (f.severity && acc[f.severity] != null) acc[f.severity]++;
     return acc;
-  }, { critical: 0, high: 0, medium: 0 });
+  }, { critical: 0, high: 0, medium: 0, low: 0, informational: 0 });
 
   const startedAt = args.startedAt || now;
   const durationMs = now - startedAt;
@@ -201,8 +512,8 @@ async function upsertAudit(client, args, parsed, rawReport) {
         address, network, audit_tool, audit_mode, tool_version,
         status, started_at, completed_at, duration_ms,
         raw_report, report_path,
-        critical_count, high_count, medium_count
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+        critical_count, high_count, medium_count, low_count, informational_count
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
      ON CONFLICT (address, network, audit_tool) DO UPDATE SET
         audit_mode = EXCLUDED.audit_mode,
         tool_version = EXCLUDED.tool_version,
@@ -215,13 +526,15 @@ async function upsertAudit(client, args, parsed, rawReport) {
         critical_count = EXCLUDED.critical_count,
         high_count = EXCLUDED.high_count,
         medium_count = EXCLUDED.medium_count,
+        low_count = EXCLUDED.low_count,
+        informational_count = EXCLUDED.informational_count,
         error_message = NULL
      RETURNING id`,
     [
       args.address, args.network, args.tool, args.mode, args.toolVersion,
       args.status, startedAt, now, durationMs,
       rawReport, args.report,
-      counts.critical, counts.high, counts.medium
+      counts.critical, counts.high, counts.medium, counts.low, counts.informational
     ]
   );
   const auditId = upsert.rows[0].id;
@@ -236,13 +549,17 @@ async function upsertAudit(client, args, parsed, rawReport) {
     await client.query(
       `INSERT INTO contract_audit_findings (
           audit_id, severity, title, description, location,
-          recommendation, proof_of_concept, finding_index, created_at
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+          recommendation, proof_of_concept, finding_index, created_at,
+          original_severity, evidence_tag, evidence_tags, verification_status,
+          report_id, source_finding_id, trust_adjustment
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
       [
         auditId, f.severity, f.title,
         [f.description, f.impact && `\n\n**Impact**\n\n${f.impact}`].filter(Boolean).join(''),
         f.location, f.recommendation, f.proofOfConcept,
-        f.idIndex, now
+        f.idIndex, now,
+        f.originalSeverity, f.evidenceTag, f.evidenceTags || [],
+        f.verificationStatus, f.reportId, f.sourceFindingId, f.trustAdjustment
       ]
     );
     insertedCount++;
@@ -258,11 +575,15 @@ async function main() {
     process.exit(3);
   }
   const rawReport = fs.readFileSync(args.report, 'utf8');
-  const parsed = parseReport(rawReport);
+  const parsed = parseReport(rawReport, {
+    indexText: loadReportIndexText(args.report),
+    supportingEvidence: loadSupportingEvidence(args.report)
+  });
 
   const pool = new Pool({ connectionString: loadDatabaseUrl() });
   const client = await pool.connect();
   try {
+    await ensureAuditSchema(client);
     await client.query('BEGIN');
     const result = await upsertAudit(client, args, parsed, rawReport);
     await client.query('COMMIT');
@@ -295,4 +616,15 @@ if (require.main === module) {
   });
 }
 
-module.exports = { parseReport, parseSummaryCounts, splitFindingSections, parseHeader, extractField };
+module.exports = {
+  parseReport,
+  parseSummaryCounts,
+  splitFindingSections,
+  parseHeader,
+  extractField,
+  parseReportIndexEntries,
+  parseReportIndexTitles,
+  parseSupportingEvidenceSections,
+  loadSupportingEvidence,
+  extractEvidenceTags
+};

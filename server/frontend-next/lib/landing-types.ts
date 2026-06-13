@@ -19,12 +19,14 @@ export interface LandingRecentAudit {
   critical: number;
   high: number;
   medium: number;
+  low: number;
+  informational: number;
   completed_at: number | null;
 }
 
 export interface LandingStats {
   contracts: { total: number; verified: number; networks: number };
-  audits: { total: number; critical: number; high: number; medium: number; findings: number };
+  audits: { total: number; critical: number; high: number; medium: number; low: number; informational: number; findings: number };
   latest_findings: LandingFinding[];
   recent_audits: LandingRecentAudit[];
   generated_at: number;

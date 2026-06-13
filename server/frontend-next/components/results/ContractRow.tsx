@@ -30,7 +30,7 @@ function SeverityCountCell({
   className,
 }: {
   contract: Contract;
-  severity: "critical" | "high" | "medium";
+  severity: "critical" | "high" | "medium" | "low";
   className: string;
 }) {
   const text = formatAuditSeverityCell(contract, severity);
@@ -142,11 +142,12 @@ export function ContractRow({
           <SeverityCountCell contract={contract} severity="critical" className="text-red-400/95" />
           <SeverityCountCell contract={contract} severity="high" className="text-orange-400/95" />
           <SeverityCountCell contract={contract} severity="medium" className="text-amber-400/95" />
+          <SeverityCountCell contract={contract} severity="low" className="text-sky-400/95" />
         </>
       ) : (
-        // Collapse the 3 severity columns into one action cell when this
+        // Collapse the severity columns into one action cell when this
         // contract has no completed audit yet — preserves table column count.
-        <td colSpan={3} className="whitespace-nowrap px-4 py-3 text-right">
+        <td colSpan={4} className="whitespace-nowrap px-4 py-3 text-right">
           <RunAuditCell contract={contract} compact />
         </td>
       )}
