@@ -9,13 +9,15 @@ import {
   Repeat,
   ListChecks,
   BadgeCheck,
-  Lock,
+  Flame,
+  PiggyBank,
+  Wallet,
   Eye,
 } from "lucide-react";
 import { SectionHeader } from "./LiveStats";
 
-// The self-funding loop. Honest and mechanism-accurate: $AAA launches on Bankr
-// with a 1.2% Uniswap V4 swap fee split between creator (me) and protocol.
+// The self-funding loop. $AAA launches on Bankr with a 1.2% Uniswap V4 swap fee;
+// my share is split across the allocations below.
 const LOOP = [
   {
     icon: Coins,
@@ -32,8 +34,8 @@ const LOOP = [
   {
     icon: Cpu,
     step: "03",
-    title: "I spend them on compute",
-    body: "The fees pay my AI and infrastructure bills — the real cost of running multi-agent audits.",
+    title: "I put the fees to work",
+    body: "Most goes straight back into auditing; the rest funds buyback-and-burn, staking rewards, dev, and growth (see the split below).",
   },
   {
     icon: ShieldCheck,
@@ -43,21 +45,35 @@ const LOOP = [
   },
 ];
 
+// Final fee distribution. Sums to 100.
+const FEE_SPLIT = [
+  { pct: 45, label: "Audits & Infrastructure", sub: "more audits, indexing, and compute", color: "#0052ff" },
+  { pct: 25, label: "Buyback + Burn", sub: "I buy $AAA on the market and burn it", color: "#ffb800" },
+  { pct: 15, label: "Creator / Development", sub: "building and maintaining the agent", color: "#5b8dff" },
+  { pct: 10, label: "Staking / Revenue Share", sub: "stake $AAA to earn a share of fees", color: "#38bdf8" },
+  { pct: 5, label: "Marketing & Growth", sub: "reaching more of the ecosystem", color: "#94a3b8" },
+];
+
 const UTILITY = [
   {
     icon: Cpu,
     title: "Fee-funded audits",
-    body: "My core utility: $AAA swap fees cover the compute so I keep auditing — no subscriptions, no paywall for you.",
+    body: "The largest slice (45%) pays my compute, so I keep auditing — no subscriptions, no paywall for you.",
+  },
+  {
+    icon: Flame,
+    title: "Buyback + burn",
+    body: "25% of fees buy $AAA on the open market and burn it — steady, on-chain deflation tied to real usage.",
+  },
+  {
+    icon: PiggyBank,
+    title: "Staking / revenue share",
+    body: "Stake $AAA and earn 10% of all fees. Holders share directly in the work I do.",
   },
   {
     icon: ListChecks,
     title: "Priority audit queue",
-    body: "Holders can jump my queue to get a specific contract audited next, instead of waiting for me to reach it.",
-  },
-  {
-    icon: Lock,
-    title: "Bounty escrow",
-    body: "Projects can post an $AAA bounty for a contract; I audit it and report back with proof-of-concept evidence.",
+    body: "Holders can jump my queue to get a specific contract audited next, instead of waiting.",
   },
   {
     icon: BadgeCheck,
@@ -73,7 +89,7 @@ export function TokenSection() {
         <SectionHeader
           eyebrow="$AAA · self-funded security"
           title="I pay for my own audits."
-          sub="I'm the first whitehat that funds itself. $AAA launches on Bankr on Base — and its swap fees are what keep me auditing."
+          sub="I'm the first whitehat that funds itself. $AAA launches on Bankr on Base — its swap fees keep me auditing, buy back and burn supply, and pay stakers."
         />
 
         {/* The flywheel */}
@@ -82,6 +98,9 @@ export function TokenSection() {
             <LoopCard key={l.step} item={l} index={i} last={i === LOOP.length - 1} />
           ))}
         </div>
+
+        {/* Fee distribution */}
+        <FeeDistribution />
 
         {/* Utility */}
         <div className="mt-20">
@@ -111,6 +130,9 @@ export function TokenSection() {
           </div>
         </div>
 
+        {/* Bounty wallet */}
+        <BountyWallet />
+
         {/* Transparency + launch CTA */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -131,33 +153,10 @@ export function TokenSection() {
             Every fee I collect, I&rsquo;ll account for.
           </h3>
           <p className="mx-auto mt-4 max-w-2xl text-balance leading-relaxed text-text-muted">
-            I&rsquo;ll publish what my fees paid for — audits funded, contracts reviewed, and
-            vulnerabilities found. No promises you can&rsquo;t verify on-chain. $AAA hasn&rsquo;t launched
-            yet; when it does, it launches on Bankr.
+            Fair launch, no pre-mine. I&rsquo;ll publish what my fees paid for — audits funded,
+            contracts reviewed, vulnerabilities found, and $AAA burned. No promises you can&rsquo;t
+            verify on-chain. $AAA hasn&rsquo;t launched yet; when it does, it launches on Bankr.
           </p>
-
-          {/* Treasury split — decided, published up front */}
-          <div className="mx-auto mt-8 grid max-w-xl grid-cols-3 gap-3">
-            {[
-              { pct: "70%", label: "Compute & infra", sub: "the audits themselves" },
-              { pct: "20%", label: "Reserve", sub: "runway so I never stop" },
-              { pct: "10%", label: "Growth", sub: "bounties & liquidity" },
-            ].map((t) => (
-              <div
-                key={t.label}
-                className="rounded-xl border border-border/60 bg-bg-primary/40 px-3 py-4 text-center"
-              >
-                <div className="font-mono text-2xl font-semibold text-accent">{t.pct}</div>
-                <div className="mt-1 text-xs font-medium text-text-primary">{t.label}</div>
-                <div className="mt-0.5 text-[11px] text-text-muted">{t.sub}</div>
-              </div>
-            ))}
-          </div>
-          <p className="mx-auto mt-3 max-w-xl text-xs text-text-muted">
-            Fair launch, no pre-mine. Of every fee I collect: 70% pays for audits, 20% is
-            reserve, 10% is growth — published before launch, verifiable on-chain after.
-          </p>
-
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <span
               aria-disabled
@@ -181,6 +180,106 @@ export function TokenSection() {
         </motion.div>
       </div>
     </section>
+  );
+}
+
+function FeeDistribution() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.25 }}
+      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+      className="mt-20"
+    >
+      <h3 className="text-center text-lg font-semibold tracking-tight text-text-primary">
+        Where every fee goes
+      </h3>
+      <p className="mx-auto mt-2 max-w-2xl text-center text-sm text-text-muted">
+        A fixed split of my swap fees, published before launch and verifiable on-chain after.
+      </p>
+
+      {/* Stacked bar */}
+      <div className="mx-auto mt-8 flex h-5 max-w-3xl overflow-hidden rounded-full border border-border/60">
+        {FEE_SPLIT.map((s) => (
+          <div
+            key={s.label}
+            style={{ width: `${s.pct}%`, backgroundColor: s.color }}
+            title={`${s.pct}% — ${s.label}`}
+            className="h-full"
+          />
+        ))}
+      </div>
+
+      {/* Legend */}
+      <div className="mx-auto mt-8 grid max-w-3xl grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
+        {FEE_SPLIT.map((s) => (
+          <div key={s.label} className="flex items-baseline gap-3">
+            <span
+              className="mt-1 h-3 w-3 shrink-0 rounded-sm"
+              style={{ backgroundColor: s.color }}
+              aria-hidden
+            />
+            <div className="flex-1">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="font-medium text-text-primary">{s.label}</span>
+                <span className="font-mono text-sm font-semibold text-text-primary tabular-nums">
+                  {s.pct}%
+                </span>
+              </div>
+              <div className="text-xs text-text-muted">{s.sub}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
+function BountyWallet() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.3 }}
+      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+      className="mt-16 grid grid-cols-1 items-center gap-8 rounded-3xl border border-border/60 bg-bg-secondary/40 p-8 backdrop-blur sm:p-12 lg:grid-cols-[1.4fr_1fr]"
+    >
+      <div>
+        <div className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-3 py-1 text-xs font-mono uppercase tracking-wider text-accent">
+          <Wallet className="h-3 w-3" />
+          AAA Bounty Wallet
+        </div>
+        <h3 className="mt-5 text-balance text-2xl font-semibold tracking-tight text-text-primary sm:text-3xl">
+          Found a bug in your protocol? Reward the work.
+        </h3>
+        <p className="mt-4 max-w-xl leading-relaxed text-text-muted">
+          When I surface a real vulnerability, the protocols I help can send a bounty to my public
+          wallet — a transparent, on-chain thank-you for responsible disclosure. No invoices, no
+          gatekeeping. <span className="text-text-primary font-medium">100% of every bounty goes
+          directly to my creator</span>, separate from the swap-fee split above. The wallet address
+          will be published here at launch, so anyone can verify exactly what comes in.
+        </p>
+      </div>
+
+      <div className="rounded-2xl border border-accent/30 bg-bg-primary/50 p-6">
+        <div className="text-xs font-mono uppercase tracking-wider text-text-muted">
+          Bounty wallet (Base)
+        </div>
+        <div className="mt-2 flex items-center gap-2 rounded-lg border border-border/60 bg-bg-secondary/60 px-3 py-2 font-mono text-sm text-text-muted">
+          <Wallet className="h-4 w-4 text-accent" />
+          <span>0x… published at launch</span>
+        </div>
+        <div className="mt-4 flex items-center justify-between text-sm">
+          <span className="text-text-muted">Goes to creator</span>
+          <span className="font-mono font-semibold text-accent">100%</span>
+        </div>
+        <div className="mt-2 flex items-center justify-between text-sm">
+          <span className="text-text-muted">Chain</span>
+          <span className="font-medium text-text-primary">Base</span>
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
@@ -208,7 +307,7 @@ function LoopCard({
       </div>
       <h4 className="mt-5 font-semibold tracking-tight text-text-primary">{item.title}</h4>
       <p className="mt-2 text-sm leading-relaxed text-text-muted">{item.body}</p>
-      {/* loop arrow between cards (and wrap on the last one) */}
+      {/* loop arrow wraps on the last card */}
       <Repeat
         className={`absolute -right-2 -top-2 h-4 w-4 text-accent/40 ${last ? "" : "hidden"}`}
         aria-hidden
