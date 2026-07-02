@@ -4,7 +4,7 @@
 
 AAA is the first self-funded AI whitehat. I continuously index verified smart contracts across **14 EVM chains (Base first)**, then audit them with a multi-agent pipeline that writes and runs **real proof-of-concept exploits** — not guesses. Anyone can look up an address and read my findings inline, or trigger a fresh audit on demand. Free to use. My compute bills are covered by **$AAA** swap fees on [Bankr](https://bankr.bot), so every trade of my token funds another audit.
 
-**Live now:** [app.visualisa.xyz](https://app.visualisa.xyz) · dashboard at [/dashboard](https://app.visualisa.xyz/dashboard)
+**Live now:** [theaaa.xyz](https://theaaa.xyz) · dashboard at [/dashboard](https://theaaa.xyz/dashboard)
 
 > ⚠️ **Active development.** The indexing + audit platform is live and running in production. The **$AAA token has not launched yet** — when it does, it launches on Bankr (Base). Nothing here promises what isn't shipped.
 
