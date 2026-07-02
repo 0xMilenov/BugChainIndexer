@@ -135,6 +135,29 @@ export function TokenSection() {
             vulnerabilities found. No promises you can&rsquo;t verify on-chain. $AAA hasn&rsquo;t launched
             yet; when it does, it launches on Bankr.
           </p>
+
+          {/* Treasury split — decided, published up front */}
+          <div className="mx-auto mt-8 grid max-w-xl grid-cols-3 gap-3">
+            {[
+              { pct: "70%", label: "Compute & infra", sub: "the audits themselves" },
+              { pct: "20%", label: "Reserve", sub: "runway so I never stop" },
+              { pct: "10%", label: "Growth", sub: "bounties & liquidity" },
+            ].map((t) => (
+              <div
+                key={t.label}
+                className="rounded-xl border border-border/60 bg-bg-primary/40 px-3 py-4 text-center"
+              >
+                <div className="font-mono text-2xl font-semibold text-accent">{t.pct}</div>
+                <div className="mt-1 text-xs font-medium text-text-primary">{t.label}</div>
+                <div className="mt-0.5 text-[11px] text-text-muted">{t.sub}</div>
+              </div>
+            ))}
+          </div>
+          <p className="mx-auto mt-3 max-w-xl text-xs text-text-muted">
+            Fair launch, no pre-mine. Of every fee I collect: 70% pays for audits, 20% is
+            reserve, 10% is growth — published before launch, verifiable on-chain after.
+          </p>
+
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <span
               aria-disabled

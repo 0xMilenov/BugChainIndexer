@@ -27,11 +27,12 @@ contracts indexed, 49 audits, 424 vulnerabilities surfaced** (live, Base-first).
 | Pool / fee | **Uniswap V4, 1.2% swap fee** | Charged on every buy and sell. |
 | Fee split | **Creator (AAA) / protocol (Bankr)** | Confirm exact bps in the Bankr terminal at launch. Fees accrue in $AAA **and** WETH. |
 | Fee collection | Manual/agent claim via Bankr Terminal or the bankr agent | AAA (creator) collects its share on-chain. |
-| Supply | **TBD** *(assumption: use Bankr default)* | Confirm Bankr's current default supply/decimals; don't hand-set unless there's a reason. |
+| Supply | **Bankr default** | Fair launch; confirm the exact default supply/decimals in the Bankr terminal at launch. |
 
-> **Open decision D1 — supply & allocation.** Recommended: take Bankr's standard fair-launch supply
-> with **no team pre-mine** (or a small, transparently-disclosed, time-locked ops allocation). A
-> whitehat's credibility is its whole moat — a stealth team bag undermines the entire pitch.
+> **✅ D1 — supply & allocation (DECIDED).** Bankr's standard **fair-launch** supply, **no team
+> pre-mine**. A whitehat's credibility is its whole moat, so there is no stealth team bag. If any
+> ops allocation is ever needed it will be small, time-locked, and disclosed on-chain — but the
+> default is none.
 
 ---
 
@@ -50,41 +51,48 @@ $AAA trade  ──1.2% fee──►  creator share (in $AAA + WETH)
      — the core spend        weeks)                incentives)
 ```
 
-**Recommended treasury policy (Open decision D2):**
-- **~70%** of collected fees → compute & infra (the audits themselves)
-- **~20%** → reserve (3–6 months runway so audits never stop during low-volume weeks)
-- **~10%** → growth (bounty matching, liquidity, or buybacks — decide later)
+**✅ D2 — treasury policy (DECIDED):**
+- **70%** of collected fees → compute & infra (the audits themselves)
+- **20%** → reserve (3–6 months runway so audits never stop during low-volume weeks)
+- **10%** → growth (bounty matching, liquidity, or buybacks — the specific use is D4, still open)
 
 Publish the wallet address and these ratios up front. The policy *is* the product's trust story.
 
 ---
 
-## 4. Sustainability model *(illustrative — validate before quoting publicly)*
+## 4. Sustainability model *(now using measured cost — A1 done)*
 
-The point of this section is to show the loop can actually break even, and at what scale.
+The point of this section is to show the loop can actually break even, and at what scale. The
+per-audit cost is now **measured**, not assumed: the pipeline records real spend per audit
+(`cost_usd`, `total_tokens` on `contract_audits`, from the Plamen v2 phase cost ledger).
 
-**Cost side (assumptions):**
-- Core-mode audit compute: **$X per audit** *(assumption — measure from real Codex/gpt-5.4 runs;
-  track token usage per audit to replace X with a real number).*
-- Fixed infra (VM, DB, RPC): **$Y / month** *(assumption).*
+**Cost side (measured, n small — refine as more audits land):**
+- **Core-mode audit: ~$25 per audit.** First measured Base (Clanker) core run: **$22.7 across 11
+  phases / 5.84M tokens**, still finishing. The **`depth` phase on gpt-5.5 alone is ~$14 (~60%)** —
+  it's the single cost driver and the main tuning lever.
+- **Light mode** is materially cheaper (fewer/cheaper agents, skips the heaviest passes) — the right
+  default for broad sweeps; reserve core/thorough for flagship or high-value targets.
+- Fixed infra (VM, DB, RPC): **~$200 / month** *(assumption — small next to compute).*
 
 **Revenue side:**
-- AAA fee take per $1 of volume ≈ `1.2% × creator_share`. If creator share is 50% *(assumption)*,
-  AAA nets **~0.6% of swap volume**.
+- AAA fee take per $1 of volume ≈ `1.2% × creator_share`. At a 50% creator share *(confirm on
+  Bankr)*, AAA nets **~0.6% of swap volume**.
 
 **Break-even volume for N audits/month:**
 
 ```
-monthly_volume_needed  ≈  (N × X  +  Y)  /  (0.012 × creator_share)
+monthly_volume_needed  ≈  (N × cost_per_audit  +  infra)  /  (0.012 × creator_share)
 ```
 
-*Worked example (assumptions only):* if X = $8/audit, Y = $200/mo, creator_share = 50%, and the goal
-is **50 audits/month**, then monthly_volume_needed ≈ (50×8 + 200) / 0.006 = **$100,000 in monthly
-swap volume**. That is a very reachable target for an active Base token — and every audit above
-break-even is pure ecosystem value.
+*Worked example (measured cost):* at **$25/audit core**, infra $200/mo, creator_share 50%, targeting
+**50 core audits/month** → (50×25 + 200) / 0.006 ≈ **$242k monthly swap volume**. The same 50 audits
+in **light mode (~$6/audit)** → (50×6 + 200) / 0.006 ≈ **$83k/mo**. Takeaway: **tier the sweep** —
+light by default, core for flagships — and break-even lands in a very reachable range for an active
+Base token. Every audit above break-even is pure ecosystem value.
 
-> **Action A1:** instrument `audit-one.sh` / the pipeline to log real per-audit token spend, so we
-> replace X and Y with measured numbers before publishing any economics.
+> **✅ A1 done:** per-audit cost is instrumented (`ingest.js` parses `_v2_cost_ledger.md` → DB). Refine
+> the $25/$6 figures as more audits complete; query `SELECT audit_mode, avg(cost_usd), count(*) FROM
+> contract_audits WHERE cost_usd IS NOT NULL GROUP BY audit_mode`.
 
 ---
 
@@ -155,15 +163,15 @@ counts already come from Postgres). No claims that can't be checked.
 
 ---
 
-## 9. Open decisions (need your call)
+## 9. Decisions
 
-| ID | Decision | Recommendation |
-|----|----------|----------------|
-| **D1** | Supply & allocation | Bankr default supply, fair launch, no pre-mine (or small locked+disclosed ops bag) |
-| **D2** | Treasury split | ~70% compute / ~20% reserve / ~10% growth |
-| **D3** | Launch timing | After ≥5 Base audits are live + costs measured |
-| **D4** | Growth-bucket use | Decide later: buybacks vs. liquidity vs. bounty matching |
-| **A1** | Instrument per-audit cost | Add token-spend logging to the pipeline (blocks final economics) |
+| ID | Decision | Status |
+|----|----------|--------|
+| **D1** | Supply & allocation | ✅ **Decided** — Bankr default supply, fair launch, **no pre-mine** |
+| **D2** | Treasury split | ✅ **Decided** — 70% compute / 20% reserve / 10% growth |
+| **A1** | Instrument per-audit cost | ✅ **Done** — `cost_usd`/`total_tokens` recorded per audit; core ≈ $25 (measured) |
+| **D3** | Launch timing | Open — after ≥5 Base audits are live (in progress) + costs refined |
+| **D4** | Growth-bucket use | Open — buybacks vs. liquidity vs. bounty matching (decide near launch) |
 
 ---
 
