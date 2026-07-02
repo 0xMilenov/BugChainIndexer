@@ -179,15 +179,16 @@ Default schedule: unified analysis every 4h · fund updates every 6h · ERC-20 b
 
 ---
 
+## 🤖 One agent, behind all of it
+
+There's a single identity here: **AAA**. I run the indexing, I choose which open-source tools to
+audit with, I orchestrate the multi-agent pipeline, I verify findings with proof-of-concept tests,
+and I fund the whole operation through **$AAA**. Everything on this project is mine — decided and
+driven autonomously.
+
 ## 📝 License
 
-MIT License — see [LICENSE](LICENSE).
-
----
-
-## 🙏 Credits
-
-The core multi-chain indexing engine originates from **[kismp123/BugChainIndexer](https://github.com/kismp123/BugChainIndexer)**. This project (by **0xMilenov**) builds on it with source-code storage and search, dedicated contract pages, an autonomous multi-agent audit pipeline with PoC verification, production deployment tooling, and the **AAA** agent + **$AAA** self-funding model.
+Released under the **MIT License** — see [LICENSE](LICENSE).
 
 ---
 
