@@ -36,27 +36,45 @@ contracts indexed, 49 audits, 424 vulnerabilities surfaced** (live, Base-first).
 
 ---
 
-## 3. Fee flow → treasury → compute
+## 3. Fee distribution (FINAL)
+
+Every $AAA swap pays a 1.2% fee; my creator share of that fee is split on a **fixed 45/25/15/10/5**
+allocation, published before launch and verifiable on-chain after.
+
+| % | Allocation | What it does |
+|---|-----------|--------------|
+| **45%** | **Audits & Infrastructure** | Funds more audits, indexing, and compute — the core of the loop. |
+| **25%** | **Buyback + Burn** | I buy $AAA on the open market and burn it — usage-tied deflation. |
+| **15%** | **Creator / Development** | Building and maintaining the agent. |
+| **10%** | **Staking / Revenue Share** | Holders stake $AAA to earn a share of fees. |
+| **5%**  | **Marketing & Growth** | Reaching more of the ecosystem. |
 
 ```
-$AAA trade  ──1.2% fee──►  creator share (in $AAA + WETH)
-                                   │
-                                   ▼
-                         AAA treasury wallet (Base)
-                                   │
-              ┌────────────────────┼────────────────────┐
-              ▼                    ▼                    ▼
-     Compute & infra        Reserve / runway      Growth (optional)
-     (AI + API + servers)   (buffer for lean      (bounties, liquidity,
-     — the core spend        weeks)                incentives)
+$AAA trade ──1.2% fee──► creator share (in $AAA + WETH)
+   │
+   ├─ 45% Audits & Infrastructure   (the audits themselves)
+   ├─ 25% Buyback + Burn            (market-buy $AAA → burn)
+   ├─ 15% Creator / Development
+   ├─ 10% Staking / Revenue Share   (paid to stakers)
+   └─  5% Marketing & Growth
 ```
 
-**✅ D2 — treasury policy (DECIDED):**
-- **70%** of collected fees → compute & infra (the audits themselves)
-- **20%** → reserve (3–6 months runway so audits never stop during low-volume weeks)
-- **10%** → growth (bounty matching, liquidity, or buybacks — the specific use is D4, still open)
+Publish the treasury wallet address and these ratios up front. The policy *is* the product's trust story.
 
-Publish the wallet address and these ratios up front. The policy *is* the product's trust story.
+---
+
+## 3b. AAA Bounty Wallet
+
+A separate, public wallet — **distinct from the swap-fee split above** — where protocols can reward
+vulnerabilities I discover for them. It's a transparent, on-chain channel for responsible-disclosure
+bounties: no invoices, no gatekeeping.
+
+- **100% of every bounty donation goes directly to the creator.**
+- Address is published on the site at launch; inflows are verifiable on-chain.
+- Framing: a voluntary "thank-you for the disclosure," not a fee or an obligation.
+
+> This is intentionally simple and separate from the tokenomics so there's no ambiguity: swap fees
+> follow the 45/25/15/10/5 split; bounty donations are 100% creator.
 
 ---
 
@@ -66,29 +84,31 @@ The point of this section is to show the loop can actually break even, and at wh
 per-audit cost is now **measured**, not assumed: the pipeline records real spend per audit
 (`cost_usd`, `total_tokens` on `contract_audits`, from the Plamen v2 phase cost ledger).
 
-**Cost side (measured, n small — refine as more audits land):**
-- **Core-mode audit: ~$25 per audit.** First measured Base (Clanker) core run: **$22.7 across 11
-  phases / 5.84M tokens**, still finishing. The **`depth` phase on gpt-5.5 alone is ~$14 (~60%)** —
-  it's the single cost driver and the main tuning lever.
+**Cost side (measured — refine as more audits land):**
+- **Core-mode audit: ~$23 per audit** (measured, n=2 Base: PoolFees $21.80, Clanker $24.55, avg
+  $23.17, ~6M tokens each). The **`depth` phase on gpt-5.5 is ~60% of the cost** — the single cost
+  driver and the main tuning lever.
 - **Light mode** is materially cheaper (fewer/cheaper agents, skips the heaviest passes) — the right
   default for broad sweeps; reserve core/thorough for flagship or high-value targets.
 - Fixed infra (VM, DB, RPC): **~$200 / month** *(assumption — small next to compute).*
 
-**Revenue side:**
-- AAA fee take per $1 of volume ≈ `1.2% × creator_share`. At a 50% creator share *(confirm on
+**Revenue side (audits are funded by the 45% slice, not the whole fee):**
+- AAA net fee take per $1 of volume ≈ `1.2% × creator_share`. At a 50% creator share *(confirm on
   Bankr)*, AAA nets **~0.6% of swap volume**.
+- Of that, **45% funds Audits & Infrastructure** → **~0.27% of swap volume** is the audit budget.
 
 **Break-even volume for N audits/month:**
 
 ```
-monthly_volume_needed  ≈  (N × cost_per_audit  +  infra)  /  (0.012 × creator_share)
+monthly_volume_needed  ≈  (N × cost_per_audit  +  infra)  /  (0.012 × creator_share × 0.45)
 ```
 
 *Worked example (measured cost):* at **$25/audit core**, infra $200/mo, creator_share 50%, targeting
-**50 core audits/month** → (50×25 + 200) / 0.006 ≈ **$242k monthly swap volume**. The same 50 audits
-in **light mode (~$6/audit)** → (50×6 + 200) / 0.006 ≈ **$83k/mo**. Takeaway: **tier the sweep** —
-light by default, core for flagships — and break-even lands in a very reachable range for an active
-Base token. Every audit above break-even is pure ecosystem value.
+**50 core audits/month** → (50×25 + 200) / 0.0027 ≈ **$540k monthly swap volume**. The same 50 audits
+in **light mode (~$6/audit)** → (50×6 + 200) / 0.0027 ≈ **$185k/mo**. Because audits draw only the 45%
+slice, the tiering matters even more: **light by default for sweeps, core/thorough for flagships.**
+The other slices (buyback+burn, staking, creator, marketing) aren't overhead against this number —
+they're what make holding and trading $AAA attractive enough to *generate* the volume in the first place.
 
 > **✅ A1 done:** per-audit cost is instrumented (`ingest.js` parses `_v2_cost_ledger.md` → DB). Refine
 > the $25/$6 figures as more audits complete; query `SELECT audit_mode, avg(cost_usd), count(*) FROM
@@ -98,19 +118,21 @@ Base token. Every audit above break-even is pure ecosystem value.
 
 ## 5. Token utility (natural to a security agent)
 
-1. **Fee-funded audits (core).** No subscription, no paywall to read findings or queue a contract.
-   The token *is* the funding — this is the primary, non-negotiable utility.
-2. **Priority audit queue.** Holders can push a specific contract to the front of my queue instead
+1. **Fee-funded audits (core).** 45% of fees pays my compute — no subscription, no paywall to read
+   findings or queue a contract. The token *is* the funding.
+2. **Buyback + burn.** 25% of fees market-buy $AAA and burn it — usage-tied deflation that ties token
+   supply to how much auditing actually happens.
+3. **Staking / revenue share.** Stake $AAA to earn 10% of all fees. Holders share directly in the work.
+4. **Priority audit queue.** Holders can push a specific contract to the front of my queue instead
    of waiting for me to reach it in normal rotation.
-3. **Bounty escrow.** A project locks an $AAA bounty for a contract; I audit it and report back with
-   PoC-verified findings; escrow releases on delivery.
-4. **"Audited by AAA" attestation.** An on-chain badge a project can display once I've reviewed it,
-   gated by $AAA — turns the audit into a verifiable, ecosystem-visible signal.
-5. **Transparency ledger (utility as proof).** A public record of fees collected → audits funded →
-   vulnerabilities found. Trust compounds; the ledger is a feature, not an afterthought.
+5. **"Audited by AAA" attestation.** An on-chain badge a project can display once I've reviewed it,
+   gated by $AAA — a verifiable, ecosystem-visible signal.
+6. **Transparency ledger (utility as proof).** A public record of fees collected → audits funded →
+   $AAA burned → vulnerabilities found. Trust compounds; the ledger is a feature, not an afterthought.
 
-> **Sequencing:** ship #1 at launch (it's automatic). #2–#4 are post-launch features gated behind
-> a holder check. #5 should exist from day one, even if manual at first.
+> **Sequencing:** #1 (fee-funded audits) and #2 (buyback+burn) are automatic at launch. #3 (staking)
+> and #4 (priority queue) are post-launch, gated behind a holder check. #6 (ledger) ships day one,
+> manual at first. Separately, the **Bounty Wallet** (§3b) is live at launch — 100% to creator.
 
 ---
 
@@ -118,11 +140,11 @@ Base token. Every audit above break-even is pure ecosystem value.
 
 Publish, and keep updated, a simple public page/section:
 
-| Period | Fees collected (USD) | Audits funded | Contracts reviewed | Findings (C/H/M/L) | Treasury balance |
-|--------|----------------------|---------------|--------------------|--------------------|------------------|
+| Period | Fees collected (USD) | Audits funded | Contracts reviewed | Findings (C/H/M/L) | $AAA bought+burned | Bounties received |
+|--------|----------------------|---------------|--------------------|--------------------|--------------------|-------------------|
 
-Everything is verifiable on-chain (treasury wallet) and against the live dashboard (audit + finding
-counts already come from Postgres). No claims that can't be checked.
+Everything is verifiable on-chain (treasury + burn + bounty wallets) and against the live dashboard
+(audit + finding counts already come from Postgres). No claims that can't be checked.
 
 ---
 
@@ -152,14 +174,19 @@ counts already come from Postgres). No claims that can't be checked.
 
 ## 8. Risks & honest caveats
 
-- **Volume dependence.** If swap volume dries up, audits slow. The reserve (§3) buffers this; be
-  honest that throughput scales with usage — that's the model, not a bug.
+- **Volume dependence.** Audits draw only the 45% slice, so throughput scales with usage. No reserve
+  buffer in this model — during lean weeks, tier down to light mode rather than stop. That's the model.
 - **"Token first" skepticism.** Mitigated by leading with a *working* product and real findings, and
-  by no stealth team bag.
-- **Compute cost drift.** AI pricing changes; keep X measured and the treasury policy adjustable.
-- **Regulatory/positioning.** $AAA is a utility/funding token for an audit service, not a security or
-  a claim on revenue. Keep messaging about *funding the service*, not *profit-sharing*.
-- **Don't over-promise utility timing.** #2–#4 are post-launch; label them as such on the site.
+  by a fair launch with no stealth team bag.
+- **Compute cost drift.** AI pricing changes; the per-audit cost is measured (A1) and the sweep tier
+  (light/core/thorough) is the adjustable lever.
+- **⚠️ Regulatory framing — needs legal review before launch.** The model now includes an explicit
+  **Staking / Revenue Share (10%)** and **Creator (15%)** allocation. "Revenue share" and staking
+  yield can carry securities-like characteristics in some jurisdictions. Before launch, get counsel
+  on how staking rewards and the revenue-share language are described; prefer "protocol fee sharing
+  to stakers" framing and avoid promising returns. This is a real open item, not boilerplate.
+- **Don't over-promise utility timing.** Staking and priority queue are post-launch; label them as
+  such on the site (already done). Buyback+burn and fee-funded audits are automatic at launch.
 
 ---
 
@@ -168,10 +195,11 @@ counts already come from Postgres). No claims that can't be checked.
 | ID | Decision | Status |
 |----|----------|--------|
 | **D1** | Supply & allocation | ✅ **Decided** — Bankr default supply, fair launch, **no pre-mine** |
-| **D2** | Treasury split | ✅ **Decided** — 70% compute / 20% reserve / 10% growth |
-| **A1** | Instrument per-audit cost | ✅ **Done** — `cost_usd`/`total_tokens` recorded per audit; core ≈ $25 (measured) |
-| **D3** | Launch timing | Open — after ≥5 Base audits are live (in progress) + costs refined |
-| **D4** | Growth-bucket use | Open — buybacks vs. liquidity vs. bounty matching (decide near launch) |
+| **D2** | Fee distribution | ✅ **FINAL** — 45% audits+infra / 25% buyback+burn / 15% creator+dev / 10% staking / 5% marketing |
+| **A1** | Instrument per-audit cost | ✅ **Done** — `cost_usd`/`total_tokens` recorded per audit; core ≈ $23 (measured, n=2) |
+| **B1** | AAA Bounty Wallet | ✅ **Decided** — public Base wallet, 100% to creator; address published at launch |
+| **D3** | Launch timing | Open — after ≥5 Base audits are live (2 done, 2 running) + costs refined |
+| **D5** | Legal review of staking/revenue-share framing | Open — get counsel before launch (see Risks) |
 
 ---
 
