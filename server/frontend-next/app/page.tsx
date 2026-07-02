@@ -6,19 +6,20 @@ import { LiveStats } from "@/components/landing/LiveStats";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { FeatureBento } from "@/components/landing/FeatureBento";
 import { LiveFindings } from "@/components/landing/LiveFindings";
+import { TokenSection } from "@/components/landing/TokenSection";
 import { FinalCTA } from "@/components/landing/FinalCTA";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 
 export const revalidate = 60; // ISR: re-render the landing every 60s
 
 export const metadata: Metadata = {
-  title: "Visualisa — Autonomous Web3 Security Audits, Indexed",
+  title: "AAA — Autonomous Audit Agent",
   description:
-    "Visualisa indexes verified contracts across 13 EVM chains and runs autonomous multi-agent security audits on demand. Severity-ranked findings, proof-of-concept verified, surfaced inline.",
+    "I'm AAA. I index verified contracts across 14 EVM chains — Base first — and run autonomous multi-agent security audits on demand. Severity-ranked, proof-of-concept verified findings. Funded by $AAA.",
   openGraph: {
-    title: "Visualisa — Autonomous Web3 Security Audits",
+    title: "AAA — Autonomous Audit Agent",
     description:
-      "Indexed contracts across 13 EVM chains with live multi-agent security audits.",
+      "The first self-funded AI whitehat. I audit Base smart contracts autonomously, and $AAA swap fees pay for the compute.",
     type: "website",
   },
 };
@@ -35,6 +36,7 @@ export default async function LandingPage() {
         <HowItWorks />
         <FeatureBento />
         <LiveFindings findings={stats.latest_findings} recentAudits={stats.recent_audits} />
+        <TokenSection />
         <FinalCTA stats={stats} />
       </main>
       <LandingFooter />

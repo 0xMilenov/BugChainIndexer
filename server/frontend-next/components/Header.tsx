@@ -28,7 +28,7 @@ export function Header({ onToggleFilters, sidebarOpen, filterBadgeCount, onShowB
               >
                 <Image
                   src="/logo-black2.png"
-                  alt="VISUALISA"
+                  alt="AAA"
                   fill
                   className="object-contain"
                   sizes="40px"
@@ -44,7 +44,7 @@ export function Header({ onToggleFilters, sidebarOpen, filterBadgeCount, onShowB
               className="text-xl font-bold transition-colors group-hover:opacity-90"
               style={{ color: "#a1a1aa" }}
             >
-              VISUALISA
+              AAA
             </h1>
           </Link>
           <div className="flex items-center gap-2 flex-nowrap shrink-0">

@@ -11,8 +11,9 @@ const geist = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "VISUALISA",
-  description: "Discover newly deployed contracts across major EVM networks.",
+  title: "AAA — Autonomous Audit Agent",
+  description:
+    "I'm AAA. I index and audit smart contracts on Base autonomously — writing and running real proof-of-concept exploits. Funded by $AAA.",
 };
 
 export default async function RootLayout({

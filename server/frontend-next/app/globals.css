@@ -5,23 +5,24 @@
   --bg-primary: #0a0a0f;
   --bg-secondary: #12121a;
   --bg-tertiary: #1a1a24;
-  --accent-cyan: #00ff9d;
-  --accent-cyan-dim: #00cc7d;
-  --accent-soft: #6ee7b7;
+  /* AAA — Base-blue accent (kept the --accent-cyan var names to avoid a repo-wide rename) */
+  --accent-cyan: #0052ff;
+  --accent-cyan-dim: #0043cc;
+  --accent-soft: #5b8dff;
   --accent-amber: #ffb800;
   --text-primary: #e4e4e7;
   --text-muted: #71717a;
   --border: #27272a;
-  --focus-ring: 0 0 0 2px rgba(0, 255, 157, 0.3);
+  --focus-ring: 0 0 0 2px rgba(0, 82, 255, 0.35);
 }
 
 @theme inline {
   --color-bg-primary: #0a0a0f;
   --color-bg-secondary: #12121a;
   --color-bg-tertiary: #1a1a24;
-  --color-accent: #00ff9d;
-  --color-accent-dim: #00cc7d;
-  --color-accent-soft: #6ee7b7;
+  --color-accent: #0052ff;
+  --color-accent-dim: #0043cc;
+  --color-accent-soft: #5b8dff;
   --color-accent-amber: #ffb800;
   --color-text-muted: #71717a;
   --color-border: #27272a;
@@ -93,17 +94,17 @@ body {
 /* Grid overlay for hacker aesthetic */
 .bg-grid-overlay {
   background-image:
-    linear-gradient(rgba(0, 255, 157, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 255, 157, 0.03) 1px, transparent 1px);
+    linear-gradient(rgba(0, 82, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 82, 255, 0.03) 1px, transparent 1px);
   background-size: 40px 40px;
 }
 
 /* Glow effect */
 .glow-cyan {
-  box-shadow: 0 0 20px rgba(0, 255, 157, 0.15);
+  box-shadow: 0 0 20px rgba(0, 82, 255, 0.15);
 }
 .glow-cyan-hover:hover {
-  box-shadow: 0 0 24px rgba(0, 255, 157, 0.25);
+  box-shadow: 0 0 24px rgba(0, 82, 255, 0.25);
 }
 
 /* Landing-page animations */

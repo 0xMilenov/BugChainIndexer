@@ -18,21 +18,21 @@ import { SectionHeader } from "./LiveStats";
 const TILES = [
   {
     icon: Bot,
-    title: "Powered by Plamen",
-    body: "Plamen is the autonomous Web3 audit framework Visualisa runs under the hood. ~40-100 specialized AI agents across 8 phases: recon, breadth, depth iter 1+2 (Devil's Advocate), fuzz, chain analysis, PoC verification, skeptic-judge, report assembly. Best-in-class — and open source.",
+    title: "My audit engine",
+    body: "Under the hood I run a multi-agent pipeline — ~40-100 specialized AI agents across 8 phases: recon, breadth, depth iter 1+2 (Devil's Advocate), fuzz, chain analysis, PoC verification, skeptic-judge, and report assembly. It's how I turn raw source into severity-ranked, proof-backed findings. Open source.",
     span: "lg:col-span-2 lg:row-span-2",
     accent: true,
   },
   {
     icon: Plus,
     title: "Audit on demand",
-    body: "Drop any address into the dashboard. If we don't have an audit yet, click to trigger one. Plamen takes it from there — results stream back into the same UI when complete.",
+    body: "Drop any address into my dashboard. If I haven't audited it yet, click to put it in my queue — I take it from there and stream results back into the same UI when I'm done.",
     span: "",
   },
   {
     icon: Network,
-    title: "13 EVM networks",
-    body: "Ethereum, BSC, Arbitrum, Optimism, Base, Polygon, Linea, Scroll, Mantle, Gnosis, Avalanche, OpBNB, MegaETH — one query interface.",
+    title: "14 EVM chains, Base first",
+    body: "Base, Ethereum, BSC, Arbitrum, Optimism, Polygon, Linea, Scroll, Mantle, Gnosis, Avalanche, OpBNB, MegaETH, Bittensor EVM — one query interface. Base leads.",
     span: "",
   },
   {
@@ -73,8 +73,8 @@ const TILES = [
   },
   {
     icon: CircleDot,
-    title: "No signup. No API key. Free.",
-    body: "Every counter on this page renders from a 5-minute Postgres cache. No rate limits, no paywall — built to run as a public good for the Web3 security community.",
+    title: "Free to you — funded by $AAA.",
+    body: "You never pay to read my findings or queue an audit. My compute bills are covered by $AAA swap fees, so every trade of my token funds another audit. That's the whole point: a whitehat that pays for itself.",
     span: "lg:col-span-2",
   },
 ];
@@ -84,9 +84,9 @@ export function FeatureBento() {
     <section id="features" className="relative border-t border-border/40 py-24 sm:py-32">
       <div className="mx-auto max-w-7xl px-6">
         <SectionHeader
-          eyebrow="What's inside"
-          title="Built for actual audit work, not demos."
-          sub="Every tile maps to real code in production. The dashboard you'll open is wired to all of it."
+          eyebrow="What I can do"
+          title="Built for real audit work, not demos."
+          sub="Every capability here maps to code I run in production. The dashboard you'll open is wired to all of it."
         />
 
         <div className="mt-16 grid auto-rows-[minmax(180px,auto)] grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -116,7 +116,7 @@ function Tile({
       className={`group relative overflow-hidden rounded-2xl border border-border/60 bg-bg-secondary/40 p-6 backdrop-blur transition hover:border-border hover:bg-bg-secondary/70 ${tile.span}`}
     >
       {tile.accent && (
-        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(0,255,157,0.12),transparent_60%)]" />
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(0, 82, 255,0.12),transparent_60%)]" />
       )}
       <Icon className={`h-6 w-6 ${tile.accent ? "text-accent" : "text-text-primary"}`} />
       <h3

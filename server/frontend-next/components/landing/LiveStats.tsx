@@ -93,7 +93,7 @@ function StatCard({
       transition={{ duration: 0.6, delay: index * 0.08, ease: [0.22, 1, 0.36, 1] }}
       className={`group relative overflow-hidden rounded-2xl border border-border/60 bg-bg-secondary/40 p-6 ring-1 ring-inset ${toneRing} backdrop-blur transition hover:border-border hover:bg-bg-secondary/70`}
     >
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_right,rgba(0,255,157,0.08),transparent_60%)] opacity-0 transition-opacity group-hover:opacity-100" />
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_right,rgba(0, 82, 255,0.08),transparent_60%)] opacity-0 transition-opacity group-hover:opacity-100" />
       <Icon className={`h-5 w-5 ${toneText}`} />
       <div className="mt-6 font-mono text-4xl font-semibold tracking-tight text-text-primary">
         <AnimatedCounter to={card.value} format={(n) => n.toLocaleString()} />

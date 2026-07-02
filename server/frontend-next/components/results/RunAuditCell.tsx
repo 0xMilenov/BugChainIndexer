@@ -63,8 +63,8 @@ export function RunAuditCell({
         } font-semibold uppercase tracking-wider text-accent`}
         title={
           contract.audit_phase
-            ? `Plamen run in progress · ${contract.audit_phase}`
-            : "Plamen run in progress"
+            ? `AAA audit in progress · ${contract.audit_phase}`
+            : "AAA audit in progress"
         }
       >
         <Activity className={compact ? "h-3 w-3 animate-pulse" : "h-3.5 w-3.5 animate-pulse"} />
@@ -104,7 +104,7 @@ export function RunAuditCell({
         title={
           isRetry
             ? "Previous audit run did not finish — click to retry"
-            : "Run a Plamen audit on this contract"
+            : "Run an AAA audit on this contract"
         }
       >
         {busy ? (

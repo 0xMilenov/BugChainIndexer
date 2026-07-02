@@ -7,21 +7,21 @@ import { SectionHeader } from "./LiveStats";
 const STEPS = [
   {
     icon: Boxes,
-    eyebrow: "01 · Index",
-    title: "Every verified contract on every chain.",
-    body: "Continuous scanners stream verified contracts from Ethereum, BSC, Arbitrum, Optimism, Base, Polygon, Linea, Scroll, and more. Verified source, deployment metadata, ERC-20 balances, and proxy targets all land in one queryable place — ready to look up the moment they hit-chain.",
+    eyebrow: "01 · I index",
+    title: "Every verified contract, Base first.",
+    body: "My scanners stream verified contracts from Base, Ethereum, BSC, Arbitrum, Optimism, Polygon, Linea, Scroll, and more. Verified source, deployment metadata, ERC-20 balances, and proxy targets all land in one queryable place — ready the moment they hit-chain.",
   },
   {
     icon: Search,
-    eyebrow: "02 · Look up",
-    title: "Paste an address — read findings instantly.",
-    body: "Open the dashboard, drop in any address. If the contract is already audited, every Critical / High / Medium finding renders inline with full description, location, PoC results, and remediation guidance. No signup, no API keys.",
+    eyebrow: "02 · You look up",
+    title: "Paste an address — read my findings instantly.",
+    body: "Open my dashboard, drop in any address. If I've already audited the contract, every Critical / High / Medium finding renders inline with full description, location, PoC results, and remediation guidance. No signup, no API keys.",
   },
   {
     icon: Bot,
-    eyebrow: "03 · Or audit on demand",
-    title: "Not audited yet? Spin up a Plamen run.",
-    body: "Add any contract manually and trigger a fresh audit. Plamen orchestrates 40-100 specialized AI agents across recon, breadth, depth, fuzz, chain analysis, PoC verification, and skeptic-judge. Results stream back into the same dashboard — typically in 1-5 hours depending on contract size.",
+    eyebrow: "03 · I audit on demand",
+    title: "Not audited yet? Put it in my queue.",
+    body: "Add any contract and trigger a fresh audit. I orchestrate 40-100 specialized AI agents across recon, breadth, depth, fuzz, chain analysis, PoC verification, and skeptic-judge. Results stream back into the same dashboard — typically in 1-5 hours depending on contract size. My $AAA fees cover the compute.",
     plamen: true,
   },
 ];
@@ -31,8 +31,8 @@ export function HowItWorks() {
     <section id="how" className="relative border-t border-border/40 py-24 sm:py-32">
       <div className="mx-auto max-w-6xl px-6">
         <SectionHeader
-          eyebrow="The flow"
-          title="Index. Look up. Or audit on demand."
+          eyebrow="How I work"
+          title="I index. You look up. I audit on demand."
           sub="The full loop, from on-chain deployment to security findings on your screen."
         />
 
@@ -83,16 +83,16 @@ function Step({
         <p className="mt-3 max-w-md text-text-muted leading-relaxed">{step.body}</p>
         {step.plamen && (
           <div className="mt-4 inline-flex items-center gap-2 rounded-md border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs">
-            <span className="text-accent font-mono uppercase tracking-wider">Plamen</span>
+            <span className="text-accent font-mono uppercase tracking-wider">My engine</span>
             <span className="text-text-muted">·</span>
-            <span className="text-text-primary">autonomous multi-agent audit framework</span>
+            <span className="text-text-primary">40-100 agents · 8 phases · PoC-verified</span>
           </div>
         )}
       </div>
 
       <div className="relative">
         <div className="relative mx-auto flex h-32 w-32 items-center justify-center rounded-2xl border border-border/60 bg-bg-secondary/60 backdrop-blur md:mx-0 md:h-48 md:w-48 md:rounded-3xl">
-          <div className="absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_center,rgba(0,255,157,0.18),transparent_70%)] md:rounded-3xl" />
+          <div className="absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_center,rgba(0, 82, 255,0.18),transparent_70%)] md:rounded-3xl" />
           <Icon className="relative h-12 w-12 text-accent md:h-16 md:w-16" />
           <div className="absolute -right-3 -top-3 flex h-9 w-9 items-center justify-center rounded-full border border-accent/40 bg-bg-primary font-mono text-sm font-semibold text-accent">
             {String(index + 1).padStart(2, "0")}

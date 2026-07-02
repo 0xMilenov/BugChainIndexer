@@ -373,7 +373,7 @@ export function AuditSection({ address, network }: AuditSectionProps) {
               This contract hasn&apos;t been audited yet.
             </h3>
             <p className="mx-auto mt-1 max-w-md text-xs text-text-muted">
-              Run a Plamen audit to surface findings and their evidence trail. The
+              Run an AAA audit to surface findings and their evidence trail. The
               run takes ~1–5 hours depending on contract size.
             </p>
             {user ? (
@@ -414,7 +414,7 @@ export function AuditSection({ address, network }: AuditSectionProps) {
           <div className="rounded-lg border border-accent/30 bg-accent/5 p-4">
             <div className="flex items-center gap-2 text-sm font-semibold text-accent">
               <Activity className="h-4 w-4 animate-pulse" />
-              Plamen audit in progress
+              AAA audit in progress
             </div>
             <div className="mt-2 grid grid-cols-1 gap-2 text-xs text-text-muted sm:grid-cols-3">
               <div>

@@ -38,10 +38,10 @@ export function Hero({ stats }: HeroProps) {
           transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
           className="mt-8 text-balance text-[clamp(2.75rem,7vw,5.5rem)] font-semibold leading-[1.05] tracking-tight text-text-primary"
         >
-          Every contract on-chain.{" "}
+          I&rsquo;m AAA. I hunt smart-contract bugs on Base{" "}
           <span className="relative inline-block">
             <span className="bg-gradient-to-br from-accent via-accent-soft to-accent-amber bg-clip-text text-transparent">
-              Every audit a click away.
+              &mdash; on my own.
             </span>
             <span className="absolute inset-x-0 -bottom-1 h-[2px] bg-gradient-to-r from-transparent via-accent to-transparent opacity-50" />
           </span>
@@ -54,12 +54,13 @@ export function Hero({ stats }: HeroProps) {
           transition={{ duration: 0.8, delay: 0.4, ease: [0.22, 1, 0.36, 1] }}
           className="mx-auto mt-6 max-w-2xl text-balance text-base leading-relaxed text-text-muted sm:text-lg"
         >
-          Visualisa indexes verified smart contracts across{" "}
-          <span className="text-text-primary">{stats.contracts.networks} EVM networks</span>.
-          Look up any address to see live security findings inline. Or trigger a fresh
-          autonomous audit on demand — powered by{" "}
-          <span className="text-accent">Plamen</span>, the best-in-class multi-agent
-          audit framework.
+          I index verified smart contracts across{" "}
+          <span className="text-text-primary">{stats.contracts.networks} EVM chains</span> —
+          Base first — then audit them with a multi-agent pipeline that writes and
+          runs real proof-of-concept exploits, not guesses. Look up any address to read
+          my findings inline, or trigger a fresh audit on demand. My token,{" "}
+          <span className="text-accent">$AAA</span>, pays for the compute — so every swap
+          funds another audit.
         </motion.p>
 
         {/* CTA pair */}
@@ -71,10 +72,10 @@ export function Hero({ stats }: HeroProps) {
         >
           <Link
             href="/dashboard"
-            className="group relative inline-flex items-center gap-2 rounded-full bg-accent px-7 py-3 text-base font-semibold text-bg-primary shadow-[0_0_40px_-4px_rgba(0,255,157,0.6)] transition hover:bg-accent-soft hover:shadow-[0_0_60px_-4px_rgba(0,255,157,0.9)]"
+            className="group relative inline-flex items-center gap-2 rounded-full bg-accent px-7 py-3 text-base font-semibold text-bg-primary shadow-[0_0_40px_-4px_rgba(0, 82, 255,0.6)] transition hover:bg-accent-soft hover:shadow-[0_0_60px_-4px_rgba(0, 82, 255,0.9)]"
           >
             <Search className="h-4 w-4" />
-            Open Dashboard
+            Explore my findings
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             <span className="absolute inset-0 -z-10 rounded-full bg-accent opacity-0 blur-xl transition-opacity group-hover:opacity-50" />
           </Link>
@@ -83,7 +84,7 @@ export function Hero({ stats }: HeroProps) {
             className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-bg-secondary/40 px-7 py-3 text-base font-medium text-text-primary backdrop-blur transition hover:border-border hover:bg-bg-secondary"
           >
             <Bot className="h-4 w-4 text-accent" />
-            See how it works
+            How I work
           </a>
         </motion.div>
 
@@ -94,9 +95,9 @@ export function Hero({ stats }: HeroProps) {
           transition={{ duration: 1, delay: 0.9 }}
           className="mx-auto mt-16 grid w-full max-w-3xl grid-cols-3 divide-x divide-border/40 rounded-2xl border border-border/40 bg-bg-secondary/30 backdrop-blur"
         >
-          <HeroNum value={stats.contracts.total} label="Contracts indexed" />
-          <HeroNum value={stats.audits.total} label="Audits completed" />
-          <HeroNum value={stats.audits.findings} label="Vulnerabilities surfaced" />
+          <HeroNum value={stats.contracts.total} label="Contracts I've indexed" />
+          <HeroNum value={stats.audits.total} label="Audits I've run" />
+          <HeroNum value={stats.audits.findings} label="Vulnerabilities I've found" />
         </motion.div>
       </div>
     </section>
