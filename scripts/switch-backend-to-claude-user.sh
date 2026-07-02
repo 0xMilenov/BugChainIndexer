@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Switch bugchain-backend systemd unit to run as the `claude` user so spawned
-# Plamen audits inherit ~/.claude/ creds and ~/.plamen/, ~/.foundry/ on PATH.
+# Plamen audits inherit ~/.codex/ auth and ~/.npm-global/, ~/.plamen/,
+# ~/.foundry/ on PATH. The username is historical; audits use Codex now.
 #
 # Usage:
 #   sudo bash scripts/switch-backend-to-claude-user.sh
@@ -53,7 +54,7 @@ fi
 # Ensure systemd-spawned children can find plamen + foundry on PATH. systemd
 # launches with a minimal PATH; without this, audit-one.sh's `plamen` call
 # resolves to nothing even when the user logs in interactively.
-PATH_LINE='Environment="PATH=/home/claude/.plamen:/home/claude/.foundry/bin:/home/claude/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"'
+PATH_LINE='Environment="PATH=/home/claude/.npm-global/bin:/home/claude/.plamen:/home/claude/.foundry/bin:/home/claude/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"'
 if grep -q '^Environment="PATH=' "$UNIT"; then
   sed -i "s|^Environment=\"PATH=.*|${PATH_LINE}|" "$UNIT"
 else
@@ -99,9 +100,10 @@ echo "--- Verifying tools available to ${TARGET_USER} (-i = login shell) ---"
 sudo -iu "${TARGET_USER}" bash -c '
   echo "PATH=$PATH"
   echo -n "plamen: "; command -v plamen || echo MISSING
+  echo -n "codex:  "; command -v codex || echo MISSING
   echo -n "forge:  "; command -v forge || echo MISSING
   echo -n "node:   "; command -v node || echo MISSING
-  echo -n "creds:  "; ls -la ~/.claude/.credentials.json 2>/dev/null || echo "MISSING — run: claude login"
+  echo -n "auth:   "; ls -la ~/.codex/auth.json 2>/dev/null || echo "MISSING — run: codex login"
 '
 
 echo

@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const getBackendUrl = (request: NextRequest) => {
+  const configuredBackendUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
+  if (configuredBackendUrl) return configuredBackendUrl;
   const host = request.headers.get("host") ?? request.nextUrl.host ?? "";
   if (host.includes("localhost")) return "http://localhost:8005";
-  return process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://localhost:8000";
+  return "http://localhost:8000";
 };
 
 export async function POST(request: NextRequest) {
@@ -21,7 +23,13 @@ export async function POST(request: NextRequest) {
     try {
       parsed = JSON.parse(responseText);
     } catch {
-      parsed = { ok: false, error: responseText || "Internal Server Error" };
+      const trimmed = responseText.trim();
+      parsed = {
+        ok: false,
+        error: trimmed.startsWith("<")
+          ? `Backend returned an HTML error page (HTTP ${res.status}). Please try again.`
+          : trimmed || "Internal Server Error",
+      };
     }
     return NextResponse.json(parsed, { status: res.status });
   } catch (err) {

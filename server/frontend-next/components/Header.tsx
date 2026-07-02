@@ -6,8 +6,6 @@ import { SlidersHorizontal, Bookmark, LogIn } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { AuthStatus } from "./AuthStatus";
 
-const getLoginHref = () => "/auth/github";
-
 interface HeaderProps {
   onToggleFilters?: () => void;
   sidebarOpen?: boolean;
@@ -17,8 +15,7 @@ interface HeaderProps {
 }
 
 export function Header({ onToggleFilters, sidebarOpen, filterBadgeCount, onShowBookmarks, bookmarkCount = 0 }: HeaderProps) {
-  const { user, authConfigured } = useAuth();
-  const loginHref = getLoginHref();
+  const { user, loginUrl } = useAuth();
   return (
     <header className="sticky top-0 z-30 h-16 flex flex-col justify-center border-b border-border bg-bg-primary/95 backdrop-blur-md shadow-cyan-500/5">
       <div className="mx-auto w-full px-4 sm:px-6">
@@ -55,9 +52,9 @@ export function Header({ onToggleFilters, sidebarOpen, filterBadgeCount, onShowB
               <AuthStatus />
             ) : (
               <Link
-                href={loginHref}
+                href={loginUrl}
                 className="flex items-center gap-1 px-3 py-1 rounded-md transition relative bg-bg-secondary text-text-muted hover:bg-bg-tertiary hover:text-accent flex-shrink-0"
-                aria-label={authConfigured ? "Log in with GitHub" : "Setup GitHub OAuth"}
+                aria-label="Log in"
               >
                 <LogIn className="h-4 w-4" />
                 <span>Log in</span>

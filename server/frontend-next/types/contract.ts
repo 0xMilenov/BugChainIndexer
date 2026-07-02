@@ -2,6 +2,8 @@ export interface Erc20Balance {
   symbol: string;
   balance: string;
   decimals?: number;
+  price_usd?: number | string | null;
+  value_usd?: number | string | null;
 }
 
 export interface Contract {
@@ -27,12 +29,15 @@ export interface Contract {
   is_proxy?: boolean | number;
   isProxy?: boolean | number;
   fund?: number;
+  fund_usd?: number | string | null;
   native_balance?: string | number;
   erc20_balances?: Erc20Balance[];
   confidence?: string | number;
   critical_count?: number;
   high_count?: number;
   medium_count?: number;
+  low_count?: number;
+  informational_count?: number;
   /** Present when ANY Plamen audit row exists for this contract (listing API). */
   audit_id?: number | null;
   /**

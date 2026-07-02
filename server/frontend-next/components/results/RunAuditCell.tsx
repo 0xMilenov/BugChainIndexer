@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Loader2, Play, AlertTriangle, RefreshCcw, Activity } from "lucide-react";
 import { triggerContractAudit } from "@/lib/api";
 import type { Contract } from "@/types/contract";
 import { getRowAuditState, type RowAuditState } from "@/lib/contract-utils";
+import { useAuth } from "@/context/AuthContext";
 
 /**
  * Inline audit-action cell for the dashboard.
@@ -29,6 +31,7 @@ export function RunAuditCell({
   compact?: boolean;
 }) {
   /** Local override so the row visibly transitions after click without a refetch. */
+  const { user, loginUrl } = useAuth();
   const [localState, setLocalState] = useState<RowAuditState | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -71,6 +74,19 @@ export function RunAuditCell({
   }
 
   const isRetry = state === "failed" || state === "stalled";
+
+  if (!user) {
+    return (
+      <Link
+        href={loginUrl}
+        className={`inline-flex items-center gap-1.5 rounded-full border border-border bg-bg-secondary font-semibold uppercase tracking-wider text-text-muted transition hover:border-accent/40 hover:text-accent ${
+          compact ? "px-2.5 py-0.5 text-[10px]" : "px-3 py-1 text-[11px]"
+        }`}
+      >
+        Log in
+      </Link>
+    );
+  }
 
   return (
     <span className="inline-flex flex-col items-end gap-1">

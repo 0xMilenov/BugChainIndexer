@@ -19,7 +19,8 @@ scanners/
 │   ├── database.js          # PostgreSQL operations
 │   ├── Scanner.js           # Base scanner class
 │   ├── addressUtils.js      # Address normalization utilities
-│   ├── alchemyRpc.js        # Alchemy RPC with Prices API support
+│   ├── alchemyRpc.js        # Optional private RPC adapter (disabled by public-RPC default)
+│   ├── CoinGeckoPriceProvider.js # Free cached price source
 │   └── TokenPriceCache.js   # Token price fetching (price only)
 ├── tokens/             # Token configurations (14 networks)
 │   ├── ethereum.json        # Tokens with decimals
@@ -87,11 +88,11 @@ cp .env.example .env
 
 ### 2. Required API Keys
 ```bash
-# Etherscan API keys (for all networks)
+# Etherscan API keys (budgeted source-code enrichment only)
 DEFAULT_ETHERSCAN_KEYS=key1,key2,key3
 
-# Alchemy API key (for reliable RPC calls)
-ALCHEMY_API_KEY=your_alchemy_key
+# Public RPC mode is the default and rejects keyed/provider URLs
+PUBLIC_RPC_ONLY=true
 
 # Database configuration
 PGHOST=localhost
@@ -103,8 +104,9 @@ PGPASSWORD=your_password
 # Optional: Proxy servers for high-volume operations
 USE_ETHERSCAN_PROXY=false    # Set to true if using Etherscan proxy
 ETHERSCAN_PROXY_URL=http://localhost:3000
-USE_ALCHEMY_PROXY=false       # Set to true if using Alchemy proxy  
-ALCHEMY_PROXY_URL=http://localhost:3002
+
+# Free cached price source
+COINGECKO_API_BASE_URL=https://api.coingecko.com/api/v3
 ```
 
 ### 3. Optional Settings
@@ -160,8 +162,8 @@ HIGH_FUND_FLAG=true            # Only high-value addresses (>100k)
 ### Active Networks (12)
 *These networks are enabled in run.sh and actively scanned*
 
-| Network | Chain ID | Alchemy Support | BalanceHelper | Scanner Support |
-|---------|----------|----------------|---------------|-----------------|
+| Network | Chain ID | Public RPC | BalanceHelper | Scanner Support |
+|---------|----------|------------|---------------|-----------------|
 | Ethereum | 1 | ✅ Yes | ✅ Deployed | ✅ Full |
 | Binance Smart Chain | 56 | ✅ Yes | ✅ Deployed | ✅ Full |
 | Polygon | 137 | ✅ Yes | ✅ Deployed | ✅ Full |
@@ -177,10 +179,10 @@ HIGH_FUND_FLAG=true            # Only high-value addresses (>100k)
 ### Additional Configured Networks (2)
 *These networks are configured in networks.js but not in default run.sh*
 
-| Network | Chain ID | Alchemy Support | BalanceHelper | Scanner Support |
-|---------|----------|----------------|---------------|-----------------|
-| Unichain | 1301 | ✅ Yes | ✅ Deployed | ✅ Full |
-| Berachain | 80084 | ✅ Yes | ✅ Deployed | ✅ Full |
+| Network | Chain ID | Public RPC | BalanceHelper | Scanner Support |
+|---------|----------|------------|---------------|-----------------|
+| Unichain | 130 | ✅ Yes | ✅ Deployed | ✅ Full |
+| Berachain | 80094 | ✅ Yes | ✅ Deployed | ✅ Full |
 
 #### BalanceHelper Contract Addresses (Active Networks)
 Efficient batch balance queries for native + ERC-20 tokens:
@@ -206,7 +208,7 @@ Efficient batch balance queries for native + ERC-20 tokens:
 | Unichain | `0x6F4A97C44669a74Ee6b6EE95D2cD6C4803F6b384` |
 | Berachain | `0x6F4A97C44669a74Ee6b6EE95D2cD6C4803F6b384` |
 
-**Note**: All 14 configured networks have full Alchemy API support. 12 networks are active in run.sh for production scanning.
+**Note**: Configured networks use public no-key RPC defaults. 12 networks are active in run.sh for production scanning.
 
 ## 🤖 Automation (Cron)
 
@@ -275,7 +277,7 @@ node tests/test-revalidator-recent.js    # Recent contracts test
 node tests/test-revalidator-reprocess.js # Re-processing test
 
 # Fund and Balance Tests
-node tests/test-fundupdater-alchemy.js   # Alchemy integration test
+node tests/test_fund_price_update.js     # Fund price update test
 node tests/test-last-updated-filter.js   # Last updated filter test
 
 # Address Tests
@@ -338,9 +340,9 @@ HIGH_FUND_FLAG=true ./run.sh funds-high
 
 ### Architecture Improvements
 - **BalanceHelper Multi-Address API**: Modified to accept multiple addresses in single call
-- **Gas Limit Optimization**: Optimized for Alchemy's 550M gas limit (500-1000 address chunks)
+- **Gas Limit Optimization**: Adaptive public-RPC chunk sizing for balance helper calls
 - **Decimals from Cache**: Removed decimals from contract, fetched from metadata cache
-- **Unified Alchemy RPC**: All RPC calls now use Alchemy for maximum reliability and consistency
+- **Public RPC Default**: Scanner config rejects keyed/provider RPC URLs unless explicitly opted out
 - **Direct Deployment**: All 14 networks deployed with direct RPC deployment script
 - **Network Expansion**: Added Unichain and Berachain support
 
@@ -348,10 +350,9 @@ HIGH_FUND_FLAG=true ./run.sh funds-high
 - BalanceHelper contracts enable batch queries for up to 1000 addresses per call
 - Dynamic batch sizing (50-1000) with automatic adjustment based on performance
 - Multi-level fallback strategy: full chunk → half chunks → empty maps
-- Token price & metadata fetching via Alchemy Data API with 7-day caching
-- All RPC calls (getLogs, eth_call, transactions, blocks) use unified Alchemy RPC for consistency
-- Deployment time fetching optimized with Alchemy's eth_getTransactionByHash and eth_getBlockByNumber
-- Alchemy handles load balancing and failover internally
+- Token prices come from CoinGecko/simple-price with 7-day caching
+- RPC calls use rotating public no-key endpoints by default
+- Explorer API calls are budget-tracked and reserved for source/deployment enrichment
 
 ---
 

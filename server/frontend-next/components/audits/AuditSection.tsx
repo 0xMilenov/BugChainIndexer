@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
   cancelContractAudit,
   getContractAudit,
@@ -13,6 +14,7 @@ import {
 import { AuditMarkdown } from "./AuditMarkdown";
 import { SeverityBadges } from "./SeverityBadges";
 import { Loader2, Play, AlertTriangle, RefreshCcw, Activity, X } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 interface AuditSectionProps {
   address: string;
@@ -23,6 +25,8 @@ const SEVERITY_STYLE: Record<AuditFinding["severity"], string> = {
   critical: "bg-red-500/15 text-red-400 border-red-500/40",
   high: "bg-orange-500/15 text-orange-400 border-orange-500/40",
   medium: "bg-amber-500/15 text-amber-400 border-amber-500/40",
+  low: "bg-sky-500/15 text-sky-400 border-sky-500/40",
+  informational: "bg-zinc-500/15 text-zinc-400 border-zinc-500/40",
 };
 
 /** DB / JSON may return millis as number, string, or seconds (10-digit). */
@@ -49,11 +53,30 @@ function formatDuration(ms?: number | string | null): string {
   return remMin > 0 ? `${hr}h ${remMin}m` : `${hr}h`;
 }
 
+function labelize(value?: string | null): string {
+  return String(value || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function uniqueEvidenceTags(finding: AuditFinding): string[] {
+  const tags = [
+    ...(Array.isArray(finding.evidence_tags) ? finding.evidence_tags : []),
+    finding.evidence_tag,
+  ]
+    .filter(Boolean)
+    .map((tag) => String(tag));
+  return [...new Set(tags)];
+}
+
 function FindingCard({ finding, index }: { finding: AuditFinding; index: number }) {
   const [expanded, setExpanded] = useState(false);
   const hasDetails = Boolean(
     finding.description || finding.recommendation || finding.proof_of_concept || finding.location
   );
+  const originalSeverity = finding.original_severity || finding.severity;
+  const isDemoted = Boolean(originalSeverity && originalSeverity !== finding.severity);
+  const evidenceTags = uniqueEvidenceTags(finding);
 
   return (
     <div className="rounded-lg border border-border bg-bg-tertiary/40">
@@ -71,6 +94,36 @@ function FindingCard({ finding, index }: { finding: AuditFinding; index: number 
           <div className="text-sm font-medium text-text-primary">
             <span className="text-text-muted mr-2">#{index + 1}</span>
             {finding.title}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {finding.report_id && (
+              <span className="inline-flex rounded border border-border bg-bg-primary px-1.5 py-0.5 font-mono text-[10px] text-text-muted">
+                {finding.report_id}
+              </span>
+            )}
+            {finding.source_finding_id && (
+              <span className="inline-flex rounded border border-border bg-bg-primary px-1.5 py-0.5 font-mono text-[10px] text-text-muted">
+                {finding.source_finding_id}
+              </span>
+            )}
+            {finding.verification_status && (
+              <span className="inline-flex rounded border border-border bg-bg-primary px-1.5 py-0.5 text-[10px] font-semibold uppercase text-text-muted">
+                {finding.verification_status}
+              </span>
+            )}
+            {isDemoted && (
+              <span className="inline-flex rounded border border-orange-500/30 bg-orange-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-orange-300">
+                Demoted from {labelize(originalSeverity)}
+              </span>
+            )}
+            {evidenceTags.map((tag) => (
+              <span
+                key={tag}
+                className="inline-flex rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-300"
+              >
+                {tag}
+              </span>
+            ))}
           </div>
           {finding.location && (
             <div className="mt-1 font-mono text-[11px] text-text-muted truncate">
@@ -141,6 +194,7 @@ function StatusPill({ status }: { status: string }) {
 }
 
 export function AuditSection({ address, network }: AuditSectionProps) {
+  const { user, loginUrl } = useAuth();
   /** Status row from contract_audits (lightweight, polled). */
   const [status, setStatus] = useState<ContractAuditStatus | null>(null);
   /** Full audit including findings — fetched only when status is 'completed'. */
@@ -216,6 +270,10 @@ export function AuditSection({ address, network }: AuditSectionProps) {
   }, [refreshStatus]);
 
   const handleRun = useCallback(async () => {
+    if (!user) {
+      setTriggerError("Login required");
+      return;
+    }
     setTriggering(true);
     setTriggerError(null);
     try {
@@ -238,9 +296,13 @@ export function AuditSection({ address, network }: AuditSectionProps) {
     } finally {
       setTriggering(false);
     }
-  }, [address, network, refreshStatus]);
+  }, [address, network, refreshStatus, user]);
 
   const handleCancel = useCallback(async () => {
+    if (!user) {
+      setCancelError("Login required");
+      return;
+    }
     if (!window.confirm("Stop the in-flight audit? Any progress will be lost.")) return;
     setCancelling(true);
     setCancelError(null);
@@ -257,7 +319,7 @@ export function AuditSection({ address, network }: AuditSectionProps) {
     } finally {
       setCancelling(false);
     }
-  }, [address, network]);
+  }, [address, network, user]);
 
   const isRunning = status?.status === "running" || status?.status === "pending";
   const isCompleted = status?.status === "completed";
@@ -282,6 +344,8 @@ export function AuditSection({ address, network }: AuditSectionProps) {
               critical={audit.critical_count}
               high={audit.high_count}
               medium={audit.medium_count}
+              low={audit.low_count}
+              informational={audit.informational_count}
             />
           )}
           {isCompleted && status?.completed_at && (
@@ -309,27 +373,36 @@ export function AuditSection({ address, network }: AuditSectionProps) {
               This contract hasn&apos;t been audited yet.
             </h3>
             <p className="mx-auto mt-1 max-w-md text-xs text-text-muted">
-              Run a Plamen audit to surface critical / high / medium findings. The
+              Run a Plamen audit to surface findings and their evidence trail. The
               run takes ~1–5 hours depending on contract size.
             </p>
-            <button
-              type="button"
-              onClick={handleRun}
-              disabled={triggering}
-              className="mt-4 inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-bg-primary transition hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {triggering ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Starting…
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4" />
-                  Run audit
-                </>
-              )}
-            </button>
+            {user ? (
+              <button
+                type="button"
+                onClick={handleRun}
+                disabled={triggering}
+                className="mt-4 inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-bg-primary transition hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {triggering ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Starting…
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4" />
+                    Run audit
+                  </>
+                )}
+              </button>
+            ) : (
+              <Link
+                href={loginUrl}
+                className="mt-4 inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-5 py-2 text-sm font-semibold text-accent transition hover:bg-accent/20"
+              >
+                Log in
+              </Link>
+            )}
             {triggerError && (
               <p className="mt-3 text-xs text-red-400">{triggerError}</p>
             )}
@@ -378,24 +451,33 @@ export function AuditSection({ address, network }: AuditSectionProps) {
                 The page polls every 5s. You can leave and come back — findings
                 will appear here once the run finishes.
               </p>
-              <button
-                type="button"
-                onClick={handleCancel}
-                disabled={cancelling}
-                className="inline-flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-red-400 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {cancelling ? (
-                  <>
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Stopping…
-                  </>
-                ) : (
-                  <>
-                    <X className="h-3 w-3" />
-                    Stop audit
-                  </>
-                )}
-              </button>
+              {user ? (
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  disabled={cancelling}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-red-400 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {cancelling ? (
+                    <>
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Stopping…
+                    </>
+                  ) : (
+                    <>
+                      <X className="h-3 w-3" />
+                      Stop audit
+                    </>
+                  )}
+                </button>
+              ) : (
+                <Link
+                  href={loginUrl}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-bg-tertiary px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-text-muted transition hover:border-accent/40 hover:text-accent"
+                >
+                  Log in
+                </Link>
+              )}
             </div>
             {cancelError && (
               <p className="mt-2 text-[11px] text-red-400">{cancelError}</p>
@@ -433,19 +515,28 @@ export function AuditSection({ address, network }: AuditSectionProps) {
             {status?.error_message && (
               <p className="mt-1 text-xs text-text-muted">{status.error_message}</p>
             )}
-            <button
-              type="button"
-              onClick={handleRun}
-              disabled={triggering}
-              className="mt-3 inline-flex items-center gap-2 rounded-full border border-border bg-bg-tertiary px-4 py-1.5 text-xs font-semibold text-text-primary transition hover:border-accent/40 hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {triggering ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <RefreshCcw className="h-3 w-3" />
-              )}
-              {status?.status === "cancelled" ? "Run audit again" : "Retry audit"}
-            </button>
+            {user ? (
+              <button
+                type="button"
+                onClick={handleRun}
+                disabled={triggering}
+                className="mt-3 inline-flex items-center gap-2 rounded-full border border-border bg-bg-tertiary px-4 py-1.5 text-xs font-semibold text-text-primary transition hover:border-accent/40 hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {triggering ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <RefreshCcw className="h-3 w-3" />
+                )}
+                {status?.status === "cancelled" ? "Run audit again" : "Retry audit"}
+              </button>
+            ) : (
+              <Link
+                href={loginUrl}
+                className="mt-3 inline-flex items-center gap-2 rounded-full border border-border bg-bg-tertiary px-4 py-1.5 text-xs font-semibold text-text-primary transition hover:border-accent/40 hover:bg-accent/10"
+              >
+                Log in
+              </Link>
+            )}
             {triggerError && (
               <p className="mt-2 text-xs text-red-400">{triggerError}</p>
             )}
@@ -455,7 +546,7 @@ export function AuditSection({ address, network }: AuditSectionProps) {
         {/* Completed: render findings */}
         {!loading && !error && showFindings && audit.findings.length === 0 && (
           <div className="text-sm text-emerald-400">
-            Audit completed — no critical / high / medium findings.
+            Audit completed - no persisted findings.
           </div>
         )}
         {!loading && !error && showFindings && audit.findings.length > 0 && (
@@ -497,7 +588,7 @@ export function AuditSection({ address, network }: AuditSectionProps) {
             </span>
           )}
           <span>
-            Only <b>critical / high / medium</b> findings are persisted.
+            Critical through informational findings are persisted with provenance.
           </span>
         </div>
       )}

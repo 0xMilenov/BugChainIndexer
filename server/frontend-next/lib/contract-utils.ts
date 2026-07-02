@@ -103,11 +103,16 @@ export interface Erc20BalanceWithValue {
 export function getSortedErc20Balances(balances: Erc20Balance[] | undefined): Erc20BalanceWithValue[] {
   if (!Array.isArray(balances) || !balances.length) return [];
   return balances
-    .map((b) => ({
-      ...b,
-      decimals: b.decimals ?? 18,
-      value: weiToDisplay(b.balance, b.decimals ?? 18),
-    }))
+    .map((b) => {
+      const valueUsd = Number(b.value_usd);
+      return {
+        ...b,
+        decimals: b.decimals ?? 18,
+        value: Number.isFinite(valueUsd) && valueUsd > 0
+          ? valueUsd
+          : weiToDisplay(b.balance, b.decimals ?? 18),
+      };
+    })
     .sort((a, b) => b.value - a.value);
 }
 
@@ -151,6 +156,11 @@ export function formatFund(
     return `$${Math.round(v)}`;
   };
 
+  const fundUsd = Number(row?.fund_usd);
+  if (Number.isFinite(fundUsd) && fundUsd > 0) {
+    return fmtUsdShort(fundUsd);
+  }
+
   if (nativeCfg?.symbol) {
     const weiSource =
       row?.native_balance != null && row.native_balance !== ""
@@ -188,10 +198,14 @@ export function hasCompletedAuditListing(row: Contract): boolean {
   const c = Number(row.critical_count);
   const h = Number(row.high_count);
   const m = Number(row.medium_count);
+  const l = Number(row.low_count);
+  const i = Number(row.informational_count);
   if (
     (Number.isFinite(c) && c > 0) ||
     (Number.isFinite(h) && h > 0) ||
-    (Number.isFinite(m) && m > 0)
+    (Number.isFinite(m) && m > 0) ||
+    (Number.isFinite(l) && l > 0) ||
+    (Number.isFinite(i) && i > 0)
   ) {
     return true;
   }
@@ -223,7 +237,7 @@ export function getRowAuditState(row: Contract): RowAuditState {
  */
 export function formatAuditSeverityCell(
   row: Contract,
-  severity: "critical" | "high" | "medium"
+  severity: "critical" | "high" | "medium" | "low" | "informational"
 ): string {
   if (!hasCompletedAuditListing(row)) return "-";
   const n =
@@ -231,7 +245,11 @@ export function formatAuditSeverityCell(
       ? Number(row.critical_count)
       : severity === "high"
         ? Number(row.high_count)
-        : Number(row.medium_count);
+        : severity === "medium"
+          ? Number(row.medium_count)
+          : severity === "low"
+            ? Number(row.low_count)
+            : Number(row.informational_count);
   const v = Number.isFinite(n) ? n : 0;
   return v > 0 ? String(v) : "-";
 }

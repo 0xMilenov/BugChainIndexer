@@ -6,7 +6,7 @@ export { formatCompactNumber, shortAddress } from "./landing-types";
 
 const FALLBACK: LandingStats = {
   contracts: { total: 0, verified: 0, networks: 0 },
-  audits: { total: 0, critical: 0, high: 0, medium: 0, findings: 0 },
+  audits: { total: 0, critical: 0, high: 0, medium: 0, low: 0, informational: 0, findings: 0 },
   latest_findings: [],
   recent_audits: [],
   generated_at: 0,
@@ -22,6 +22,12 @@ const FALLBACK: LandingStats = {
  * should import the type-only `lib/landing-types` instead.
  */
 export async function fetchLandingStats(): Promise<LandingStats> {
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    Number(process.env.LANDING_STATS_TIMEOUT_MS || 3000)
+  );
+
   try {
     // Fetch backend directly — bypass the frontend rewrite proxy entirely.
     // This avoids any dependency on the running next-server having the
@@ -31,7 +37,10 @@ export async function fetchLandingStats(): Promise<LandingStats> {
       process.env.NEXT_PUBLIC_API_URL ||
       "http://localhost:8000";
     const url = `${backendUrl.replace(/\/$/, "")}/landingStats`;
-    const res = await fetch(url, { next: { revalidate: 60 } });
+    const res = await fetch(url, {
+      next: { revalidate: 60 },
+      signal: controller.signal,
+    });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     if (!json?.ok) throw new Error("not ok");
@@ -47,5 +56,7 @@ export async function fetchLandingStats(): Promise<LandingStats> {
       console.error("fetchLandingStats failed:", err);
     }
     return FALLBACK;
+  } finally {
+    clearTimeout(timeout);
   }
 }

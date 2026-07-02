@@ -86,6 +86,94 @@ exports.getVerifiedContractStats = async (byNetwork = false) => {
   };
 }
 
+function normalizeEpochSeconds(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.floor(parsed > 9999999999 ? parsed / 1000 : parsed);
+}
+
+exports.getDailyCollectionStats = async ({ fromTs, toTs } = {}) => {
+  ensureDbUrl();
+  const nowSec = Math.floor(Date.now() / 1000);
+  const to = normalizeEpochSeconds(toTs, nowSec);
+  const from = normalizeEpochSeconds(fromTs, to - 86400);
+  const safeFrom = Math.min(from, to);
+  const safeTo = Math.max(from, to);
+  const baseWhere = `(a.tags IS NULL OR NOT 'EOA' = ANY(COALESCE(a.tags, '{}')))`;
+
+  const [summary, byNetwork, topContract] = await Promise.all([
+    pool.query(`
+      SELECT
+        COUNT(*)::bigint AS total,
+        COUNT(*) FILTER (WHERE a.verified = true)::bigint AS verified,
+        COUNT(DISTINCT LOWER(a.network))::bigint AS networks
+      FROM addresses a
+      WHERE ${baseWhere}
+        AND a.first_seen >= $1
+        AND a.first_seen < $2
+    `, [safeFrom, safeTo]),
+    pool.query(`
+      SELECT LOWER(a.network) AS network, COUNT(*)::bigint AS count
+      FROM addresses a
+      WHERE ${baseWhere}
+        AND a.first_seen >= $1
+        AND a.first_seen < $2
+      GROUP BY LOWER(a.network)
+      ORDER BY count DESC, network ASC
+      LIMIT 6
+    `, [safeFrom, safeTo]),
+    pool.query(`
+      SELECT
+        a.address,
+        a.network,
+        a.contract_name,
+        a.verified,
+        a.first_seen,
+        a.deployed,
+        a.fund,
+        a.fund_usd,
+        a.native_balance
+      FROM addresses a
+      WHERE ${baseWhere}
+        AND a.first_seen >= $1
+        AND a.first_seen < $2
+      ORDER BY
+        COALESCE(a.fund_usd, 0)::numeric DESC,
+        COALESCE(a.native_balance, a.fund, 0)::numeric DESC,
+        a.first_seen DESC NULLS LAST,
+        a.address ASC
+      LIMIT 1
+    `, [safeFrom, safeTo]),
+  ]);
+
+  const row = summary.rows[0] || {};
+  const top = topContract.rows[0] || null;
+  return {
+    from: safeFrom,
+    to: safeTo,
+    total: Number(row.total || 0),
+    verified: Number(row.verified || 0),
+    networks: Number(row.networks || 0),
+    by_network: byNetwork.rows.map((r) => ({
+      network: r.network,
+      count: Number(r.count || 0),
+    })),
+    top_contract: top
+      ? {
+          address: top.address,
+          network: top.network,
+          contract_name: top.contract_name,
+          verified: top.verified,
+          first_seen: top.first_seen ? Number(top.first_seen) : null,
+          deployed: top.deployed ? Number(top.deployed) : null,
+          fund: top.fund,
+          fund_usd: top.fund_usd,
+          native_balance: top.native_balance,
+        }
+      : null,
+  };
+};
+
 // Generate cache key for count queries
 function getCountCacheKey(filters, hideUnnamed) {
   const { deployedFrom, deployedTo, fundFrom, fundTo, networks, tags, address, contractName } = filters;
@@ -113,44 +201,14 @@ exports.getAddressesByFilter = async (filters = {}) => {
   ensureDbUrl();
   const { limit = 50, includeTotal = false, sortBy = 'fund', hideUnnamed = false, ...rest } = filters;
 
-  // Convert fund filter (USD) to native_balance filter (wei) for consistent behavior
-  let restForWhere = { ...rest };
-  if (rest.fundFrom != null || rest.fundTo != null) {
-    const prices = await exports.getNativePrices();
-    const nets = rest.networks?.length ? rest.networks : ['ethereum', 'binance', 'optimism', 'base', 'arbitrum', 'polygon', 'avalanche', 'gnosis', 'linea', 'scroll', 'mantle', 'megaeth'];
-    const filterParams = [];
-    const conditions = [];
-    let paramIdx = 1;
-    for (const net of nets) {
-      const price = prices[net];
-      if (!price || price <= 0) continue;
-      const fromWei = rest.fundFrom != null ? Math.floor((rest.fundFrom / price) * 1e18) : null;
-      const toWei = rest.fundTo != null ? Math.ceil((rest.fundTo / price) * 1e18) : null;
-      const parts = [];
-      if (fromWei != null) {
-        filterParams.push(fromWei);
-        parts.push(`COALESCE(native_balance, 0) >= $${paramIdx++}`);
-      }
-      if (toWei != null) {
-        filterParams.push(toWei);
-        parts.push(`COALESCE(native_balance, 0) < $${paramIdx++}`);
-      }
-      if (parts.length) {
-        filterParams.push(net.toLowerCase());
-        conditions.push(`(LOWER(network) = $${paramIdx++} AND ${parts.join(' AND ')})`);
-      }
-    }
-    if (conditions.length) {
-      restForWhere = { ...rest, fundFrom: null, fundTo: null, nativeBalanceFilter: { sql: `(${conditions.join(' OR ')})`, params: filterParams } };
-    }
-  }
+  const restForWhere = { ...rest };
 
   const { whereSql, params, whereSqlNoCursor, paramsNoCursor } = buildWhere(restForWhere, sortBy);
 
   const take = Math.min(Math.max(+limit || 50, 1), 200);
 
   // Determine ORDER BY clause based on sortBy parameter
-  // Use native_balance (wei) for fund sort - fund column has mixed semantics (wei from UnifiedScanner, USD from FundUpdater)
+  // Use fund_usd for fund sort/filtering. Raw native_balance remains available for display/debugging.
   // Use a. prefix for main query (qualified WHERE clause)
   let orderByClause;
   let orderByClauseOuter; // for hideUnnamed outer query (no a. prefix)
@@ -165,7 +223,9 @@ exports.getAddressesByFilter = async (filters = {}) => {
         COALESCE(ca.critical_count, 0) DESC,
         COALESCE(ca.high_count, 0) DESC,
         COALESCE(ca.medium_count, 0) DESC,
-        COALESCE(a.native_balance, 0)::numeric DESC NULLS LAST,
+        COALESCE(ca.low_count, 0) DESC,
+        COALESCE(ca.informational_count, 0) DESC,
+        COALESCE(a.fund_usd, 0)::numeric DESC NULLS LAST,
         a.deployed DESC NULLS LAST,
         a.address ASC`;
     orderByClauseOuter = `ORDER BY
@@ -173,24 +233,28 @@ exports.getAddressesByFilter = async (filters = {}) => {
         COALESCE(critical_count, 0) DESC,
         COALESCE(high_count, 0) DESC,
         COALESCE(medium_count, 0) DESC,
-        COALESCE(native_balance, 0)::numeric DESC NULLS LAST,
+        COALESCE(low_count, 0) DESC,
+        COALESCE(informational_count, 0) DESC,
+        COALESCE(fund_usd, 0)::numeric DESC NULLS LAST,
         deployed DESC NULLS LAST,
         address ASC`;
   } else {
-    orderByClause = 'ORDER BY COALESCE(a.native_balance, 0)::numeric DESC NULLS LAST, a.deployed DESC NULLS LAST, a.address ASC';
-    orderByClauseOuter = 'ORDER BY COALESCE(native_balance, 0)::numeric DESC NULLS LAST, deployed DESC NULLS LAST, address ASC';
+    orderByClause = 'ORDER BY COALESCE(a.fund_usd, 0)::numeric DESC NULLS LAST, a.deployed DESC NULLS LAST, a.address ASC';
+    orderByClauseOuter = 'ORDER BY COALESCE(fund_usd, 0)::numeric DESC NULLS LAST, deployed DESC NULLS LAST, address ASC';
   }
 
   // Build SQL based on hideUnnamed flag (only verified contracts)
   let dataSql;
   const selectColumns = `
-      a.address, a.contract_name, a.deployed, a.fund, a.native_balance, a.network, a.first_seen,
+      a.address, a.contract_name, a.deployed, a.fund, a.fund_usd, a.native_balance, a.network, a.first_seen,
       a.verified, a.is_proxy, a.implementation_address, a.proxy_contract_name,
       a.implementation_contract_name, a.deploy_tx_hash, a.deployer_address,
       a.deploy_block_number, a.deployed_at_timestamp, a.deployed_at, a.confidence, a.fetched_at,
       COALESCE(ca.critical_count, 0) AS critical_count,
       COALESCE(ca.high_count, 0) AS high_count,
       COALESCE(ca.medium_count, 0) AS medium_count,
+      COALESCE(ca.low_count, 0) AS low_count,
+      COALESCE(ca.informational_count, 0) AS informational_count,
       ca.id AS audit_id,
       ca.status AS audit_status,
       ca.phase AS audit_phase
@@ -209,7 +273,8 @@ exports.getAddressesByFilter = async (filters = {}) => {
   `;
   const baseWhere = CONTRACT_LIST_WHERE.replace(/addresses\./g, 'a.');
   // Qualify buildWhere columns with a. for the addresses alias.
-  // Audit columns (critical_count/high_count/medium_count/audit_status) come
+  // Audit columns (critical_count/high_count/medium_count/low_count/
+  // informational_count/audit_status) come
   // from the LEFT JOIN'd contract_audits row (alias ca) -- qualify those too,
   // and run them BEFORE the a.* substitutions so 'audit_status' isn't first
   // mangled to 'a.audit_status'.
@@ -218,9 +283,12 @@ exports.getAddressesByFilter = async (filters = {}) => {
         .replace(/\bcritical_count\b/g, 'COALESCE(ca.critical_count, 0)')
         .replace(/\bhigh_count\b/g, 'COALESCE(ca.high_count, 0)')
         .replace(/\bmedium_count\b/g, 'COALESCE(ca.medium_count, 0)')
+        .replace(/\blow_count\b/g, 'COALESCE(ca.low_count, 0)')
+        .replace(/\binformational_count\b/g, 'COALESCE(ca.informational_count, 0)')
         .replace(/\baudit_status\b/g, 'ca.status')
         .replace(/\bdeployed\b/g, 'a.deployed')
         .replace(/\bfund\b/g, 'a.fund')
+        .replace(/\bfund_usd\b/g, 'a.fund_usd')
         .replace(/\bnetwork\b/g, 'a.network')
         .replace(/\baddress\b/g, 'a.address')
         .replace(/\bcontract_name\b/g, 'a.contract_name')
@@ -355,7 +423,13 @@ exports.getAddressesByFilter = async (filters = {}) => {
     try {
       const erc20Result = await pool.query(`
         SELECT LOWER(ctb.address) AS address, ctb.network,
-          jsonb_agg(jsonb_build_object('symbol', ctb.symbol, 'balance', ctb.balance_wei::text, 'decimals', ctb.decimals)) AS erc20_balances
+          jsonb_agg(jsonb_build_object(
+            'symbol', ctb.symbol,
+            'balance', ctb.balance_wei::text,
+            'decimals', ctb.decimals,
+            'price_usd', ctb.price_usd,
+            'value_usd', ctb.value_usd
+          )) AS erc20_balances
         FROM contract_token_balances ctb
         WHERE (LOWER(ctb.address), LOWER(ctb.network)) IN (
           SELECT LOWER(addr), LOWER(net) FROM unnest($1::text[], $2::text[]) AS t(addr, net)
@@ -394,14 +468,16 @@ exports.getAddressesByFilter = async (filters = {}) => {
         critical_count: Number(last.critical_count) || 0,
         high_count: Number(last.high_count) || 0,
         medium_count: Number(last.medium_count) || 0,
-        native_balance: last.native_balance ?? last.fund ?? null,
+        low_count: Number(last.low_count) || 0,
+        informational_count: Number(last.informational_count) || 0,
+        fund_usd: last.fund_usd ?? last.fund ?? null,
         deployed: last.deployed ?? null,
         address: last.address,
       };
     } else {
-      // Cursor for native_balance sort (use native_balance for consistent pagination)
+      // Cursor for fund_usd sort.
       nextCursor = {
-        native_balance: last.native_balance ?? last.fund ?? null,
+        fund_usd: last.fund_usd ?? last.fund ?? null,
         deployed: last.deployed ?? null,
         address: last.address,
       };
@@ -438,8 +514,8 @@ function buildWhere({
     where.push(sql);
     whereNoCursor.push(sql);
   } else {
-    if (fundFrom != null) addBoth(`fund     >= $1`, fundFrom);
-    if (fundTo   != null) addBoth(`fund      < $1`, fundTo);
+    if (fundFrom != null) addBoth(`fund_usd >= $1`, fundFrom);
+    if (fundTo   != null) addBoth(`fund_usd < $1`, fundTo);
   }
   if (networks?.length)     addBoth(`LOWER(network) = ANY($1)`, networks.map(n => String(n).toLowerCase()));
   if (tags?.length)         addBoth(`tags && $1::text[]`, tags);
@@ -472,36 +548,39 @@ function buildWhere({
         )
       `);
     } else if (sortBy === 'severity') {
-      // Composite cursor for: is_audited DESC, critical/high/medium DESC,
-      // native_balance DESC, deployed DESC, address ASC.
+      // Composite cursor for: is_audited DESC, critical/high/medium/low/info
+      // DESC, fund_usd DESC, deployed DESC, address ASC.
       // Bare column names (audit_status / critical_count / high_count /
-      // medium_count / native_balance / deployed / address) get rewritten by
+      // medium_count / low_count / informational_count / fund_usd / deployed / address) get rewritten by
       // the whereQualified regex to ca.status / ca.* / a.* respectively.
-      const balanceVal = cursor.native_balance ?? cursor.fund ?? null;
+      const balanceVal = cursor.fund_usd ?? cursor.fund ?? cursor.native_balance ?? null;
       params.push(
         cursor.is_audited ? 1 : 0,
         Number(cursor.critical_count) || 0,
         Number(cursor.high_count) || 0,
         Number(cursor.medium_count) || 0,
+        Number(cursor.low_count) || 0,
+        Number(cursor.informational_count) || 0,
         balanceVal,
         cursor.deployed ?? null,
         cursor.address,
       );
-      const f1 = `$${params.length-6}`; // is_audited
-      const f2 = `$${params.length-5}`; // critical_count
-      const f3 = `$${params.length-4}`; // high_count
-      const f4 = `$${params.length-3}`; // medium_count
-      const f5 = `$${params.length-2}`; // native_balance
-      const f6 = `$${params.length-1}`; // deployed
-      const f7 = `$${params.length}`;   // address
+      const f1 = `$${params.length-8}`; // is_audited
+      const f2 = `$${params.length-7}`; // critical_count
+      const f3 = `$${params.length-6}`; // high_count
+      const f4 = `$${params.length-5}`; // medium_count
+      const f5 = `$${params.length-4}`; // low_count
+      const f6 = `$${params.length-3}`; // informational_count
+      const f7 = `$${params.length-2}`; // fund_usd
+      const f8 = `$${params.length-1}`; // deployed
+      const f9 = `$${params.length}`;   // address
       const isAudExpr = `(CASE WHEN audit_status = 'completed' THEN 1 ELSE 0 END)`;
-      const balExpr = `COALESCE(native_balance, -1::numeric)`;
-      const balCur = `COALESCE(${f5}::numeric, -1::numeric)`;
+      const balExpr = `COALESCE(fund_usd, -1::numeric)`;
+      const balCur = `COALESCE(${f7}::numeric, -1::numeric)`;
       const depExpr = `COALESCE(deployed, -1::bigint)`;
-      const depCur = `COALESCE(${f6}::bigint, -1::bigint)`;
-      // Bare critical_count / high_count / medium_count get rewritten to
-      // COALESCE(ca.critical_count, 0) etc by whereQualified, so the
-      // null-handling is already covered.
+      const depCur = `COALESCE(${f8}::bigint, -1::bigint)`;
+      // Bare severity counts get rewritten to COALESCE(ca.*, 0) by
+      // whereQualified, so the null-handling is already covered.
       where.push(`
         (
           ${isAudExpr} < ${f1}
@@ -514,32 +593,47 @@ function buildWhere({
           OR (${isAudExpr} = ${f1} AND critical_count = ${f2}
               AND high_count = ${f3}
               AND medium_count = ${f4}
+              AND low_count < ${f5})
+          OR (${isAudExpr} = ${f1} AND critical_count = ${f2}
+              AND high_count = ${f3}
+              AND medium_count = ${f4}
+              AND low_count = ${f5}
+              AND informational_count < ${f6})
+          OR (${isAudExpr} = ${f1} AND critical_count = ${f2}
+              AND high_count = ${f3}
+              AND medium_count = ${f4}
+              AND low_count = ${f5}
+              AND informational_count = ${f6}
               AND ${balExpr} < ${balCur})
           OR (${isAudExpr} = ${f1} AND critical_count = ${f2}
               AND high_count = ${f3}
               AND medium_count = ${f4}
+              AND low_count = ${f5}
+              AND informational_count = ${f6}
               AND ${balExpr} = ${balCur}
               AND ${depExpr} < ${depCur})
           OR (${isAudExpr} = ${f1} AND critical_count = ${f2}
               AND high_count = ${f3}
               AND medium_count = ${f4}
+              AND low_count = ${f5}
+              AND informational_count = ${f6}
               AND ${balExpr} = ${balCur}
               AND ${depExpr} = ${depCur}
-              AND address > ${f7})
+              AND address > ${f9})
         )
       `);
     } else {
-      // Cursor for native_balance sort (use native_balance for consistent pagination)
-      const balanceVal = cursor.native_balance ?? cursor.fund ?? null;
+      // Cursor for fund_usd sort.
+      const balanceVal = cursor.fund_usd ?? cursor.fund ?? cursor.native_balance ?? null;
       params.push(balanceVal, cursor.deployed ?? null, cursor.address);
       const f1 = `$${params.length-2}`;
       const f2 = `$${params.length-1}`;
       const f3 = `$${params.length}`;
       where.push(`
         (
-          COALESCE(native_balance, -1::numeric) <  COALESCE(${f1}::numeric, -1::numeric)
-          OR (COALESCE(native_balance, -1::numeric) = COALESCE(${f1}::numeric, -1::numeric) AND COALESCE(deployed, -1::bigint) <  COALESCE(${f2}::bigint, -1::bigint))
-          OR (COALESCE(native_balance, -1::numeric) = COALESCE(${f1}::numeric, -1::numeric) AND COALESCE(deployed, -1::bigint) = COALESCE(${f2}::bigint, -1::bigint) AND address > ${f3})
+          COALESCE(fund_usd, -1::numeric) <  COALESCE(${f1}::numeric, -1::numeric)
+          OR (COALESCE(fund_usd, -1::numeric) = COALESCE(${f1}::numeric, -1::numeric) AND COALESCE(deployed, -1::bigint) <  COALESCE(${f2}::bigint, -1::bigint))
+          OR (COALESCE(fund_usd, -1::numeric) = COALESCE(${f1}::numeric, -1::numeric) AND COALESCE(deployed, -1::bigint) = COALESCE(${f2}::bigint, -1::bigint) AND address > ${f3})
         )
       `);
     }
@@ -626,7 +720,9 @@ exports.getLandingStats = async (forceRefresh = false) => {
              COALESCE(SUM(critical_count), 0)::bigint AS critical_total,
              COALESCE(SUM(high_count), 0)::bigint AS high_total,
              COALESCE(SUM(medium_count), 0)::bigint AS medium_total,
-             COALESCE(SUM(critical_count + high_count + medium_count), 0)::bigint AS findings_total
+             COALESCE(SUM(low_count), 0)::bigint AS low_total,
+             COALESCE(SUM(informational_count), 0)::bigint AS informational_total,
+             COALESCE(SUM(critical_count + high_count + medium_count + low_count + informational_count), 0)::bigint AS findings_total
       FROM contract_audits
       WHERE status = 'completed'
     `),
@@ -645,6 +741,7 @@ exports.getLandingStats = async (forceRefresh = false) => {
     `),
     pool.query(`
       SELECT ca.network, ca.address, ca.critical_count, ca.high_count, ca.medium_count,
+             ca.low_count, ca.informational_count,
              ca.completed_at, a.contract_name
       FROM contract_audits ca
       LEFT JOIN addresses a ON a.address = ca.address AND a.network = ca.network
@@ -667,6 +764,8 @@ exports.getLandingStats = async (forceRefresh = false) => {
       critical: Number(u.critical_total || 0),
       high: Number(u.high_total || 0),
       medium: Number(u.medium_total || 0),
+      low: Number(u.low_total || 0),
+      informational: Number(u.informational_total || 0),
       findings: Number(u.findings_total || 0)
     },
     latest_findings: latestFindings.rows.map((r) => ({
@@ -685,6 +784,8 @@ exports.getLandingStats = async (forceRefresh = false) => {
       critical: Number(r.critical_count || 0),
       high: Number(r.high_count || 0),
       medium: Number(r.medium_count || 0),
+      low: Number(r.low_count || 0),
+      informational: Number(r.informational_count || 0),
       completed_at: r.completed_at ? Number(r.completed_at) : null
     })),
     generated_at: now
@@ -785,7 +886,7 @@ exports.getContractByAddress = async (address, network) => {
   const { rows } = await pool.query(
     `
     SELECT
-      a.address, a.contract_name, a.deployed, a.fund, a.native_balance, a.network,
+      a.address, a.contract_name, a.deployed, a.fund, a.fund_usd, a.native_balance, a.network,
       a.first_seen, a.verified, a.is_proxy, a.implementation_address,
       a.proxy_contract_name, a.implementation_contract_name,
       a.deploy_tx_hash, a.deployer_address, a.deploy_block_number,
@@ -796,6 +897,8 @@ exports.getContractByAddress = async (address, network) => {
       COALESCE(ca.critical_count, 0) AS critical_count,
       COALESCE(ca.high_count, 0) AS high_count,
       COALESCE(ca.medium_count, 0) AS medium_count,
+      COALESCE(ca.low_count, 0) AS low_count,
+      COALESCE(ca.informational_count, 0) AS informational_count,
       ca.status AS audit_status,
       ca.completed_at AS audit_completed_at
     FROM addresses a
@@ -818,7 +921,7 @@ exports.getContractByAddress = async (address, network) => {
   try {
     const erc20Result = await pool.query(
       `
-      SELECT symbol, balance_wei::text AS balance, decimals
+      SELECT symbol, balance_wei::text AS balance, decimals, price_usd, value_usd
       FROM contract_token_balances
       WHERE LOWER(address) = $1 AND LOWER(network) = $2
       `,
@@ -828,6 +931,8 @@ exports.getContractByAddress = async (address, network) => {
       symbol: r.symbol,
       balance: r.balance,
       decimals: r.decimals,
+      price_usd: r.price_usd,
+      value_usd: r.value_usd,
     }));
   } catch (err) {
     // contract_token_balances may not exist
@@ -841,7 +946,7 @@ exports.getContractByAddress = async (address, network) => {
 
 /**
  * Return the completed Plamen audit for a contract, including the full list of
- * critical/high/medium findings. Returns null when no completed audit exists.
+ * findings. Returns null when no completed audit exists.
  */
 exports.getContractAuditByAddress = async (address, network) => {
   ensureDbUrl();
@@ -854,7 +959,8 @@ exports.getContractAuditByAddress = async (address, network) => {
   const auditRes = await pool.query(
     `SELECT id, address, network, audit_tool, audit_mode, tool_version,
             status, started_at, completed_at, duration_ms,
-            critical_count, high_count, medium_count, error_message
+            critical_count, high_count, medium_count, low_count,
+            informational_count, error_message
        FROM contract_audits
       WHERE address = $1 AND network = $2
         AND audit_tool = 'plamen' AND status = 'completed'
@@ -866,12 +972,14 @@ exports.getContractAuditByAddress = async (address, network) => {
   const audit = auditRes.rows[0];
 
   const findingsRes = await pool.query(
-    `SELECT id, severity, title, description, location, recommendation,
+    `SELECT id, severity, original_severity, evidence_tag, evidence_tags,
+            verification_status, report_id, source_finding_id, trust_adjustment,
+            title, description, location, recommendation,
             proof_of_concept, finding_index, created_at
        FROM contract_audit_findings
       WHERE audit_id = $1
       ORDER BY
-        CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+        CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END,
         finding_index NULLS LAST,
         id`,
     [audit.id]
@@ -891,6 +999,8 @@ exports.getContractAuditByAddress = async (address, network) => {
     critical_count: audit.critical_count,
     high_count: audit.high_count,
     medium_count: audit.medium_count,
+    low_count: audit.low_count,
+    informational_count: audit.informational_count,
     findings: findingsRes.rows
   };
 };
@@ -910,7 +1020,7 @@ exports.searchByCode = async (opts = {}) => {
 
   let query = `
     SELECT a.address, a.network, a.contract_name, a.verified,
-           a.deployed, a.fund
+           a.deployed, a.fund, a.fund_usd
     FROM contract_sources cs
     JOIN addresses a ON a.address = cs.address AND a.network = cs.network
     WHERE cs.source_code ILIKE $1
@@ -922,7 +1032,7 @@ exports.searchByCode = async (opts = {}) => {
     query += ` AND LOWER(a.network) = ANY($${params.length})`;
   }
 
-  query += ` ORDER BY a.fund DESC NULLS LAST, a.deployed DESC NULLS LAST LIMIT $${params.length + 1}`;
+  query += ` ORDER BY a.fund_usd DESC NULLS LAST, a.deployed DESC NULLS LAST LIMIT $${params.length + 1}`;
   params.push(limit);
 
   const { rows } = await pool.query(query, params);

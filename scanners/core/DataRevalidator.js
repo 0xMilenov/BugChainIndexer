@@ -45,14 +45,16 @@ class DataRevalidator extends Scanner {
     const { createRpcClient } = require('../common/core.js');
     const clients = createRpcClient(this.network);
     this.alchemyClient = clients.alchemyClient;
-    this.logsClient = clients.alchemyClient;
+    this.logsClient = clients.logsClient || clients.alchemyClient;
     this.rpc = clients;
-    this.log('✅ RPC clients ready (Alchemy RPC for all calls including getLogs)');
+    this.log('✅ RPC clients ready');
 
-    // Auto-detect Alchemy tier if not manually set
-    if (this.tierAutoDetect) {
-      this.log('🔍 Auto-detecting Alchemy tier...');
+    if (this.tierAutoDetect && typeof this.alchemyClient.detectTier === 'function') {
+      this.log('🔍 Auto-detecting provider tier...');
       this.alchemyTier = await this.alchemyClient.detectTier();
+    } else if (this.tierAutoDetect) {
+      this.alchemyTier = 'free';
+      this.log('Using public-RPC tier: free');
     }
 
     // Set max logs block range based on detected/configured tier

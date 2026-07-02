@@ -32,18 +32,18 @@ class Scanner {
       );
     }
 
-    // Get Alchemy tier from environment or will be auto-detected
+    // Get provider tier from environment or auto-detect when the active client supports it.
     const envTier = process.env.ALCHEMY_TIER;
     if (envTier && ['free', 'growth', 'enterprise'].includes(envTier.toLowerCase())) {
       this.alchemyTier = envTier.toLowerCase();
       this.tierAutoDetect = false;
-      this.log(`Using manual Alchemy tier: ${this.alchemyTier}`);
+      this.log(`Using manual provider tier: ${this.alchemyTier}`);
     } else {
       // Will auto-detect tier during initialization
       this.alchemyTier = null;
       this.tierAutoDetect = true;
       if (envTier) {
-        this.log(`Invalid ALCHEMY_TIER '${envTier}', will auto-detect`, 'warn');
+        this.log(`Invalid ALCHEMY_TIER '${envTier}', will auto-detect provider tier`, 'warn');
       }
     }
 
@@ -54,7 +54,7 @@ class Scanner {
     this.db = null;
     this.rpc = null; // For backward compatibility
     this.logsClient = null; // Will point to alchemyClient
-    this.alchemyClient = null; // Primary RPC client for all calls
+    this.alchemyClient = null; // Primary RPC client for all calls (legacy name)
     this.ZERO_HASH = '0x0000000000000000000000000000000000000000000000000000000000000000';
 
     // Performance settings
@@ -86,17 +86,20 @@ class Scanner {
     }
     
     this.log('🌐 Initializing RPC clients...');
-    // Initialize Alchemy RPC client for all RPC calls
+    // Initialize the configured RPC client for all RPC calls.
     const clients = createRpcClient(this.network);
     this.alchemyClient = clients.alchemyClient;
-    this.logsClient = clients.alchemyClient; // Use Alchemy for getLogs too
+    this.logsClient = clients.logsClient || clients.alchemyClient;
     this.rpc = clients; // Keep for backward compatibility
-    this.log('✅ RPC clients ready (Alchemy RPC for all calls including getLogs)');
+    this.log('✅ RPC clients ready');
 
-    // Auto-detect Alchemy tier if not manually set
-    if (this.tierAutoDetect) {
-      this.log('🔍 Auto-detecting Alchemy tier...');
+    // Auto-detect provider tier if the active client supports it.
+    if (this.tierAutoDetect && typeof this.alchemyClient.detectTier === 'function') {
+      this.log('🔍 Auto-detecting provider tier...');
       this.alchemyTier = await this.alchemyClient.detectTier();
+    } else if (this.tierAutoDetect) {
+      this.alchemyTier = 'free';
+      this.log('Using public-RPC tier: free');
     }
 
     // Set max logs block range based on detected/configured tier
@@ -234,18 +237,19 @@ class Scanner {
 
   // RPC operations
   async rpcCall(method, params = []) {
-    // Use alchemyClient for general RPC calls
+    // Legacy property name; this points at the active public RPC client by default.
     return this.alchemyClient.makeRequest(method, params);
   }
 
   async getBlockNumber() {
-    // Use Alchemy RPC directly for most reliable and fastest results
     return this.alchemyClient.getBlockNumber();
   }
 
   async getBlockByNumber(blockNumber) {
-    // Use Alchemy RPC for block data as it's more reliable for this operation
-    return this.alchemyClient.getBlock(blockNumber);
+    if (typeof this.alchemyClient.getBlock === 'function') {
+      return this.alchemyClient.getBlock(blockNumber);
+    }
+    return this.alchemyClient.getBlockByNumber(blockNumber);
   }
 
   async getLogs(filter) {
@@ -253,8 +257,7 @@ class Scanner {
     const toBlock = filter.toBlock || 'latest';
     const description = `getLogs(${fromBlock}-${toBlock})`;
 
-    // Use Alchemy RPC for getLogs (more reliable and consistent)
-    // console.log(`[${this.network}] getLogs via Alchemy RPC: ${description}`);
+    // console.log(`[${this.network}] getLogs via active RPC: ${description}`);
     return this.alchemyClient.getLogs(filter);
   }
 

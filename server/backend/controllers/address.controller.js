@@ -1,6 +1,7 @@
 const service = require('../services/address.service');
 const addContractService = require('../services/addContract.service');
 const auditRunService = require('../services/auditRun.service');
+const scannerHealthService = require('../services/scannerHealth.service');
 const { parseNumber, parseStringArray, parseBool, decodeCursor } = require('../utils/parsers');
 
 exports.getVerifiedContractStats = async (req, res) => {
@@ -106,6 +107,31 @@ exports.getLandingStats = async (req, res) => {
     res.json({ ok: true, ...stats });
   } catch (err) {
     console.error('getLandingStats failed:', err?.message || err);
+    res.status(500).json({ ok: false, error: 'Internal Server Error' });
+  }
+};
+
+exports.getDailyCollectionStats = async (req, res) => {
+  try {
+    const stats = await service.getDailyCollectionStats({
+      fromTs: parseNumber(req.query?.from),
+      toTs: parseNumber(req.query?.to),
+    });
+    res.set('Cache-Control', 'public, max-age=30');
+    res.json({ ok: true, ...stats });
+  } catch (err) {
+    console.error('getDailyCollectionStats failed:', err?.message || err);
+    res.status(500).json({ ok: false, error: 'Internal Server Error' });
+  }
+};
+
+exports.getScannerHealth = async (req, res) => {
+  try {
+    const health = await scannerHealthService.getScannerHealth();
+    res.set('Cache-Control', 'no-store');
+    res.json({ ok: true, ...health });
+  } catch (err) {
+    console.error('getScannerHealth failed:', err?.message || err);
     res.status(500).json({ ok: false, error: 'Internal Server Error' });
   }
 };

@@ -28,6 +28,7 @@ async function ensureSchema(client) {
       first_seen BIGINT,
       tags TEXT[] DEFAULT '{}',
       fund NUMERIC(78, 0) DEFAULT 0,
+      fund_usd NUMERIC(30, 8) DEFAULT 0,
       last_fund_updated BIGINT DEFAULT 0,
       name_checked BOOLEAN NOT NULL DEFAULT false,
       name_checked_at BIGINT NOT NULL DEFAULT 0,
@@ -88,6 +89,7 @@ async function ensureSchema(client) {
     `CREATE INDEX IF NOT EXISTS idx_addresses_network ON addresses(network)`,
     `CREATE INDEX IF NOT EXISTS idx_addresses_tags_gin ON addresses USING GIN(tags)`,
     `CREATE INDEX IF NOT EXISTS idx_addresses_fund ON addresses(network, fund)`,
+    `CREATE INDEX IF NOT EXISTS idx_addresses_fund_usd ON addresses(network, fund_usd)`,
     `CREATE INDEX IF NOT EXISTS idx_addresses_last_updated ON addresses(network, last_updated)`,
     `CREATE INDEX IF NOT EXISTS idx_addresses_first_seen ON addresses(network, first_seen DESC)`,
     `CREATE INDEX IF NOT EXISTS idx_addresses_first_seen_global ON addresses(first_seen DESC NULLS LAST) WHERE (tags IS NULL OR NOT 'EOA' = ANY(tags))`,
@@ -113,7 +115,7 @@ async function ensureSchema(client) {
     )`,
     `CREATE INDEX IF NOT EXISTS idx_contract_sources_network ON contract_sources(network)`,
 
-    // ERC-20 token balances for verified contracts (Etherscan tokenbalance API)
+    // ERC-20 token balances for verified contracts (public JSON-RPC balanceOf calls)
     `CREATE TABLE IF NOT EXISTS contract_token_balances (
       address TEXT NOT NULL,
       network TEXT NOT NULL,
@@ -121,6 +123,8 @@ async function ensureSchema(client) {
       symbol TEXT NOT NULL,
       decimals INTEGER NOT NULL,
       balance_wei NUMERIC(78, 0) NOT NULL,
+      price_usd NUMERIC(30, 8),
+      value_usd NUMERIC(30, 8),
       last_updated BIGINT NOT NULL,
       PRIMARY KEY (address, network, token_address),
       FOREIGN KEY (address, network) REFERENCES addresses(address, network) ON DELETE CASCADE
@@ -147,19 +151,28 @@ async function ensureSchema(client) {
       critical_count INTEGER NOT NULL DEFAULT 0,
       high_count INTEGER NOT NULL DEFAULT 0,
       medium_count INTEGER NOT NULL DEFAULT 0,
+      low_count INTEGER NOT NULL DEFAULT 0,
+      informational_count INTEGER NOT NULL DEFAULT 0,
       error_message TEXT,
       UNIQUE (address, network, audit_tool),
       FOREIGN KEY (address, network) REFERENCES addresses(address, network) ON DELETE CASCADE
     )`,
     `CREATE INDEX IF NOT EXISTS idx_contract_audits_addr_net ON contract_audits(address, network)`,
     `CREATE INDEX IF NOT EXISTS idx_contract_audits_status ON contract_audits(status)`,
-    `CREATE INDEX IF NOT EXISTS idx_contract_audits_severity ON contract_audits(critical_count, high_count, medium_count) WHERE status = 'completed'`,
+    `CREATE INDEX IF NOT EXISTS idx_contract_audits_severity ON contract_audits(critical_count, high_count, medium_count, low_count) WHERE status = 'completed'`,
 
-    // Normalized findings — only critical / high / medium are persisted (by policy).
+    // Normalized findings, including demoted low/info rows with provenance.
     `CREATE TABLE IF NOT EXISTS contract_audit_findings (
       id SERIAL PRIMARY KEY,
       audit_id INTEGER NOT NULL REFERENCES contract_audits(id) ON DELETE CASCADE,
-      severity TEXT NOT NULL CHECK (severity IN ('critical','high','medium')),
+      severity TEXT NOT NULL CHECK (severity IN ('critical','high','medium','low','informational')),
+      original_severity TEXT,
+      evidence_tag TEXT,
+      evidence_tags TEXT[] DEFAULT '{}',
+      verification_status TEXT,
+      report_id TEXT,
+      source_finding_id TEXT,
+      trust_adjustment TEXT,
       title TEXT NOT NULL,
       description TEXT,
       location TEXT,
@@ -169,7 +182,42 @@ async function ensureSchema(client) {
       created_at BIGINT
     )`,
     `CREATE INDEX IF NOT EXISTS idx_audit_findings_audit ON contract_audit_findings(audit_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_audit_findings_severity ON contract_audit_findings(severity)`
+    `CREATE INDEX IF NOT EXISTS idx_audit_findings_severity ON contract_audit_findings(severity)`,
+
+    `CREATE TABLE IF NOT EXISTS scanner_cursors (
+      network TEXT NOT NULL,
+      scanner_name TEXT NOT NULL,
+      last_block BIGINT NOT NULL DEFAULT 0,
+      updated_at BIGINT NOT NULL,
+      PRIMARY KEY (network, scanner_name)
+    )`,
+    `CREATE TABLE IF NOT EXISTS rpc_endpoint_health (
+      network TEXT NOT NULL,
+      rpc_url TEXT NOT NULL,
+      healthy BOOLEAN NOT NULL,
+      latency_ms INTEGER,
+      error_message TEXT,
+      last_checked BIGINT NOT NULL,
+      last_success BIGINT,
+      PRIMARY KEY (network, rpc_url)
+    )`,
+    `CREATE TABLE IF NOT EXISTS explorer_api_budget (
+      network TEXT NOT NULL,
+      budget_date DATE NOT NULL,
+      request_count INTEGER NOT NULL DEFAULT 0,
+      soft_limit INTEGER NOT NULL,
+      updated_at BIGINT NOT NULL,
+      PRIMARY KEY (network, budget_date)
+    )`,
+    `CREATE TABLE IF NOT EXISTS source_fetch_state (
+      address TEXT NOT NULL,
+      network TEXT NOT NULL,
+      source_provider TEXT NOT NULL,
+      last_status TEXT NOT NULL,
+      last_error TEXT,
+      last_attempted_at BIGINT NOT NULL,
+      PRIMARY KEY (address, network, source_provider)
+    )`
   ];
 
   for (const schema of schemas) {
@@ -229,6 +277,62 @@ async function ensureSchema(client) {
     `);
   } catch (error) {
     console.error('Native balance column migration warning:', error.message);
+  }
+  try {
+    await client.query(`
+      ALTER TABLE addresses ADD COLUMN IF NOT EXISTS fund_usd NUMERIC(30, 8) DEFAULT 0
+    `);
+  } catch (error) {
+    console.error('Fund USD column migration warning:', error.message);
+  }
+  try {
+    await client.query(`
+      ALTER TABLE contract_token_balances ADD COLUMN IF NOT EXISTS price_usd NUMERIC(30, 8);
+      ALTER TABLE contract_token_balances ADD COLUMN IF NOT EXISTS value_usd NUMERIC(30, 8);
+    `);
+  } catch (error) {
+    console.error('Token balance price column migration warning:', error.message);
+  }
+
+  try {
+    await client.query(`
+      ALTER TABLE contract_audits
+        ADD COLUMN IF NOT EXISTS low_count INTEGER NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS informational_count INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE contract_audit_findings
+        ADD COLUMN IF NOT EXISTS original_severity TEXT,
+        ADD COLUMN IF NOT EXISTS evidence_tag TEXT,
+        ADD COLUMN IF NOT EXISTS evidence_tags TEXT[] DEFAULT '{}',
+        ADD COLUMN IF NOT EXISTS verification_status TEXT,
+        ADD COLUMN IF NOT EXISTS report_id TEXT,
+        ADD COLUMN IF NOT EXISTS source_finding_id TEXT,
+        ADD COLUMN IF NOT EXISTS trust_adjustment TEXT;
+    `);
+    await client.query(`
+      DO $$
+      DECLARE c record;
+      BEGIN
+        FOR c IN
+          SELECT conname
+          FROM pg_constraint
+          WHERE conrelid = 'contract_audit_findings'::regclass
+            AND contype = 'c'
+            AND pg_get_constraintdef(oid) ILIKE '%severity%'
+        LOOP
+          EXECUTE format('ALTER TABLE contract_audit_findings DROP CONSTRAINT %I', c.conname);
+        END LOOP;
+        ALTER TABLE contract_audit_findings
+          ADD CONSTRAINT contract_audit_findings_severity_check
+          CHECK (severity IN ('critical','high','medium','low','informational'));
+      END $$;
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_contract_audits_severity
+      ON contract_audits(critical_count, high_count, medium_count, low_count)
+      WHERE status = 'completed'
+    `);
+  } catch (error) {
+    console.error('Audit findings provenance migration warning:', error.message);
   }
 
   // contract_sources column migration (abi, contract_file_name, etc.)
@@ -413,7 +517,7 @@ async function upsertAddress(client, data) {
 }
 
 /**
- * Update only fund-related fields (fund, last_fund_updated, native_balance).
+ * Update only fund-related fields (raw native balance and computed USD value).
  * Use this for FundUpdater to avoid overwriting verified, contract_name, etc.
  */
 async function batchUpdateFunds(client, updates, options = {}) {
@@ -425,19 +529,21 @@ async function batchUpdateFunds(client, updates, options = {}) {
     const addrs = batch.map(b => b.address);
     const nets = batch.map(b => b.network);
     const funds = batch.map(b => b.fund ?? 0);
+    const fundUsd = batch.map(b => b.fundUsd ?? b.fund_usd ?? 0);
     const lastFunds = batch.map(b => b.lastFundUpdated ?? 0);
     const natives = batch.map(b => b.nativeBalance ?? 0);
     const r = await client.query(`
       UPDATE addresses a SET
         fund = u.fund,
+        fund_usd = u.fund_usd,
         last_fund_updated = u.last_fund_updated,
         native_balance = u.native_balance
       FROM (
-        SELECT * FROM unnest($1::text[], $2::text[], $3::numeric[], $4::bigint[], $5::numeric[])
-        AS t(addr, net, fund, last_fund_updated, native_balance)
-      ) u(addr, net, fund, last_fund_updated, native_balance)
+        SELECT * FROM unnest($1::text[], $2::text[], $3::numeric[], $4::numeric[], $5::bigint[], $6::numeric[])
+        AS t(addr, net, fund, fund_usd, last_fund_updated, native_balance)
+      ) u(addr, net, fund, fund_usd, last_fund_updated, native_balance)
       WHERE a.address = u.addr AND a.network = u.net
-    `, [addrs, nets, funds, lastFunds, natives]);
+    `, [addrs, nets, funds, fundUsd, lastFunds, natives]);
     totalRowCount += r.rowCount;
   }
   return { rowCount: totalRowCount };

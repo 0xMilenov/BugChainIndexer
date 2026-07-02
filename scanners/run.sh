@@ -18,7 +18,7 @@ fi
 
 # Configuration
 TIMEOUT_SECONDS="${TIMEOUT_SECONDS:-7200}"
-NETWORKS=(ethereum binance optimism base arbitrum polygon avalanche gnosis linea scroll mantle megaeth arbitrum-nova celo cronos moonbeam moonriver opbnb polygon-zkevm subtensor)
+NETWORKS=(ethereum binance optimism base arbitrum polygon avalanche gnosis linea scroll mantle megaeth arbitrum-nova celo cronos opbnb polygon-zkevm subtensor)
 
 # Create logs directory
 mkdir -p "$LOG_DIR"
@@ -421,6 +421,11 @@ main() {
             log "📊 Analyzing database performance..."
             node "$SCRIPT_DIR/utils/db-optimize.js" --analyze
             ;;
+
+        "validate-rpcs"|"rpc-validate")
+            log "🌐 Validating configured public RPC endpoints..."
+            node "$SCRIPT_DIR/utils/validate-public-rpcs.js"
+            ;;
             
         "db-cleanup"|"cleanup")
             log "🧹 Cleaning up database indexes..."
@@ -540,6 +545,7 @@ Monitoring & Maintenance:
   $0 remove-unused-indexes    # Remove indexes that are never used (saves 1.5GB+ disk space)
   $0 remove-unused-indexes-dry # Preview unused index removal (dry run mode)
   $0 db-analyze               # Analyze database performance (read-only)
+  $0 validate-rpcs            # Validate public RPC endpoints
   $0 db-reset                 # Preview database reset (dry run)
   $0 db-reset-execute         # Reset database - delete all data, start fresh
   $0 db-cleanup               # Remove unused indexes and create optimized ones

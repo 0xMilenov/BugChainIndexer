@@ -84,6 +84,46 @@ function tailFile(filePath, maxBytes = 8192) {
   }
 }
 
+function fileMtimeMs(filePath) {
+  try {
+    return fs.statSync(filePath).mtimeMs;
+  } catch {
+    return null;
+  }
+}
+
+function isLogCurrentForRun(filePath, startedAt) {
+  const started = Number(startedAt || 0);
+  if (!started) return true;
+
+  const mtime = fileMtimeMs(filePath);
+  if (!mtime) return false;
+
+  // Allow a small skew because DB timestamps are generated in JS while file
+  // mtimes come from the filesystem. Anything older is stale from a prior run.
+  return mtime >= started - 1000;
+}
+
+function detectTerminalAuditFailure(logTail) {
+  if (!logTail) return null;
+
+  const criticalPhase = logTail.match(/Pipeline HALTED -- critical phase\s+'?([^'\n]+)'?\s+failed/i);
+  if (criticalPhase?.[1]) {
+    return `Plamen critical phase failed: ${criticalPhase[1].trim()}`;
+  }
+
+  const criticalPrompt = logTail.match(/Critical phase failed:\s*([^\n]+)/i);
+  if (criticalPrompt?.[1]) {
+    return `Plamen critical phase failed: ${criticalPrompt[1].trim()}`;
+  }
+
+  if (/Press ENTER to retry\s+\|\s+S to skip/i.test(logTail)) {
+    return 'Plamen stopped at an interactive critical-failure prompt';
+  }
+
+  return null;
+}
+
 /**
  * Scan a log tail for the highest-numbered phase marker we recognize. This
  * is best-effort: Plamen logs aren't structured, so we just look for "Phase N"
@@ -115,11 +155,33 @@ function isProcessAlive(pid) {
   }
 }
 
+async function terminateAuditProcess(pid, { graceMs = 3000 } = {}) {
+  if (!pid || !isProcessAlive(pid)) return;
+
+  const sendSignal = (sig) => {
+    try {
+      process.kill(-pid, sig); // detached child is its own process-group leader
+      return;
+    } catch {
+      // Fall through to direct PID kill. This also covers older rows whose
+      // process group may no longer exist.
+    }
+    try { process.kill(pid, sig); } catch { /* already gone */ }
+  };
+
+  sendSignal('SIGTERM');
+  await new Promise((r) => setTimeout(r, graceMs));
+  if (isProcessAlive(pid)) {
+    sendSignal('SIGKILL');
+  }
+}
+
 async function getAuditRow(address, network) {
   const r = await pool.query(
     `SELECT id, address, network, audit_tool, audit_mode, tool_version,
             status, started_at, completed_at, duration_ms,
-            critical_count, high_count, medium_count, error_message,
+            critical_count, high_count, medium_count, low_count,
+            informational_count, error_message,
             pid, phase, log_path
        FROM contract_audits
       WHERE LOWER(address) = LOWER($1)
@@ -141,8 +203,9 @@ async function upsertRunningRow({ address, network, mode, logPath }) {
   const r = await pool.query(
     `INSERT INTO contract_audits
        (address, network, audit_tool, audit_mode, status, started_at,
-        critical_count, high_count, medium_count, log_path, phase)
-     VALUES ($1, $2, 'plamen', $3, 'running', $4, 0, 0, 0, $5, NULL)
+        critical_count, high_count, medium_count, low_count,
+        informational_count, log_path, phase)
+     VALUES ($1, $2, 'plamen', $3, 'running', $4, 0, 0, 0, 0, 0, $5, NULL)
      ON CONFLICT (address, network, audit_tool) DO UPDATE
        SET status        = 'running',
            audit_mode    = EXCLUDED.audit_mode,
@@ -220,7 +283,12 @@ async function triggerAudit({ address, network, mode = 'thorough' }) {
   // Reject if a run is already in flight for this contract.
   const existing = await getAuditRow(addr, net);
   if (existing && (existing.status === 'running' || existing.status === 'pending')) {
-    if (isProcessAlive(existing.pid)) {
+    const existingTail = existing.log_path ? tailFile(existing.log_path, 4096) : '';
+    const terminalFailure = detectTerminalAuditFailure(existingTail);
+    if (terminalFailure) {
+      await terminateAuditProcess(existing.pid, { graceMs: 1000 });
+      await markFailed(existing.id, terminalFailure);
+    } else if (isProcessAlive(existing.pid)) {
       return { ok: false, error: 'Audit already running for this contract', audit: existing };
     }
     // Stale: process died without flipping status. Fall through and re-spawn.
@@ -237,6 +305,14 @@ async function triggerAudit({ address, network, mode = 'thorough' }) {
     return { ok: false, error: `Cannot create log dir: ${err.message}` };
   }
   const logPath = path.join(logDir, `${net}-${addr}.log`);
+  const wrapperLogPath = logPath + '.wrapper';
+
+  try {
+    fs.writeFileSync(logPath, '');
+    fs.writeFileSync(wrapperLogPath, '');
+  } catch (err) {
+    return { ok: false, error: `Cannot initialize audit logs: ${err.message}` };
+  }
 
   const auditId = await upsertRunningRow({ address: addr, network: net, mode: m, logPath });
 
@@ -245,7 +321,7 @@ async function triggerAudit({ address, network, mode = 'thorough' }) {
   // wrapper's own startup output for diagnostics.
   let child;
   try {
-    const wrapperLog = fs.openSync(logPath + '.wrapper', 'a');
+    const wrapperLog = fs.openSync(wrapperLogPath, 'a');
     child = spawn('bash', [AUDIT_ONE_SH, net, addr], {
       detached: true,
       stdio: ['ignore', wrapperLog, wrapperLog],
@@ -272,7 +348,7 @@ async function triggerAudit({ address, network, mode = 'thorough' }) {
   // Watch the wrapper exit. ingest.js flips status to 'completed' on success;
   // if the script exits non-zero before that, flag it as failed so the UI
   // doesn't poll forever.
-  child.on('exit', (code) => {
+  child.on('exit', (code, signal) => {
     pool.query(
       `SELECT status FROM contract_audits WHERE id = $1`,
       [auditId]
@@ -291,7 +367,10 @@ async function triggerAudit({ address, network, mode = 'thorough' }) {
           [Date.now(), auditId]
         );
       } else {
-        await markFailed(auditId, `audit-one.sh exited with code ${code}`);
+        const reason = code === null
+          ? `audit-one.sh terminated by signal ${signal || 'unknown'}`
+          : `audit-one.sh exited with code ${code}`;
+        await markFailed(auditId, reason);
       }
     }).catch((err) => {
       console.error('[auditRun] post-exit update failed:', err.message);
@@ -323,22 +402,38 @@ async function getAuditStatus({ address, network }) {
 
   let logTail = '';
   let detectedPhase = null;
+  let terminalFailure = null;
   if (row.log_path) {
     logTail = tailFile(row.log_path, 4096);
     detectedPhase = detectPhase(logTail);
+    if (isLogCurrentForRun(row.log_path, row.started_at)) {
+      terminalFailure = detectTerminalAuditFailure(logTail);
+    }
   }
 
-  // If the row says 'running' but the PID is dead AND ingest never finalized,
-  // surface it as 'failed' to break polling. Don't auto-update the row from
-  // this read path — let the spawn 'exit' handler do that.
+  // If the row says 'running' but the log already contains a terminal Plamen
+  // halt, finalize it here. Otherwise a non-interactive prompt can keep the
+  // process technically alive forever while the UI keeps polling "running".
   let liveStatus = row.status;
-  if (row.status === 'running' && row.pid && !isProcessAlive(row.pid)) {
+  let completedAt = row.completed_at;
+  let durationMs = row.duration_ms;
+  let errorMessage = row.error_message;
+  if (row.status === 'running' && terminalFailure) {
+    await terminateAuditProcess(row.pid, { graceMs: 1000 });
+    await markFailed(row.id, terminalFailure);
+    const updated = await getAuditRow(addr, net);
+    liveStatus = updated?.status || 'failed';
+    completedAt = updated?.completed_at || Date.now();
+    durationMs = updated?.duration_ms || null;
+    errorMessage = updated?.error_message || terminalFailure;
+  }
+  if (liveStatus === 'running' && row.pid && !isProcessAlive(row.pid)) {
     liveStatus = 'stalled';
   }
 
   // Persist the phase whenever we've made progress (so the next caller doesn't
   // need the log file to render something useful).
-  if (detectedPhase && detectedPhase !== row.phase && row.status === 'running') {
+  if (detectedPhase && detectedPhase !== row.phase && row.status === 'running' && !terminalFailure) {
     setPhase(row.id, detectedPhase).catch(() => {});
   }
 
@@ -353,12 +448,14 @@ async function getAuditStatus({ address, network }) {
       tool_version: row.tool_version,
       status: liveStatus,
       started_at: row.started_at,
-      completed_at: row.completed_at,
-      duration_ms: row.duration_ms,
+      completed_at: completedAt,
+      duration_ms: durationMs,
       critical_count: row.critical_count,
       high_count: row.high_count,
       medium_count: row.medium_count,
-      error_message: row.error_message,
+      low_count: row.low_count,
+      informational_count: row.informational_count,
+      error_message: errorMessage,
       phase: detectedPhase || row.phase || null,
       log_tail: logTail
         ? logTail.split('\n').filter(Boolean).slice(-20).join('\n')
@@ -394,24 +491,7 @@ async function cancelAudit({ address, network }) {
     };
   }
 
-  // Best-effort signal delivery. The child was spawn'd with detached:true so
-  // it's the leader of its own process group — kill -pid (negative) signals
-  // the whole group, which is what we want for plamen + its agent children.
-  if (row.pid && isProcessAlive(row.pid)) {
-    const sendSignal = (sig) => {
-      try {
-        process.kill(-row.pid, sig); // process group
-      } catch {
-        try { process.kill(row.pid, sig); } catch { /* gone */ }
-      }
-    };
-    sendSignal('SIGTERM');
-    // Give plamen up to 3s to clean up its subagents.
-    await new Promise((r) => setTimeout(r, 3000));
-    if (isProcessAlive(row.pid)) {
-      sendSignal('SIGKILL');
-    }
-  }
+  await terminateAuditProcess(row.pid);
 
   const now = Date.now();
   await pool.query(
@@ -505,6 +585,27 @@ async function reconcileOrphanedAudits() {
   let ingested = 0;
   let failed = 0;
   for (const row of rows) {
+    const logTail = row.log_path ? tailFile(row.log_path, 4096) : '';
+    const terminalFailure = row.log_path && isLogCurrentForRun(row.log_path, row.started_at)
+      ? detectTerminalAuditFailure(logTail)
+      : null;
+    if (terminalFailure) {
+      try {
+        await terminateAuditProcess(row.pid, { graceMs: 1000 });
+        await markFailed(row.id, terminalFailure);
+        console.log(
+          `[audit-reconciler] marked audit ${row.id} failed ` +
+          `(${row.network}/${row.address}) — ${terminalFailure}`
+        );
+        failed++;
+      } catch (err) {
+        console.error(
+          `[audit-reconciler] terminal-failure handling failed for audit ${row.id}: ${err.message}`
+        );
+      }
+      continue;
+    }
+
     if (row.pid && isProcessAlive(row.pid)) continue; // genuinely still running
 
     const rpt = reportPath(row.address, row.network);

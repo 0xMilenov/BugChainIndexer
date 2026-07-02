@@ -49,17 +49,16 @@ export interface GetBookmarksResponse {
 }
 
 export async function getBookmarks(): Promise<GetBookmarksResponse> {
-  const base = getBaseUrl();
-  const resp = await fetch(`${base}/bookmarks`);
+  const resp = await fetch(`/api/bookmarks`, { credentials: "include" });
   const data = await resp.json();
   if (!resp.ok) throw new Error(data?.error || `HTTP ${resp.status}`);
   return data;
 }
 
 export async function addBookmarkApi(contract: BookmarkContract): Promise<{ ok: boolean; error?: string }> {
-  const base = getBaseUrl();
-  const resp = await fetch(`${base}/bookmarks`, {
+  const resp = await fetch(`/api/bookmarks`, {
     method: "POST",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       address: contract.address,
@@ -73,11 +72,11 @@ export async function addBookmarkApi(contract: BookmarkContract): Promise<{ ok: 
 }
 
 export async function removeBookmarkApi(address: string, network: string): Promise<{ ok: boolean }> {
-  const base = getBaseUrl();
   const encAddr = encodeURIComponent(address);
   const encNet = encodeURIComponent(network);
-  const resp = await fetch(`${base}/bookmarks/${encNet}/${encAddr}`, {
+  const resp = await fetch(`/api/bookmarks/${encNet}/${encAddr}`, {
     method: "DELETE",
+    credentials: "include",
   });
   const data = await resp.json();
   if (!resp.ok) throw new Error(data?.error || `HTTP ${resp.status}`);
@@ -93,6 +92,96 @@ export async function getNetworkCounts(refresh = false): Promise<{
   const resp = await fetch(url);
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   return resp.json();
+}
+
+export interface DailyCollectionStats {
+  ok: boolean;
+  from: number;
+  to: number;
+  total: number;
+  verified: number;
+  networks: number;
+  by_network: Array<{ network: string; count: number }>;
+  top_contract?: ContractDetail | null;
+  error?: string;
+}
+
+export async function getDailyCollectionStats(params: {
+  from: number;
+  to: number;
+}): Promise<DailyCollectionStats> {
+  const base = getBaseUrl();
+  const qp = new URLSearchParams({
+    from: String(params.from),
+    to: String(params.to),
+  });
+  const resp = await fetch(`${base}/dailyCollectionStats?${qp.toString()}`, {
+    cache: "no-store",
+  });
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data?.error || `HTTP ${resp.status}`);
+  return data;
+}
+
+export interface ScannerHealth {
+  ok: boolean;
+  generated_at: number;
+  running: boolean;
+  running_count: number;
+  cron: {
+    enabled: boolean;
+    schedule?: string | null;
+    command?: string | null;
+    next_run_at?: number | null;
+    jobs?: Array<{
+      profile: string;
+      schedule: string;
+      command?: string | null;
+      next_run_at?: number | null;
+    }>;
+  };
+  db: {
+    collected_today: number;
+    verified_today: number;
+    last_contract_at?: number | null;
+    explorer_requests_today: number;
+    rpc_health: {
+      endpoints: number;
+      healthy: number;
+      avg_latency_ms?: number | null;
+      last_checked?: number | null;
+    };
+  };
+  rpc: {
+    get_logs_requests: number;
+    avg_get_logs_ms?: number | null;
+    errors: number;
+  };
+  runner: {
+    last_start?: { timestamp?: number | null; line?: string | null } | null;
+    last_completion?: { timestamp?: number | null; line?: string | null } | null;
+    last_failure?: { timestamp?: number | null; line?: string | null } | null;
+  };
+  recent_networks: Array<{
+    network: string;
+    updated_at: number;
+    completed: boolean;
+    get_logs_requests: number;
+    avg_get_logs_ms?: number | null;
+    stored: number;
+    errors: number;
+    scan_range?: { from_block: number; to_block: number; blocks: number } | null;
+    last_line?: string | null;
+  }>;
+  error?: string;
+}
+
+export async function getScannerHealth(): Promise<ScannerHealth> {
+  const base = getBaseUrl();
+  const resp = await fetch(`${base}/scannerHealth`, { cache: "no-store" });
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data?.error || `HTTP ${resp.status}`);
+  return data;
 }
 
 export async function getNativePrices(): Promise<{
@@ -120,6 +209,7 @@ export interface SearchByCodeResponse {
     verified?: boolean;
     deployed?: number;
     fund?: number;
+    fund_usd?: number | string | null;
   }>;
   error?: string;
 }
@@ -130,6 +220,7 @@ export interface ContractDetail {
   contract_name?: string;
   deployed?: number;
   fund?: number;
+  fund_usd?: number | string | null;
   native_balance?: string | number;
   first_seen?: number;
   verified?: boolean;
@@ -156,10 +247,18 @@ export interface ContractDetail {
   constructor_arguments?: string;
   library?: string;
   license_type?: string;
-  erc20_balances?: Array<{ symbol: string; balance: string; decimals?: number }>;
+  erc20_balances?: Array<{
+    symbol: string;
+    balance: string;
+    decimals?: number;
+    price_usd?: number | string | null;
+    value_usd?: number | string | null;
+  }>;
   critical_count?: number;
   high_count?: number;
   medium_count?: number;
+  low_count?: number;
+  informational_count?: number;
   audit_status?: string | null;
   audit_completed_at?: number | null;
 }
@@ -187,7 +286,14 @@ export async function getContract(
 
 export interface AuditFinding {
   id: number;
-  severity: "critical" | "high" | "medium";
+  severity: "critical" | "high" | "medium" | "low" | "informational";
+  original_severity?: "critical" | "high" | "medium" | "low" | "informational" | null;
+  evidence_tag?: string | null;
+  evidence_tags?: string[] | null;
+  verification_status?: string | null;
+  report_id?: string | null;
+  source_finding_id?: string | null;
+  trust_adjustment?: string | null;
   title: string;
   description?: string | null;
   location?: string | null;
@@ -211,6 +317,8 @@ export interface ContractAudit {
   critical_count: number;
   high_count: number;
   medium_count: number;
+  low_count: number;
+  informational_count: number;
   findings: AuditFinding[];
 }
 
@@ -259,6 +367,8 @@ export interface ContractAuditStatus {
   critical_count: number;
   high_count: number;
   medium_count: number;
+  low_count: number;
+  informational_count: number;
   error_message?: string | null;
   phase?: string | null;
   log_tail?: string | null;
@@ -305,6 +415,7 @@ export async function triggerContractAudit(
     : `/api/contract/${encNet}/${encAddr}/audit/run`;
   const resp = await fetch(url, {
     method: "POST",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ mode }),
   });
@@ -330,6 +441,7 @@ export async function cancelContractAudit(
     : `/api/contract/${encNet}/${encAddr}/audit/cancel`;
   const resp = await fetch(url, {
     method: "POST",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
   });
   const data = await resp.json();
@@ -358,7 +470,20 @@ export async function addContract(
       signal: controller.signal,
     });
     const responseText = await resp.text();
-    const data = JSON.parse(responseText) as AddContractResponse;
+    let data: AddContractResponse;
+    try {
+      data = responseText
+        ? (JSON.parse(responseText) as AddContractResponse)
+        : { ok: false, error: `HTTP ${resp.status}` };
+    } catch {
+      const trimmed = responseText.trim();
+      const looksLikeHtml = trimmed.startsWith("<");
+      throw new Error(
+        looksLikeHtml
+          ? `Add contract service returned an HTML error page (HTTP ${resp.status}). Please try again.`
+          : trimmed.slice(0, 160) || `HTTP ${resp.status}`
+      );
+    }
     if (!resp.ok) throw new Error(data?.error || `HTTP ${resp.status}`);
     return data;
   } catch (err) {

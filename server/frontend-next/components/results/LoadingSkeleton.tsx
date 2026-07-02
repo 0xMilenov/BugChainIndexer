@@ -26,6 +26,9 @@ export function LoadingSkeleton() {
         <td className="px-4 py-3">
           <div className="skeleton h-4 w-20" />
         </td>
+        <td className="px-4 py-3">
+          <div className="skeleton h-4 w-16" />
+        </td>
       </tr>
     ));
 

@@ -28,7 +28,7 @@ BugChainIndexer is a comprehensive blockchain analysis platform that monitors, a
 
 ### 💰 Asset & Fund Tracking
 - **BalanceHelper Contracts**: Batch balance queries (550M gas limit optimized)
-- **Alchemy Prices API**: Real-time token prices with 7-day update cycle
+- **Public RPC + CoinGecko Prices**: Top-token balances through JSON-RPC with cached free USD prices
 - **PostgreSQL Advisory Locks**: Concurrent-safe fund updates
 - **Dynamic Batch Sizing**: Adaptive chunk sizes (50-1000 addresses)
 
@@ -77,8 +77,8 @@ BugChainIndexer/
 
 - Node.js (v18+)
 - PostgreSQL (v12+)
-- Alchemy API key
-- Etherscan API keys
+- Public no-key RPC endpoints are configured by default
+- Etherscan API keys for budgeted source-code enrichment
 
 ### 1. Clone
 
@@ -101,16 +101,10 @@ cp server/frontend-next/.env.example server/frontend-next/.env
 ```
 
 **Required variables:**
-- `scanners/.env`: `PGDATABASE`, `PGUSER`, `PGPASSWORD`, `DEFAULT_ETHERSCAN_KEYS`, `ALCHEMY_API_KEY`
+- `scanners/.env`: `PGDATABASE`, `PGUSER`, `PGPASSWORD`, `DEFAULT_ETHERSCAN_KEYS`, `PUBLIC_RPC_ONLY=true`
 - `server/backend/.env`: `DATABASE_URL`, `PORT=8000`
 
-**GitHub OAuth (optional, for "Log in with GitHub"):**
-1. Create an OAuth app at [github.com/settings/applications/new](https://github.com/settings/applications/new)
-2. Set **Authorization callback URL** to `http://localhost:3000/auth/github/callback` (or your frontend URL + `/auth/github/callback`)
-3. Add `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `AUTH_JWT_SECRET`, and `FRONTEND_URL` to `server/backend/.env`
-4. Restart the backend. If not configured, clicking "Log in" shows a setup guide at `/auth/setup`.
-
-**Local OAuth testing:** See [docs/LOCAL-AUTH-SETUP.md](docs/LOCAL-AUTH-SETUP.md) for using `.env.local` to test auth locally alongside production config.
+**Local auth:** the backend uses username/password login. Signup requires `LOCAL_AUTH_ACCESS_CODE_HASH`; seed the first admin with `server/backend/scripts/create-local-user.js`.
 
 ### 3. Install & Run
 

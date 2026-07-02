@@ -2,7 +2,7 @@ const bookmarkService = require('../services/bookmark.service');
 
 exports.getBookmarks = async (req, res) => {
   try {
-    const bookmarks = await bookmarkService.getBookmarks();
+    const bookmarks = await bookmarkService.getBookmarks(req.user?.user_id);
     res.json({ ok: true, bookmarks });
   } catch (err) {
     console.error('getBookmarks failed:', err?.message || err);
@@ -17,7 +17,7 @@ exports.addBookmark = async (req, res) => {
     const network = (body.network || '').trim();
     const contractName = (body.contract_name || body.contractName || '').trim() || undefined;
 
-    const result = await bookmarkService.addBookmark(address, network, contractName);
+    const result = await bookmarkService.addBookmark(req.user?.user_id, address, network, contractName);
     if (!result.ok) {
       return res.status(400).json({ ok: false, error: result.error });
     }
@@ -35,7 +35,7 @@ exports.removeBookmark = async (req, res) => {
     if (!address || !network) {
       return res.status(400).json({ ok: false, error: 'address and network are required' });
     }
-    await bookmarkService.removeBookmark(address, network);
+    await bookmarkService.removeBookmark(req.user?.user_id, address, network);
     res.json({ ok: true });
   } catch (err) {
     console.error('removeBookmark failed:', err?.message || err);

@@ -1,0 +1,109 @@
+diff --git a/prompts/shared/v2/phase5-verification-sc.md b/prompts/shared/v2/phase5-verification-sc.md
+--- a/prompts/shared/v2/phase5-verification-sc.md
++++ b/prompts/shared/v2/phase5-verification-sc.md
+@@ -50,8 +50,19 @@ Verify only the rows assigned to this shard by the driver's
+ - the row in this shard's manifest
+ - `~/.claude/rules/phase5-poc-execution.md`
+ - the exact source file(s) at the row's `Location`
+ - the one `Primary Artifact` named in the queue row
++- same-finding mechanical proof sidecars when present:
++  `{SCRATCHPAD}/medusa_fuzz_findings.md`,
++  `{SCRATCHPAD}/invariant_fuzz_findings.md`,
++  `{SCRATCHPAD}/invariant_fuzz_results.md`,
++  `{SCRATCHPAD}/poc_results.md`, `{SCRATCHPAD}/poc_findings.md`, and
++  `{SCRATCHPAD}/exploit_intel.md`
++
++A proof sidecar is same-finding evidence only when it references the assigned
++finding ID, the same title/root cause, or the same source location/control-flow
++path. Read only the matching section(s); do not bulk-summarize unrelated
++sidecar findings.
+ 
+ Do NOT open legacy language-specific Phase 5 prompt files from inside a shard.
+ Those legacy files contain skeptic, cross-batch, aggregate, and report
+ instructions. This standalone shard contract plus `phase5-poc-execution.md` is
+@@ -72,7 +83,13 @@ Those legacy files contain skeptic, cross-batch, aggregate, and report
+ 4. Prove or refute the claimed harm using the language-specific methodology
+    and PoC execution protocol.
+ 5. Do not bulk-read unrelated `verify_*.md`, unrelated depth artifacts, or the
+    whole scratchpad.
++6. If a same-finding sidecar contains `[MEDUSA-PASS]`, `[POC-PASS]`, or
++   `[PROD-ONCHAIN]` and the source trace aligns with the assigned row, treat it
++   as mechanical proof for this verifier file. Preserve that evidence tag in
++   `Evidence Tag:` even if this shard does not re-run the harness. Do not
++   downgrade the row to `[CODE-TRACE]` merely because the proof was produced
++   by an earlier bounded phase.
+ 
+ ### PoC Testability Triage (Mandatory)
+ 
+diff --git a/prompts/shared/v2/phase6a-report-index.md b/prompts/shared/v2/phase6a-report-index.md
+--- a/prompts/shared/v2/phase6a-report-index.md
++++ b/prompts/shared/v2/phase6a-report-index.md
+@@ -26,6 +26,12 @@ Read:
+ - `{SCRATCHPAD}/build_status.md` (SC build/static-analysis status, if present)
+ - `{SCRATCHPAD}/primitive_status.md` (L1 primitive bake/static-analysis status, if present)
+ - `{SCRATCHPAD}/template_recommendations.md` (recommended niche/analysis lanes)
++- `{SCRATCHPAD}/medusa_fuzz_findings.md`,
++  `{SCRATCHPAD}/invariant_fuzz_findings.md`,
++  `{SCRATCHPAD}/invariant_fuzz_results.md`,
++  `{SCRATCHPAD}/poc_results.md`, `{SCRATCHPAD}/poc_findings.md`, and
++  `{SCRATCHPAD}/exploit_intel.md` (OPTIONAL same-finding mechanical proof /
++  known-exploit evidence used before final severity gating)
+ - If `verify_core.md` exists and already provides the needed status, do NOT open `finding_mapping.md`, raw depth findings, or scanner findings up front. Treat those as fallback-only inputs for missing detail, not default reads.
+ - If `verify_core.md` is absent, read `verify_*.md` files directly - each contains its own hypothesis ID and verdict header.
+ - `{SCRATCHPAD}/depth_*_findings.md` (raw depth findings and chain summaries)
+@@ -44,8 +50,12 @@ Forbidden inputs:
+ all per-ID verifier results) and individual `{SCRATCHPAD}/verify_*.md` files when
+ needed. For Thorough mode, also read `{SCRATCHPAD}/skeptic_findings.md` and
+ `{SCRATCHPAD}/skeptic_judge_decisions.md` when present. If the run produced
+ legacy shard outputs, also read `{SCRATCHPAD}/judge_*.md`. These artifacts are
+ the authority for HIGH/CRIT severity overrides and UNRESOLVED/PARTIAL demotions.
++When a same-finding sidecar provides `[MEDUSA-PASS]`, `[POC-PASS]`, or
++`[PROD-ONCHAIN]`, merge that tag into the finding's BEST evidence tag before
++proven-only gating. A stale `verify_<ID>.md` or `verify_core.md` row showing
++`[CODE-TRACE]` MUST NOT erase stronger same-finding mechanical proof.
+ 
+ ---
+ 
+@@ -60,24 +70,28 @@ wording, or evidence tag. The final report tier must be mechanically derived
+ For every Master Finding Index row:
+ 
+ 1. Read the mapped `verify_<ID>.md` file and the matching
+    `verification_queue.md` row.
+-2. The row's final `Severity` and Report ID prefix (`C-`, `H-`, `M-`, `L-`,
++2. Read any same-finding Medusa/PoC/invariant/exploit-intel sidecar section
++   that matches this ID, title/root cause, or source location. Treat
++   `[MEDUSA-PASS]`, `[POC-PASS]`, and `[PROD-ONCHAIN]` as mechanical proof
++   when the sidecar's claim aligns with the verified control flow.
++3. The row's final `Severity` and Report ID prefix (`C-`, `H-`, `M-`, `L-`,
+    `I-`) MUST match the upstream verifier/queue severity unless one of the
+    canonical adjustments below applies.
+-3. `[CODE-TRACE]` does NOT imply Low. When `PROVEN_ONLY: false`, a
++4. `[CODE-TRACE]` does NOT imply Low. When `PROVEN_ONLY: false`, a
+    Medium/High/Critical `[CODE-TRACE]` finding stays at its upstream severity.
+-4. If final severity differs from upstream, the `Trust Adj.` column MUST
++5. If final severity differs from upstream, the `Trust Adj.` column MUST
+    contain one canonical reason with the original severity:
+    - `TRUSTED-ACTOR(original_sev)`
+    - `UNRESOLVED(original_sev)` or `PARTIAL(original_sev)`
+    - `POC-FAIL(original_sev)`
+    - `PROVEN(original_sev)` only when `PROVEN_ONLY: true`
+    - `CHAIN-UPGRADE(original_sev)` / `CHAIN-DOWNGRADE(original_sev)` with the
+      chain ID and enabling relation
+-5. A bare `-` / `—` Trust Adj. is valid only when final severity equals
++6. A bare `-` / `—` Trust Adj. is valid only when final severity equals
+    upstream severity.
+-6. If no canonical adjustment applies, restore the upstream severity and
++7. If no canonical adjustment applies, restore the upstream severity and
+    matching report-ID tier. Do not silently move Medium verified findings into
+    Low rows, and do not silently upgrade Informational findings to Low.
+ 
+ ## STEP 1: Determine Final Severities
+@@ -88,7 +102,7 @@ For each hypothesis, apply this priority order:
+ 1. If a verifier returned a verdict -> use verifier's final severity
+ 2. If chain analysis upgraded severity -> use upgraded severity
+ 3. Otherwise -> use the severity from hypotheses.md
+ 4. **Apply trust assumption downgrades**: Check `{SCRATCHPAD}/findings_inventory.md` for `[ASSUMPTION-DEP: TRUSTED-ACTOR]` tags. For tagged findings, apply -1 tier severity downgrade (floor: Informational). Note the original severity and downgrade reason in the Master Finding Index under a "Trust Adj." column. For `[ASSUMPTION-DEP: WITHIN-BOUNDS]` tags: do NOT change severity, but note the flag in the index for tier writers to include as context. **Mechanical enforcement**: The Index Agent MUST NOT override, remove, or selectively skip Inventory Agent tags. If a finding has the `TRUSTED-ACTOR` tag, apply the downgrade. If it does not have the tag, do not downgrade. No exceptions for chain upgrades, verification results, or analytical reasoning — the Inventory Agent is the sole authority on trust tagging.
+-5. **Proven-only demotion** (ONLY if the resolved configuration says `PROVEN_ONLY: true`): For each finding whose BEST evidence tag is `[CODE-TRACE]` (no `[POC-PASS]`, `[MEDUSA-PASS]`, `[PROD-ONCHAIN]`, `[PROD-SOURCE]`, or `[PROD-FORK]`), cap severity at Low. Record the original severity in the "Trust Adj." column as `PROVEN(original_sev)`. Count total demotions for the report header note: *"Proven-only mode enabled: {N} findings capped at Low from {severities} due to unproven evidence ([CODE-TRACE] only)."* If `PROVEN_ONLY: false`, this rule is disabled and `[CODE-TRACE]` does not change severity.
++5. **Proven-only demotion** (ONLY if the resolved configuration says `PROVEN_ONLY: true`): For each finding whose BEST evidence tag is `[CODE-TRACE]` after merging matching verifier and sidecar evidence (no `[POC-PASS]`, `[MEDUSA-PASS]`, `[PROD-ONCHAIN]`, `[PROD-SOURCE]`, or `[PROD-FORK]`), cap severity at Low. Record the original severity in the "Trust Adj." column as `PROVEN(original_sev)`. Count total demotions for the report header note: *"Proven-only mode enabled: {N} findings capped at Low from {severities} due to unproven evidence ([CODE-TRACE] only)."* If `PROVEN_ONLY: false`, this rule is disabled and `[CODE-TRACE]` does not change severity.
+ 6. **UNRESOLVED demotion + body retention** : For any finding where the Skeptic-Judge phase returned `UNRESOLVED` **OR `PARTIAL`** (both tokens carry identical semantics — verifier and skeptic disagree, no clean resolution) in any `skeptic_*.md` or `judge_*.md` artifact in the scratchpad, apply -1 tier severity downgrade (floor: Low). Record the original severity in the Trust Adj. column as `UNRESOLVED(original_sev)`. **The finding REMAINS in the report body** — it is NOT routed to Appendix A. The tier writer flags it as `[UNRESOLVED — needs human review]` per the report-template.md format. **Hard rule**: an UNRESOLVED finding in the Excluded Findings table is a workflow violation.
+ 7. **PoC-fail demotion** : If `{SCRATCHPAD}/poc_demotions.md` exists, read it. For each finding listed, apply the severity cap from the table. Record the original severity in the Trust Adj. column as `POC-FAIL(original_sev)`. These findings REMAIN in the report body at their capped severity (not excluded). The tier writer includes: *"PoC execution disproved the claimed harm — test executed but the system behaved correctly. Capped from {original} to {capped}."* **Mechanical enforcement**: The driver computes these demotions from `[POC-FAIL]` evidence tags in verify files. The Index Agent MUST NOT override, remove, or selectively skip entries in `poc_demotions.md`.

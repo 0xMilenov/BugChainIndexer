@@ -64,7 +64,112 @@ class UnifiedScanner extends Scanner {
 
     // Prevent multiple concurrent verification loops from overwhelming Etherscan.
     this.contractVerificationMutex = Promise.resolve();
+    this.contractsSelectedForEnrichment = 0;
 
+  }
+
+  getApproxBlockTimeSeconds() {
+    const envName = `${this.network.toUpperCase().replace(/-/g, '_')}_BLOCK_TIME_SECONDS`;
+    const envValue = Number(process.env[envName] || process.env.BLOCK_TIME_SECONDS);
+    if (Number.isFinite(envValue) && envValue > 0) return envValue;
+
+    const defaults = {
+      ethereum: 12,
+      binance: 3,
+      optimism: 2,
+      base: 2,
+      arbitrum: 0.25,
+      polygon: 2,
+      avalanche: 2,
+      gnosis: 5,
+      linea: 12,
+      scroll: 3,
+      mantle: 2,
+      megaeth: 1,
+      'arbitrum-nova': 0.25,
+      celo: 5,
+      cronos: 6,
+      opbnb: 1,
+      'polygon-zkevm': 10,
+      subtensor: 12
+    };
+    return defaults[this.network] || 12;
+  }
+
+  getMaxBlocksPerRun() {
+    const configured = Number(process.env.PUBLIC_RPC_MAX_BLOCKS_PER_RUN || process.env.MAX_BLOCKS_PER_RUN || 60);
+    return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 60;
+  }
+
+  getMaxContractsPerRun() {
+    const configured = Number(process.env.PUBLIC_RPC_MAX_CONTRACTS_PER_RUN || process.env.MAX_CONTRACTS_PER_RUN || 25);
+    return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 25;
+  }
+
+  getContractEnrichmentTimeoutMs() {
+    const configured = Number(process.env.CONTRACT_ENRICHMENT_TIMEOUT_MS || 45000);
+    return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 45000;
+  }
+
+  async withContractEnrichmentTimeout(work, address) {
+    const timeoutMs = this.getContractEnrichmentTimeoutMs();
+    let timeout;
+    try {
+      return await Promise.race([
+        work(),
+        new Promise((_, reject) => {
+          timeout = setTimeout(
+            () => reject(new Error(`contract enrichment timeout after ${timeoutMs}ms for ${address}`)),
+            timeoutMs
+          );
+        })
+      ]);
+    } finally {
+      if (timeout) clearTimeout(timeout);
+    }
+  }
+
+  selectContractsForRun(contracts) {
+    const maxContracts = this.getMaxContractsPerRun();
+    const remaining = maxContracts - this.contractsSelectedForEnrichment;
+    if (remaining <= 0) {
+      this.log(`⚠️ Contract enrichment cap reached (${maxContracts}/run); skipping ${contracts.length} contracts`, 'warn');
+      return [];
+    }
+
+    const selected = contracts.slice(0, remaining);
+    this.contractsSelectedForEnrichment += selected.length;
+    if (selected.length < contracts.length) {
+      this.log(`⚠️ Contract enrichment capped: processing ${selected.length}/${contracts.length} contracts this batch (${this.contractsSelectedForEnrichment}/${maxContracts} run cap)`, 'warn');
+    }
+    return selected;
+  }
+
+  estimateFromBlock(currentBlock, targetHours) {
+    const blockTimeSeconds = this.getApproxBlockTimeSeconds();
+    const desiredBlocks = Math.max(1, Math.ceil((targetHours * 60 * 60) / blockTimeSeconds));
+    const maxBlocks = this.getMaxBlocksPerRun();
+    const blocks = Math.min(desiredBlocks, maxBlocks);
+    const fromBlock = Math.max(0, currentBlock - blocks + 1);
+    this.log(`🧭 Estimated scan window: ${blocks} blocks (${blockTimeSeconds}s/block, cap ${maxBlocks})`);
+    return fromBlock;
+  }
+
+  async getFallbackFromBlock(currentBlock, targetTimestamp, targetHours) {
+    if (process.env.EXPLORER_BLOCK_TIME_LOOKUP !== 'true') {
+      return this.estimateFromBlock(currentBlock, targetHours);
+    }
+
+    const timeoutMs = Number(process.env.BLOCK_TIME_LOOKUP_TIMEOUT_MS || 15000);
+    try {
+      return await Promise.race([
+        this.getBlockByTime(targetTimestamp),
+        new Promise((_, reject) => setTimeout(() => reject(new Error(`block time lookup timeout after ${timeoutMs}ms`)), timeoutMs))
+      ]);
+    } catch (error) {
+      this.log(`⚠️ Block timestamp lookup failed: ${error.message}; using estimated window`, 'warn');
+      return this.estimateFromBlock(currentBlock, targetHours);
+    }
   }
 
   async withContractVerificationLock(work) {
@@ -167,13 +272,78 @@ class UnifiedScanner extends Scanner {
     
     this.log(`🔍 Finding blocks for last ${targetHours} hours...`);
     
-    // getBlockByTime now handles validation internally
-    const fromBlock = await this.getBlockByTime(targetTimestamp);
     const currentBlock = await this.getBlockNumber();
+    const cursorBlock = await this.getScannerCursor();
+    const fallbackFromBlock = cursorBlock && cursorBlock > 0
+      ? null
+      : await this.getFallbackFromBlock(currentBlock, targetTimestamp, targetHours);
+    let fromBlock = cursorBlock && cursorBlock > 0
+      ? Math.min(cursorBlock + 1, currentBlock + 1)
+      : fallbackFromBlock;
+
+    const maxBlocks = this.getMaxBlocksPerRun();
+    const blockCount = Math.max(0, currentBlock - fromBlock + 1);
+    if (blockCount > maxBlocks) {
+      const cappedFromBlock = Math.max(0, currentBlock - maxBlocks + 1);
+      this.log(`⚠️ Scan window ${blockCount} blocks exceeds cap ${maxBlocks}; starting at ${cappedFromBlock}`, 'warn');
+      fromBlock = cappedFromBlock;
+    }
     
-    
-    this.log(`📈 Scan range: blocks ${fromBlock} → ${currentBlock} (${currentBlock - fromBlock} blocks)`);
+    if (cursorBlock && cursorBlock > 0) {
+      this.log(`📍 Resuming from persistent cursor at block ${cursorBlock}`);
+    }
+
+    this.log(`📈 Scan range: blocks ${fromBlock} → ${currentBlock} (${Math.max(0, currentBlock - fromBlock + 1)} blocks)`);
     return { fromBlock, toBlock: currentBlock };
+  }
+
+  async ensureScannerCursorTable() {
+    try {
+      await this.queryDB(`
+        CREATE TABLE IF NOT EXISTS scanner_cursors (
+          network TEXT NOT NULL,
+          scanner_name TEXT NOT NULL,
+          last_block BIGINT NOT NULL DEFAULT 0,
+          updated_at BIGINT NOT NULL,
+          PRIMARY KEY (network, scanner_name)
+        )
+      `);
+    } catch (error) {
+      this.log(`⚠️ Failed to ensure scanner cursor table: ${error.message}`, 'warn');
+    }
+  }
+
+  async getScannerCursor() {
+    try {
+      await this.ensureScannerCursorTable();
+      const result = await this.queryDB(
+        `SELECT last_block FROM scanner_cursors WHERE network = $1 AND scanner_name = $2`,
+        [this.network, this.name]
+      );
+      const lastBlock = Number(result.rows[0]?.last_block);
+      return Number.isFinite(lastBlock) ? lastBlock : null;
+    } catch (error) {
+      this.log(`⚠️ Failed to read scanner cursor: ${error.message}`, 'warn');
+      return null;
+    }
+  }
+
+  async saveScannerCursor(lastBlock) {
+    if (!Number.isFinite(Number(lastBlock)) || Number(lastBlock) <= 0) return;
+    try {
+      await this.ensureScannerCursorTable();
+      await this.queryDB(
+        `INSERT INTO scanner_cursors (network, scanner_name, last_block, updated_at)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (network, scanner_name) DO UPDATE SET
+           last_block = GREATEST(scanner_cursors.last_block, EXCLUDED.last_block),
+           updated_at = EXCLUDED.updated_at`,
+        [this.network, this.name, Number(lastBlock), this.currentTime]
+      );
+      this.log(`📍 Saved scanner cursor at block ${lastBlock}`);
+    } catch (error) {
+      this.log(`⚠️ Failed to save scanner cursor: ${error.message}`, 'warn');
+    }
   }
 
   async filterExistingAddresses(addresses) {
@@ -525,7 +695,10 @@ class UnifiedScanner extends Scanner {
       const batchPromises = batch.map(async (contract) => {
         const contractAddr = contract.address || contract;
         try {
-          const enrichment = await getContractEtherscanEnrichment(this, contractAddr);
+          const enrichment = await this.withContractEnrichmentTimeout(
+            () => getContractEtherscanEnrichment(this, contractAddr),
+            contractAddr
+          );
           return {
             address: contractAddr,
             network: this.network,
@@ -777,12 +950,12 @@ class UnifiedScanner extends Scanner {
       slowMultiplier: PERFORMANCE.SLOW_MULTIPLIER
     };
 
-    // Cap maxBatchSize to Alchemy tier limits
+    // Cap maxBatchSize to the active provider tier limits.
     const maxBatchSize = Math.min(logsOptimization.maxBatchSize, this.maxLogsBlockRange || 1000);
     const minBatchSize = logsOptimization.minBatchSize;
     let currentBatchSize = Math.min(logsOptimization.initialBatchSize, maxBatchSize);
 
-    this.log(`Batch size limits: ${minBatchSize}-${maxBatchSize} blocks (initial: ${currentBatchSize}, Alchemy ${this.alchemyTier} tier)`);
+    this.log(`Batch size limits: ${minBatchSize}-${maxBatchSize} blocks (initial: ${currentBatchSize}, ${this.alchemyTier} tier)`);
 
     let currentBlock = fromBlock;
     
@@ -1008,16 +1181,19 @@ class UnifiedScanner extends Scanner {
   async saveLogDensityStats() {
     try {
       const stats = this.logDensityStats;
+      if (!stats.samples.length || stats.totalBlocks <= 0) return;
 
       // Calculate standard deviation
-      const mean = stats.avgLogsPerBlock;
+      const mean = Number.isFinite(stats.avgLogsPerBlock) ? stats.avgLogsPerBlock : 0;
       const squaredDiffs = stats.samples.map(s => Math.pow(s.logsPerBlock - mean, 2));
       const stddev = Math.sqrt(squaredDiffs.reduce((a, b) => a + b, 0) / stats.samples.length);
 
       // Determine optimal batch size based on avg logs per block
       // Target: ~8000 logs per request (80% of 10K limit)
       const targetLogs = 8000;
-      const optimalBatchSize = Math.max(10, Math.floor(targetLogs / stats.avgLogsPerBlock));
+      const optimalBatchSize = mean > 0
+        ? Math.max(10, Math.floor(targetLogs / mean))
+        : this.getMaxBlocksPerRun();
 
       // Recommend profile based on log density
       let recommendedProfile;
@@ -1053,10 +1229,10 @@ class UnifiedScanner extends Scanner {
 
       await this.queryDB(query, [
         this.network,
-        stats.avgLogsPerBlock.toFixed(2),
-        stddev.toFixed(2),
-        Math.floor(stats.minLogsPerBlock),
-        Math.ceil(stats.maxLogsPerBlock),
+        mean.toFixed(2),
+        Number.isFinite(stddev) ? stddev.toFixed(2) : '0.00',
+        Number.isFinite(stats.minLogsPerBlock) ? Math.floor(stats.minLogsPerBlock) : 0,
+        Number.isFinite(stats.maxLogsPerBlock) ? Math.ceil(stats.maxLogsPerBlock) : 0,
         optimalBatchSize,
         recommendedProfile,
         stats.sampleCount,
@@ -1231,8 +1407,6 @@ class UnifiedScanner extends Scanner {
       this.blockRetryCount.set(blockKey, retryCount + 1);
       this.log(`Batch ${batchNum} fetch timeout (retry ${retryCount + 1}/5)`, 'warn');
 
-      // Note: Alchemy RPC handles load balancing internally, no manual RPC switching needed
-
       const newBatchSize = Math.max(minBatchSize, Math.floor(currentBatchSize * 0.5));
       if (newBatchSize < currentBatchSize) {
         this.log(`Reducing batch size from ${currentBatchSize} to ${newBatchSize}: blocks ${currentBlock}-${endBlock}`, 'info');
@@ -1341,6 +1515,7 @@ class UnifiedScanner extends Scanner {
 
       // Perform EOA filtering and contract detection
       const { eoas, contracts } = await this.performEOAFiltering(newAddresses);
+      const contractsForRun = this.selectContractsForRun(contracts);
 
       // Skip EOA persistence - we only store verified contracts with source code
       // if (eoas.length > 0) { await this.storeResults(eoas, []); }
@@ -1349,7 +1524,7 @@ class UnifiedScanner extends Scanner {
       let verifiedContracts = [];
       let contractsWithBalance = [];
 
-      if (contracts.length > 0) {
+      if (contractsForRun.length > 0) {
         // Load token addresses from tokens/{network}.json
         const fs = require('fs');
         const path = require('path');
@@ -1358,21 +1533,27 @@ class UnifiedScanner extends Scanner {
 
         try {
           const tokensData = JSON.parse(fs.readFileSync(tokensFilePath, 'utf8'));
-          tokenAddresses = tokensData.map(t => t.address.toLowerCase()).filter(Boolean);
+          const tokenLimit = parseInt(process.env.ERC20_TOKEN_LIMIT || '15', 10);
+          tokenAddresses = tokensData
+            .filter(t => t.symbol && t.address)
+            .sort((a, b) => (a.rank || Infinity) - (b.rank || Infinity))
+            .slice(0, tokenLimit)
+            .map(t => t.address.toLowerCase())
+            .filter(Boolean);
           this.log(`📋 Loaded ${tokenAddresses.length} token addresses for balance check`);
         } catch (error) {
           this.log(`⚠️ Failed to load tokens file: ${error.message}`, 'warn');
         }
 
         // Get balances for all contracts using BalanceHelper contract
-        const contractAddresses = contracts.map(c => c.address);
+        const contractAddresses = contractsForRun.map(c => c.address);
 
         let nativeBalances = [];
         try {
           nativeBalances = await this.getNativeBalances(contractAddresses);
         } catch (error) {
           this.log(`⚠️ Native balance check failed (BalanceHelper may not be deployed): ${error.message}`, 'warn');
-          this.log(`📦 Will store all ${contracts.length} contracts as unverified`);
+          this.log(`📦 Will store all ${contractsForRun.length} contracts as unverified`);
         }
 
         // Get ERC20 token balances
@@ -1390,8 +1571,8 @@ class UnifiedScanner extends Scanner {
         const contractsWithFunds = [];
         const contractsWithoutFunds = [];
 
-        for (let i = 0; i < contracts.length; i++) {
-          const contract = contracts[i];
+        for (let i = 0; i < contractsForRun.length; i++) {
+          const contract = contractsForRun[i];
           const address = contract.address.toLowerCase();
 
           // Check native balance (empty array when BalanceHelper failed)
@@ -1492,9 +1673,14 @@ class UnifiedScanner extends Scanner {
 
     // Get target block range
     const { fromBlock, toBlock } = await this.getTargetBlocks();
+    if (fromBlock > toBlock) {
+      this.log(`✅ Scanner cursor is already current at block ${toBlock}`);
+      return;
+    }
     
     // Execute streaming pipeline with parallel processing
     const { processedAddresses, totalProcessed } = await this.executeStreamingPipeline(fromBlock, toBlock);
+    await this.saveScannerCursor(toBlock);
     
     // Update stats
     this.stats.transferAddresses = processedAddresses;

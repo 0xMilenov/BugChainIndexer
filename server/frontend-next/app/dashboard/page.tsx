@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Layout } from "@/components/Layout";
 import { Sidebar } from "@/components/Sidebar";
@@ -15,7 +16,8 @@ import { useAuth } from "@/context/AuthContext";
 import { useShowToast } from "@/context/ToastContext";
 import { useSearchContracts } from "@/hooks/useSearchContracts";
 import { useBookmarks } from "@/hooks/useBookmarks";
-import { searchByCode, addContract } from "@/lib/api";
+import { searchByCode, addContract, getDailyCollectionStats, getScannerHealth } from "@/lib/api";
+import type { DailyCollectionStats, ScannerHealth } from "@/lib/api";
 import { useNativePrices } from "@/hooks/useNativePrices";
 import { sortResults } from "@/lib/sort";
 import {
@@ -27,11 +29,13 @@ import {
   getDeployerAddress,
   getContractTimestamp,
   formatErc20Balances,
+  formatFund,
 } from "@/lib/contract-utils";
-import { Info } from "lucide-react";
+import type { Contract } from "@/types/contract";
+import { Activity, CalendarDays, Clock, Info, RadioTower, Trophy } from "lucide-react";
 import { AddContractModal } from "@/components/AddContractModal";
 import { Button } from "@/components/ui/Button";
-import { FUND_UI_MAX } from "@/lib/constants";
+import { FUND_UI_MAX, NETWORK_DISPLAY_NAMES } from "@/lib/constants";
 import { Suspense } from "react";
 
 function downloadFile(content: string, filename: string, mimeType: string) {
@@ -46,11 +50,27 @@ function downloadFile(content: string, filename: string, mimeType: string) {
   URL.revokeObjectURL(url);
 }
 
+function formatTimestamp(ts?: number | null) {
+  if (!ts) return "-";
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(ts * 1000));
+}
+
+function formatDurationMs(ms?: number | null) {
+  if (!ms) return "-";
+  if (ms >= 1000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${ms}ms`;
+}
+
 function SearchPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const showToast = useShowToast();
-  const { refreshAuth } = useAuth();
+  const { user, loginUrl, refreshAuth } = useAuth();
 
   useEffect(() => {
     const authError = searchParams.get("auth_error");
@@ -59,9 +79,8 @@ function SearchPageContent() {
     }
   }, [searchParams, router]);
 
-  // After OAuth success, we land with ?from=oauth; refresh auth and clear the URL
   useEffect(() => {
-    if (searchParams.get("from") === "oauth") {
+    if (searchParams.get("from") === "login") {
       refreshAuth().then(() => router.replace("/", { scroll: false }));
     }
   }, [searchParams, refreshAuth, router]);
@@ -92,6 +111,10 @@ function SearchPageContent() {
   const [codeSearchLoading, setCodeSearchLoading] = useState(false);
   const [codeSearchError, setCodeSearchError] = useState<string | null>(null);
   const [addContractModalOpen, setAddContractModalOpen] = useState(false);
+  const [dailyStats, setDailyStats] = useState<DailyCollectionStats | null>(null);
+  const [dailyStatsLoading, setDailyStatsLoading] = useState(true);
+  const [scannerHealth, setScannerHealth] = useState<ScannerHealth | null>(null);
+  const [scannerHealthLoading, setScannerHealthLoading] = useState(true);
 
   const {
     results,
@@ -139,6 +162,40 @@ function SearchPageContent() {
     const pageIndex = cursorStack.length + 1;
     return `Showing ${sortedResults.length} contracts on page ${pageIndex}${totalCount != null ? ` of ${totalCount} total` : ""}.`;
   }, [codeSearchMode, codeSearchLoading, codeSearchResults.length, viewingBookmarks, bookmarks.length, hasSearched, results.length, loading, sortedResults.length, cursorStack.length, totalCount]);
+
+  const dailyTopContract = dailyStats?.top_contract ?? null;
+  const dailyTopContractName = dailyTopContract
+    ? getCanonicalContractName(dailyTopContract as Contract)
+    : null;
+  const dailyTopNetwork = dailyTopContract?.network?.toLowerCase() ?? "";
+  const dailyTopNetworkLabel =
+    NETWORK_DISPLAY_NAMES[dailyTopNetwork] ?? dailyTopContract?.network ?? "";
+  const dailyTopValue = dailyTopContract
+    ? formatFund(dailyTopContract as Contract, nativePrices)
+    : "-";
+  const dailyNetworkSummary =
+    dailyStats?.by_network
+      ?.slice(0, 3)
+      .map((n) => `${NETWORK_DISPLAY_NAMES[n.network] ?? n.network}: ${n.count}`)
+      .join(" • ") || "";
+  const scannerStatus = scannerHealthLoading
+    ? "Checking"
+    : scannerHealth?.running
+      ? `Running (${scannerHealth.running_count})`
+      : "Idle";
+  const scannerLastRun =
+    scannerHealth?.runner?.last_start?.timestamp ||
+    scannerHealth?.recent_networks?.[0]?.updated_at ||
+    null;
+  const scannerRecentNetworks =
+    scannerHealth?.recent_networks
+      ?.slice(0, 4)
+      .map((n) => `${NETWORK_DISPLAY_NAMES[n.network] ?? n.network}: ${n.get_logs_requests} RPC`)
+      .join(" • ") || "";
+  const scannerNextRun = scannerHealth?.cron?.next_run_at ?? null;
+  const scannerCronJobs = scannerHealth?.cron?.jobs?.length ?? (scannerHealth?.cron?.enabled ? 1 : 0);
+  const scannerRpcAverage = scannerHealth?.rpc?.avg_get_logs_ms ?? null;
+  const scannerErrors = scannerHealth?.rpc?.errors ?? 0;
 
   const updateURL = useCallback(() => {
     const params = new URLSearchParams();
@@ -201,6 +258,10 @@ function SearchPageContent() {
 
   const handleBookmarkToggle = useCallback(
     async (contract: { address: string; network: string }) => {
+      if (!user) {
+        router.push(loginUrl);
+        return;
+      }
       try {
         if (isBookmarked(contract.address, contract.network)) {
           await removeBookmark(contract.address, contract.network);
@@ -213,16 +274,20 @@ function SearchPageContent() {
         showToast("Failed to update bookmark.", "error");
       }
     },
-    [isBookmarked, removeBookmark, saveBookmark, showToast]
+    [isBookmarked, loginUrl, removeBookmark, router, saveBookmark, showToast, user]
   );
 
   const handleShowBookmarks = useCallback(() => {
+    if (!user) {
+      router.push(loginUrl);
+      return;
+    }
     if (bookmarks.length === 0) {
       showToast("No bookmarks saved yet.", "info");
       return;
     }
     setViewingBookmarks(true);
-  }, [bookmarks.length, showToast]);
+  }, [bookmarks.length, loginUrl, router, showToast, user]);
 
   const handleColumnSort = useCallback((col: string) => {
     setSortBy(null);
@@ -293,6 +358,61 @@ function SearchPageContent() {
   useEffect(() => {
     const t = setTimeout(() => runSearch(), 100);
     return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const now = new Date();
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 1);
+
+    setDailyStatsLoading(true);
+    getDailyCollectionStats({
+      from: Math.floor(start.getTime() / 1000),
+      to: Math.floor(end.getTime() / 1000),
+    })
+      .then((stats) => {
+        if (!cancelled) setDailyStats(stats);
+      })
+      .catch(() => {
+        if (!cancelled) setDailyStats(null);
+      })
+      .finally(() => {
+        if (!cancelled) setDailyStatsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    const loadScannerHealth = () => {
+      setScannerHealthLoading(true);
+      getScannerHealth()
+        .then((health) => {
+          if (!cancelled) setScannerHealth(health);
+        })
+        .catch(() => {
+          if (!cancelled) setScannerHealth(null);
+        })
+        .finally(() => {
+          if (!cancelled) setScannerHealthLoading(false);
+        });
+    };
+
+    loadScannerHealth();
+    interval = setInterval(loadScannerHealth, 30000);
+
+    return () => {
+      cancelled = true;
+      if (interval) clearInterval(interval);
+    };
   }, []);
 
   useEffect(() => {
@@ -395,6 +515,132 @@ function SearchPageContent() {
           </Button>
         </div>
       </div>
+      <section className="mb-4 rounded-lg border border-border bg-bg-secondary px-4 py-3">
+        <div className="grid gap-4 md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] md:items-center">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-accent/30 bg-accent/10 text-accent">
+              <CalendarDays className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <div className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                Today
+              </div>
+              <div className="mt-1 text-2xl font-semibold tabular-nums text-text-primary">
+                {dailyStatsLoading
+                  ? "..."
+                  : (dailyStats?.total ?? 0).toLocaleString("en-US")}
+              </div>
+              <div className="mt-1 text-xs text-text-muted">
+                {dailyStatsLoading
+                  ? "Loading daily collection..."
+                  : `${(dailyStats?.verified ?? 0).toLocaleString("en-US")} verified • ${(dailyStats?.networks ?? 0).toLocaleString("en-US")} networks${dailyNetworkSummary ? ` • ${dailyNetworkSummary}` : ""}`}
+              </div>
+            </div>
+          </div>
+          <div className="flex min-w-0 items-start gap-3 border-t border-border pt-3 md:border-l md:border-t-0 md:pl-4 md:pt-0">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-bg-tertiary text-text-muted">
+              <Trophy className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <div className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                Largest today
+              </div>
+              {dailyTopContract ? (
+                <>
+                  <Link
+                    href={`/contract/${dailyTopContract.network}/${dailyTopContract.address}`}
+                    className="mt-1 block truncate text-sm font-semibold text-accent hover:underline"
+                    title={dailyTopContract.address}
+                  >
+                    {dailyTopContractName || dailyTopContract.address}
+                  </Link>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-muted">
+                    <span>{dailyTopValue}</span>
+                    <span>{dailyTopNetworkLabel}</span>
+                    <span className="font-mono">
+                      {dailyTopContract.address.slice(0, 6)}...
+                      {dailyTopContract.address.slice(-4)}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div className="mt-1 text-sm text-text-muted">
+                  {dailyStatsLoading ? "Checking..." : "No contracts collected yet."}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+      <section className="mb-4 rounded-lg border border-border bg-bg-secondary px-4 py-3">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-center">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${
+              scannerHealth?.running
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                : "border-border bg-bg-tertiary text-text-muted"
+            }`}>
+              <Activity className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <div className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                Scanner health
+              </div>
+              <div className="mt-1 text-xl font-semibold text-text-primary">
+                {scannerStatus}
+              </div>
+              <div className="mt-1 text-xs text-text-muted">
+                {scannerHealthLoading
+                  ? "Loading scanner state..."
+                  : `${(scannerHealth?.db?.collected_today ?? 0).toLocaleString("en-US")} collected today • ${(scannerHealth?.db?.explorer_requests_today ?? 0).toLocaleString("en-US")} explorer calls`}
+              </div>
+            </div>
+          </div>
+          <div className="grid min-w-0 gap-3 border-t border-border pt-3 sm:grid-cols-3 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                <Clock className="h-3.5 w-3.5" />
+                Last run
+              </div>
+              <div className="mt-1 truncate text-sm font-medium text-text-primary">
+                {scannerHealthLoading ? "..." : formatTimestamp(scannerLastRun)}
+              </div>
+              <div className="mt-1 truncate text-xs text-text-muted">
+                {scannerHealth?.cron?.enabled
+                  ? `Next ${formatTimestamp(scannerNextRun)} • ${scannerCronJobs} job${scannerCronJobs === 1 ? "" : "s"}`
+                  : "Cron off"}
+              </div>
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                <RadioTower className="h-3.5 w-3.5" />
+                RPC
+              </div>
+              <div className="mt-1 text-sm font-medium text-text-primary">
+                {scannerHealthLoading
+                  ? "..."
+                  : `${(scannerHealth?.rpc?.get_logs_requests ?? 0).toLocaleString("en-US")} calls`}
+              </div>
+              <div className="mt-1 truncate text-xs text-text-muted">
+                Avg {formatDurationMs(scannerRpcAverage)} • {scannerErrors.toLocaleString("en-US")} errors
+              </div>
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                Recent networks
+              </div>
+              <div className="mt-1 truncate text-sm font-medium text-text-primary">
+                {scannerHealthLoading
+                  ? "..."
+                  : `${scannerHealth?.recent_networks?.length ?? 0} tracked`}
+              </div>
+              <div className="mt-1 truncate text-xs text-text-muted">
+                {scannerRecentNetworks || "No scanner logs yet"}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
       <AddContractModal
         open={addContractModalOpen}
         onClose={() => setAddContractModalOpen(false)}

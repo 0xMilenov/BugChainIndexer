@@ -1,0 +1,60 @@
+diff --git a/scripts/plamen_display.py b/scripts/plamen_display.py
+index d19d654..dd28e81 100644
+--- a/scripts/plamen_display.py
++++ b/scripts/plamen_display.py
+@@ -851,6 +851,11 @@ def wait_halt_choice() -> bool:
+     pause_toggle._suspended = True
+     try:
+         if sys.platform == "win32":
++            if not sys.stdin.isatty():
++                # Non-interactive runs (systemd/UI-launched wrappers) cannot
++                # answer prompts. Treat them as an explicit stop instead of
++                # spinning forever on EOF.
++                return False
+             import msvcrt
+             while True:
+                 if msvcrt.kbhit():
+@@ -861,11 +866,15 @@ def wait_halt_choice() -> bool:
+                         return False
+                 time.sleep(0.05)
+         else:
++            if not sys.stdin.isatty():
++                return False
+             import select
+             while True:
+                 ready, _, _ = select.select([sys.stdin], [], [], 0.1)
+                 if ready:
+                     ch = sys.stdin.read(1)
++                    if ch == "":
++                        return False
+                     if ch in ("\r", "\n"):
+                         return True
+                     if ch == "\x1b":
+@@ -902,6 +911,11 @@ def wait_critical_halt_choice() -> str:
+     pause_toggle._suspended = True
+     try:
+         if sys.platform == "win32":
++            if not sys.stdin.isatty():
++                # Critical failures in background audits must terminate so
++                # the wrapper/backend can mark the row failed and retry later.
++                # `/dev/null` otherwise reads as ready forever and burns CPU.
++                return "exit"
+             import msvcrt
+             while True:
+                 if msvcrt.kbhit():
+@@ -914,11 +928,15 @@ def wait_critical_halt_choice() -> str:
+                         return "exit"
+                 time.sleep(0.05)
+         else:
++            if not sys.stdin.isatty():
++                return "exit"
+             import select
+             while True:
+                 ready, _, _ = select.select([sys.stdin], [], [], 0.1)
+                 if ready:
+                     ch = sys.stdin.read(1)
++                    if ch == "":
++                        return "exit"
+                     if ch in ("\r", "\n"):
+                         return "retry"
+                     if ch in ("s", "S"):

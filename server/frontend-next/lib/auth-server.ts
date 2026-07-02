@@ -2,7 +2,9 @@ import { cookies } from "next/headers";
 import type { AuthUser } from "./auth";
 
 const getBackendUrl = () => {
-  const url = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://localhost:8000";
+  const configuredBackendUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
+  if (configuredBackendUrl) return configuredBackendUrl;
+  const url = "http://localhost:8000";
   if (process.env.NEXT_PUBLIC_APP_URL?.startsWith("http://localhost:") && url.includes(":8000")) {
     return "http://localhost:8005";
   }
@@ -51,6 +53,7 @@ export async function getServerAuth(): Promise<{
       user: {
         username: data.username,
         avatar_url: data.avatar_url ?? null,
+        role: data.role ?? null,
       },
       authConfigured,
     };

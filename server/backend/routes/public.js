@@ -6,20 +6,22 @@ const { requireAuth } = require('../middleware/auth');
 const router = Router();
 
 // Bookmarks
-router.get('/bookmarks', bookmarkCtrl.getBookmarks);
-router.post('/bookmarks', bookmarkCtrl.addBookmark);
-router.delete('/bookmarks/:network/:address', bookmarkCtrl.removeBookmark);
+router.get('/bookmarks', requireAuth, bookmarkCtrl.getBookmarks);
+router.post('/bookmarks', requireAuth, bookmarkCtrl.addBookmark);
+router.delete('/bookmarks/:network/:address', requireAuth, bookmarkCtrl.removeBookmark);
 
 // Endpoints
 router.get('/contract/:network/:address', ctrl.getContract);
 router.get('/contract/:network/:address/audit', ctrl.getContractAudit);
 router.get('/contract/:network/:address/audit/status', ctrl.getContractAuditStatus);
-router.post('/contract/:network/:address/audit/run', ctrl.triggerContractAudit);
-router.post('/contract/:network/:address/audit/cancel', ctrl.cancelContractAudit);
+router.post('/contract/:network/:address/audit/run', requireAuth, ctrl.triggerContractAudit);
+router.post('/contract/:network/:address/audit/cancel', requireAuth, ctrl.cancelContractAudit);
 router.get('/getAddressesByFilter', ctrl.getAddressesByFilter);
 router.get('/getContractCount', ctrl.getContractCount);
 router.get('/getVerifiedContractStats', ctrl.getVerifiedContractStats);
 router.get('/networkCounts', ctrl.getNetworkCounts);
+router.get('/dailyCollectionStats', ctrl.getDailyCollectionStats);
+router.get('/scannerHealth', ctrl.getScannerHealth);
 router.get('/landingStats', ctrl.getLandingStats);
 router.get('/nativePrices', ctrl.getNativePrices);
 router.post('/searchByCode', ctrl.searchByCode);

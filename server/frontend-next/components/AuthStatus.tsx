@@ -13,7 +13,7 @@ export function AuthStatus() {
       <a
         href={loginUrl}
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-bg-secondary text-text-primary hover:bg-bg-tertiary hover:text-accent hover:border-accent/40 transition flex-shrink-0 font-medium"
-        aria-label="Log in with GitHub"
+        aria-label="Log in"
       >
         <LogIn className="h-4 w-4 flex-shrink-0" />
         <span>Log in</span>

@@ -7,7 +7,7 @@ import {
   useEffect,
   useState,
 } from "react";
-import { fetchMe, fetchAuthStatus, getLoginUrl, getLogoutUrl, type AuthUser } from "@/lib/auth";
+import { fetchMe, fetchAuthStatus, getLoginUrl, getLogoutUrl, getSignupUrl, type AuthUser } from "@/lib/auth";
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -15,6 +15,7 @@ interface AuthContextValue {
   isLoading: boolean;
   error: string | null;
   loginUrl: string;
+  signupUrl: string;
   setupUrl: string;
   logoutUrl: string;
   refreshAuth: () => Promise<void>;
@@ -70,7 +71,7 @@ export function AuthProvider({
           setUser(u);
           setAuthConfigured(configured);
         }
-        // Retry once after 500ms if no user (handles OAuth redirect cookie timing)
+        // Retry once after 500ms if no user (handles fresh session cookie timing)
         if (!cancelled && !u) {
           await new Promise((r) => setTimeout(r, 500));
           const [u2, configured2] = await Promise.all([fetchMe(), fetchAuthStatus()]);
@@ -96,7 +97,7 @@ export function AuthProvider({
     };
   }, []);
 
-  // Re-fetch when user returns to tab (e.g. after OAuth redirect)
+  // Re-fetch when user returns to tab.
   useEffect(() => {
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") {
@@ -115,7 +116,8 @@ export function AuthProvider({
         isLoading,
         error,
         loginUrl: getLoginUrl(),
-        setupUrl: "/auth/setup",
+        signupUrl: getSignupUrl(),
+        setupUrl: getSignupUrl(),
         logoutUrl: getLogoutUrl(),
         refreshAuth,
       }}
@@ -134,7 +136,8 @@ export function useAuth(): AuthContextValue {
       isLoading: false,
       error: null,
       loginUrl: getLoginUrl(),
-      setupUrl: "/auth/setup",
+      signupUrl: getSignupUrl(),
+      setupUrl: getSignupUrl(),
       logoutUrl: getLogoutUrl(),
       refreshAuth: async () => {},
     };

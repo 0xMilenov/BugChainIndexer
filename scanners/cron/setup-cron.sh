@@ -22,7 +22,9 @@ echo "Then select and add one of the following lines:"
 echo
 echo "🎯 Recommended Setup (Optimized Performance & Maintenance):"
 echo "# === Blockchain Scanner (Core) ==="
-echo "0 */4 * * * $CRON_DIR/cron-unified.sh     # Unified analysis every 4 hours"
+echo "0 */4 * * * $CRON_DIR/cron-unified-fast.sh # Public-RPC fast scanner tier every 4 hours"
+echo "30 2,14 * * * $CRON_DIR/cron-unified-slow.sh # Public-RPC slow scanner tier twice daily, offset from fast tier"
+echo "15 3,15 * * * $CRON_DIR/cron-unified-celo.sh # Public-RPC Celo tiny tier twice daily"
 echo "0 */6 * * * $CRON_DIR/cron-funds.sh       # Asset updates every 6 hours"
 echo "0 */3 * * * $CRON_DIR/cron-funds-high.sh  # High-value asset updates every 3 hours"
 echo "0 2,6,10,14,18,22 * * * $CRON_DIR/cron-erc20-balances.sh  # ERC-20 every 2h at quiet times (avoid 0,4,8,12,16,20 unified)"
@@ -109,7 +111,7 @@ if [[ "$1" == "--auto-setup" ]]; then
     echo "====== Running Auto Setup... ====="
     
     # Check if existing related cron jobs exist
-    if crontab -l 2>/dev/null | grep -q "cron-unified.sh\|cron-funds.sh\|cron-deploy.sh"; then
+    if crontab -l 2>/dev/null | grep -q "cron-unified\|cron-funds.sh\|cron-deploy.sh"; then
         echo "⚠️  Existing OnchainScanner cron jobs found."
         echo "Please check and configure manually: crontab -e"
         exit 1
@@ -120,7 +122,9 @@ if [[ "$1" == "--auto-setup" ]]; then
         crontab -l 2>/dev/null
         echo "# OnchainScanner - Auto-added $(date)"
         echo "# === Blockchain Scanner (Core) ==="
-        echo "0 */4 * * * $CRON_DIR/cron-unified.sh       # Unified analysis every 4 hours"
+        echo "0 */4 * * * $CRON_DIR/cron-unified-fast.sh # Public-RPC fast scanner tier every 4 hours"
+        echo "30 2,14 * * * $CRON_DIR/cron-unified-slow.sh # Public-RPC slow scanner tier twice daily, offset from fast tier"
+        echo "15 3,15 * * * $CRON_DIR/cron-unified-celo.sh # Public-RPC Celo tiny tier twice daily"
         echo "0 */6 * * * $CRON_DIR/cron-funds.sh         # Asset updates every 6 hours"
         echo "0 */3 * * * $CRON_DIR/cron-funds-high.sh    # High-value asset updates every 3 hours"
         echo "0 2,6,10,14,18,22 * * * $CRON_DIR/cron-erc20-balances.sh  # ERC-20 every 2h at quiet times (avoid unified)"

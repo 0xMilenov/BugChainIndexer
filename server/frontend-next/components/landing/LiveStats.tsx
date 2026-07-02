@@ -36,7 +36,7 @@ export function LiveStats({ stats }: LiveStatsProps) {
       icon: ShieldAlert,
       label: "Total vulnerabilities surfaced",
       value: stats.audits.findings,
-      sub: `${stats.audits.medium} medium · ${stats.audits.high} high · ${stats.audits.critical} critical`,
+      sub: `${stats.audits.low} low · ${stats.audits.medium} medium · ${stats.audits.high} high`,
       tone: "warn" as const,
     },
   ];

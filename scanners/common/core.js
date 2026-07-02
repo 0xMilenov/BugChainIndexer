@@ -190,6 +190,162 @@ async function closeDB() {
   }
 }
 
+// Lightweight telemetry/budget pool used by helpers that run outside Scanner
+// instances (for example the shared Etherscan request wrapper).
+let telemetryPool;
+let telemetrySchemaReady = false;
+
+function getTelemetryPool() {
+  if (dbPool) return dbPool;
+  if (!telemetryPool) {
+    telemetryPool = new Pool(getScannerPoolConfig());
+  }
+  return telemetryPool;
+}
+
+async function ensureTelemetrySchema() {
+  if (telemetrySchemaReady) return;
+  const pool = getTelemetryPool();
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS scanner_cursors (
+      network TEXT NOT NULL,
+      scanner_name TEXT NOT NULL,
+      last_block BIGINT NOT NULL DEFAULT 0,
+      updated_at BIGINT NOT NULL,
+      PRIMARY KEY (network, scanner_name)
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS rpc_endpoint_health (
+      network TEXT NOT NULL,
+      rpc_url TEXT NOT NULL,
+      healthy BOOLEAN NOT NULL,
+      latency_ms INTEGER,
+      error_message TEXT,
+      last_checked BIGINT NOT NULL,
+      last_success BIGINT,
+      PRIMARY KEY (network, rpc_url)
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS explorer_api_budget (
+      network TEXT NOT NULL,
+      budget_date DATE NOT NULL,
+      request_count INTEGER NOT NULL DEFAULT 0,
+      soft_limit INTEGER NOT NULL,
+      updated_at BIGINT NOT NULL,
+      PRIMARY KEY (network, budget_date)
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS source_fetch_state (
+      address TEXT NOT NULL,
+      network TEXT NOT NULL,
+      source_provider TEXT NOT NULL,
+      last_status TEXT NOT NULL,
+      last_error TEXT,
+      last_attempted_at BIGINT NOT NULL,
+      PRIMARY KEY (address, network, source_provider)
+    )
+  `);
+  telemetrySchemaReady = true;
+}
+
+async function recordRpcEndpointHealth(network, rpcUrl, healthy, latencyMs = null, errorMessage = null) {
+  try {
+    await ensureTelemetrySchema();
+    const ts = now();
+    await getTelemetryPool().query(`
+      INSERT INTO rpc_endpoint_health (
+        network, rpc_url, healthy, latency_ms, error_message,
+        last_checked, last_success
+      ) VALUES ($1, $2, $3, $4, $5, $6, CASE WHEN $3 THEN $6 ELSE NULL END)
+      ON CONFLICT (network, rpc_url) DO UPDATE SET
+        healthy = EXCLUDED.healthy,
+        latency_ms = EXCLUDED.latency_ms,
+        error_message = EXCLUDED.error_message,
+        last_checked = EXCLUDED.last_checked,
+        last_success = COALESCE(EXCLUDED.last_success, rpc_endpoint_health.last_success)
+    `, [
+      network,
+      rpcUrl,
+      Boolean(healthy),
+      latencyMs != null ? Math.round(latencyMs) : null,
+      errorMessage ? String(errorMessage).slice(0, 500) : null,
+      ts
+    ]);
+  } catch (_) {
+    // Health telemetry should never break scanner progress.
+  }
+}
+
+async function recordSourceFetchState(scanner, address, provider, status, errorMessage = null) {
+  try {
+    const ts = now();
+    const sql = `
+      INSERT INTO source_fetch_state (
+        address, network, source_provider, last_status, last_error, last_attempted_at
+      ) VALUES ($1, $2, $3, $4, $5, $6)
+      ON CONFLICT (address, network, source_provider) DO UPDATE SET
+        last_status = EXCLUDED.last_status,
+        last_error = EXCLUDED.last_error,
+        last_attempted_at = EXCLUDED.last_attempted_at
+    `;
+    const params = [
+      normalizeAddress(address),
+      scanner?.network || 'unknown',
+      provider,
+      status,
+      errorMessage ? String(errorMessage).slice(0, 500) : null,
+      ts
+    ];
+    if (scanner?.queryDB) {
+      await scanner.queryDB(sql, params);
+    } else {
+      await ensureTelemetrySchema();
+      await getTelemetryPool().query(sql, params);
+    }
+  } catch (_) {
+    // Best-effort cache/budget metadata.
+  }
+}
+
+async function reserveExplorerBudget(network, params = {}) {
+  if (process.env.ETHERSCAN_IGNORE_BUDGET === 'true') return;
+  const softLimit = Math.max(1, Number(process.env.ETHERSCAN_DAILY_SOFT_LIMIT || 80000));
+  try {
+    await ensureTelemetrySchema();
+    const today = new Date().toISOString().slice(0, 10);
+    const ts = now();
+    const result = await getTelemetryPool().query(`
+      INSERT INTO explorer_api_budget (network, budget_date, request_count, soft_limit, updated_at)
+      VALUES ($1, $2::date, 1, $3, $4)
+      ON CONFLICT (network, budget_date) DO UPDATE SET
+        request_count = explorer_api_budget.request_count + 1,
+        soft_limit = EXCLUDED.soft_limit,
+        updated_at = EXCLUDED.updated_at
+      WHERE explorer_api_budget.request_count < explorer_api_budget.soft_limit
+      RETURNING request_count, soft_limit
+    `, [network, today, softLimit, ts]);
+
+    if (result.rows.length === 0) {
+      const current = await getTelemetryPool().query(
+        `SELECT request_count, soft_limit FROM explorer_api_budget WHERE network = $1 AND budget_date = $2::date`,
+        [network, today]
+      );
+      const row = current.rows[0] || {};
+      throw new Error(
+        `Explorer API daily soft budget exhausted for ${network}: ` +
+        `${row.request_count || softLimit}/${row.soft_limit || softLimit} ` +
+        `before ${params.module || 'unknown'}/${params.action || 'unknown'}`
+      );
+    }
+  } catch (error) {
+    if (String(error?.message || '').includes('soft budget exhausted')) throw error;
+    console.warn(`[${network}] Explorer budget tracking unavailable: ${error.message}`);
+  }
+}
+
 // ====== BASIC UTILS ======
 const now = () => Math.floor(Date.now() / 1000);
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -381,10 +537,7 @@ async function proxyViaRpc(network, params) {
   const payload = { jsonrpc: '2.0', id: 1, method: action, params: rpcParams };
   let lastError;
   for (const rpcUrl of config.rpcUrls) {
-    // Skip Alchemy URLs - they're an empty fallback for chains without Alchemy support
-    // (getAlchemyUrl returns null when the chain isn't in the map, then filter(Boolean) removes it,
-    // but we double-check here in case the config was constructed differently).
-    if (!rpcUrl || rpcUrl.includes('alchemy.com') || rpcUrl.includes(':3001/rpc/')) continue;
+    if (!rpcUrl) continue;
     try {
       const response = await axios.post(rpcUrl, payload, {
         timeout: 15000,
@@ -511,28 +664,32 @@ async function etherscanRequestInternal(network, params, maxRetries = 3) {
         params,
         timeout: timeoutMs
       });
+      const data = normalizeExplorerResponseData(response);
 
       // Handle proxy module differently (no status field)
       if (cleanedParams.module === 'proxy') {
+        if (data?.status === '0') {
+          throw new Error(getExplorerErrorMessage(data, 'Etherscan proxy API error'));
+        }
         // Proxy responses have jsonrpc format without status field
-        if (response.data?.result !== undefined) {
-          return response.data.result;
+        if (data?.result !== undefined) {
+          return data.result;
         }
         // If proxy call has an error, it will be in response.data.error
-        if (response.data?.error) {
-          throw new Error(`Proxy error: ${response.data.error.message || 'Unknown proxy error'}`);
+        if (data?.error) {
+          throw new Error(`Proxy error: ${data.error.message || 'Unknown proxy error'}`);
         }
         // No result and no error - return null
         return null;
       }
       
       // Handle successful response for non-proxy modules
-      if (response.data?.status === '1') {
-        return response.data.result;
+      if (data?.status === '1') {
+        return data.result;
       }
       
       // Handle NOTOK responses
-      const message = response.data?.message || 'Etherscan API error';
+      const message = getExplorerErrorMessage(data);
       
       // Check if this is a "no data" response (not an error, just no data available)
       const isNoDataResponse = message.includes('No data found') ||
@@ -576,7 +733,39 @@ async function etherscanRequestInternal(network, params, maxRetries = 3) {
   }
 }
 
+function normalizeExplorerResponseData(response) {
+  const data = response?.data;
+  if (typeof data !== 'string') return data;
+
+  const trimmed = data.trim();
+  if (!trimmed) {
+    throw new Error('Block explorer returned an empty response');
+  }
+
+  try {
+    return JSON.parse(trimmed);
+  } catch (_) {
+    if (trimmed.startsWith('<')) {
+      throw new Error('Block explorer returned HTML instead of JSON');
+    }
+    throw new Error(`Block explorer returned non-JSON response: ${trimmed.slice(0, 120)}`);
+  }
+}
+
+function getExplorerErrorMessage(data, fallback = 'Etherscan API error') {
+  const message = typeof data?.message === 'string' ? data.message.trim() : '';
+  const result = typeof data?.result === 'string' ? data.result.trim() : '';
+
+  if (message && result && result !== message) return `${message}: ${result}`;
+  return result || message || fallback;
+}
+
 async function etherscanRequest(network, params, maxRetries = 3) {
+  const configuredMaxRetries = Number(process.env.ETHERSCAN_MAX_RETRIES);
+  const effectiveMaxRetries = Number.isFinite(configuredMaxRetries) && configuredMaxRetries > 0
+    ? Math.floor(configuredMaxRetries)
+    : maxRetries;
+
   // Dedicated-explorer chains route module=proxy calls through JSON-RPC
   // (Blockscout-family APIs don't expose the Etherscan proxy module).
   // We MUST short-circuit before entering the Etherscan queue: the proxy
@@ -590,33 +779,13 @@ async function etherscanRequest(network, params, maxRetries = 3) {
   }
 
   const description = `${params.module}/${params.action}`;
+  await reserveExplorerBudget(network, params);
 
   return globalAPILimiter.queueEtherscanRequest(
-    () => etherscanRequestInternal(network, params, maxRetries),
+    () => etherscanRequestInternal(network, params, effectiveMaxRetries),
     network,
     description
   );
-}
-
-/**
- * Get ERC-20 token balance for a contract via Etherscan tokenbalance API.
- * @param {string} network - Network name (ethereum, arbitrum, etc.)
- * @param {string} contractAddress - Address holding the tokens
- * @param {string} tokenAddress - ERC-20 token contract address
- * @returns {Promise<string>} Balance in smallest units (wei/satoshi)
- */
-async function getTokenBalanceEtherscan(network, contractAddress, tokenAddress) {
-  const config = NETWORKS[network];
-  if (!config?.chainId) throw new Error(`No chainId for ${network}`);
-  const result = await etherscanRequest(network, {
-    module: 'account',
-    action: 'tokenbalance',
-    contractaddress: tokenAddress,
-    address: contractAddress,
-    tag: 'latest',
-    chainid: config.chainId
-  });
-  return String(result ?? '0');
 }
 
 function parseHexToInt(hexValue) {
@@ -659,7 +828,9 @@ function isTransientEtherscanError(error) {
 }
 
 async function callEtherscanWithBackoff(scanner, params, options = {}) {
-  const maxAttempts = options.maxAttempts || 4;
+  const configuredMaxAttempts = Number(process.env.ETHERSCAN_BACKOFF_MAX_ATTEMPTS);
+  const maxAttempts = options.maxAttempts
+    || (Number.isFinite(configuredMaxAttempts) && configuredMaxAttempts > 0 ? Math.floor(configuredMaxAttempts) : 4);
   const baseDelayMs = options.baseDelayMs || 500;
   let lastError;
 
@@ -679,23 +850,121 @@ async function callEtherscanWithBackoff(scanner, params, options = {}) {
   throw lastError;
 }
 
+function buildSourceCodeFromSourcifySources(sources) {
+  if (!sources || typeof sources !== 'object') return null;
+  const normalizedSources = {};
+  for (const [filePath, source] of Object.entries(sources)) {
+    const content = typeof source === 'string' ? source : source?.content;
+    if (typeof content === 'string' && content.length > 0) {
+      normalizedSources[filePath] = { content };
+    }
+  }
+  if (Object.keys(normalizedSources).length === 0) return null;
+  return JSON.stringify({ sources: normalizedSources });
+}
+
+function sourcifyContractToSourceData(contract) {
+  if (!contract || typeof contract !== 'object') return null;
+  const compilation = contract.compilation || {};
+  const stdJsonInput = contract.stdJsonInput || {};
+  const settings = stdJsonInput.settings || compilation.compilerSettings || {};
+  const optimizer = settings.optimizer || {};
+  const fullyQualified = compilation.fullyQualifiedName || '';
+  const [fileNameFromFqn, nameFromFqn] = fullyQualified.includes(':')
+    ? fullyQualified.split(':')
+    : [null, null];
+  const sourceKeys = Object.keys(contract.sources || stdJsonInput.sources || {});
+  const contractName = compilation.name || nameFromFqn || null;
+  const sourceCode = buildSourceCodeFromSourcifySources(contract.sources || stdJsonInput.sources);
+
+  if (!sourceCode || !contractName) return null;
+
+  return {
+    SourceCode: sourceCode,
+    ABI: contract.abi ? JSON.stringify(contract.abi) : null,
+    ContractName: contractName,
+    CompilerVersion: compilation.compilerVersion || compilation.compiler?.version || null,
+    OptimizationUsed: optimizer.enabled ? '1' : '0',
+    Runs: optimizer.runs != null ? String(optimizer.runs) : null,
+    ConstructorArguments: null,
+    EVMVersion: settings.evmVersion || null,
+    Library: null,
+    LicenseType: contract.metadata?.settings?.metadata?.license || null,
+    Proxy: contract.proxyResolution?.isProxy ? '1' : '0',
+    Implementation: contract.proxyResolution?.implementationAddress || '',
+    SwarmSource: null,
+    CompilerType: stdJsonInput.language || compilation.language || 'Solidity',
+    ContractFileName: fileNameFromFqn || sourceKeys[0] || null,
+    _sourceProvider: 'sourcify'
+  };
+}
+
+async function getSourceCodeFromSourcify(scanner, address) {
+  const config = NETWORKS[scanner?.network];
+  if (!config?.chainId || config.chainId <= 0) return null;
+
+  let checksumAddress;
+  try {
+    checksumAddress = ethers.getAddress(address);
+  } catch (_) {
+    return null;
+  }
+
+  const baseUrl = (process.env.SOURCIFY_API_BASE_URL || 'https://sourcify.dev/server').replace(/\/+$/, '');
+  const url = `${baseUrl}/v2/contract/${config.chainId}/${checksumAddress}?fields=all`;
+
+  try {
+    const response = await axios.get(url, {
+      timeout: Number(process.env.SOURCIFY_TIMEOUT_MS || 15000),
+      validateStatus: (status) => status < 500
+    });
+    if (response.status === 404 || !response.data) {
+      await recordSourceFetchState(scanner, address, 'sourcify', 'miss');
+      return null;
+    }
+    const sourceData = sourcifyContractToSourceData(response.data);
+    if (!sourceData) {
+      await recordSourceFetchState(scanner, address, 'sourcify', 'empty');
+      return null;
+    }
+    await recordSourceFetchState(scanner, address, 'sourcify', 'hit');
+    return sourceData;
+  } catch (error) {
+    await recordSourceFetchState(scanner, address, 'sourcify', 'error', error.message);
+    return null;
+  }
+}
+
 async function getSourceCodeCached(scanner, address) {
   const normalizedAddress = normalizeNullableAddress(address);
   if (!normalizedAddress) return null;
 
-  if (etherscanSourceCodeCache.has(normalizedAddress)) {
-    return etherscanSourceCodeCache.get(normalizedAddress);
+  const cacheKey = `${scanner?.network || 'unknown'}:${normalizedAddress}`;
+  if (etherscanSourceCodeCache.has(cacheKey)) {
+    return etherscanSourceCodeCache.get(cacheKey);
   }
 
-  const sourceResult = await callEtherscanWithBackoff(scanner, {
-    module: 'contract',
-    action: 'getsourcecode',
-    address: normalizedAddress
-  });
+  const sourcifySource = await getSourceCodeFromSourcify(scanner, normalizedAddress);
+  if (sourcifySource) {
+    etherscanSourceCodeCache.set(cacheKey, sourcifySource);
+    return sourcifySource;
+  }
 
-  const sourceData = Array.isArray(sourceResult) && sourceResult.length > 0 ? sourceResult[0] : null;
-  etherscanSourceCodeCache.set(normalizedAddress, sourceData);
-  return sourceData;
+  try {
+    const sourceResult = await callEtherscanWithBackoff(scanner, {
+      module: 'contract',
+      action: 'getsourcecode',
+      address: normalizedAddress
+    });
+
+    const sourceData = Array.isArray(sourceResult) && sourceResult.length > 0 ? sourceResult[0] : null;
+    await recordSourceFetchState(scanner, normalizedAddress, 'etherscan', sourceData ? 'hit' : 'miss');
+    etherscanSourceCodeCache.set(cacheKey, sourceData);
+    return sourceData;
+  } catch (error) {
+    await recordSourceFetchState(scanner, normalizedAddress, 'etherscan', 'error', error.message);
+    throw error;
+  }
 }
 
 /**
@@ -877,7 +1146,7 @@ async function resolveDeploymentData(scanner, address) {
   }
 }
 
-async function getContractEtherscanEnrichment(scanner, address) {
+async function getContractEtherscanEnrichment(scanner, address, options = {}) {
   const normalizedAddress = normalizeNullableAddress(address);
   const fetchedAt = new Date().toISOString();
   if (!normalizedAddress) {
@@ -914,7 +1183,16 @@ async function getContractEtherscanEnrichment(scanner, address) {
   // Verification must only come from ContractName in getsourcecode.
   const verified = Boolean(proxyContractName);
   const canonicalName = (isProxy && implementationContractName) || proxyContractName || null;
-  const deploymentData = await resolveDeploymentData(scanner, normalizedAddress);
+  const deploymentData = options.includeDeploymentData === false
+    ? {
+        deployTxHash: null,
+        deployerAddress: null,
+        deployBlockNumber: null,
+        deployedAtTimestamp: null,
+        deployedAt: null,
+        confidence: 'source-only'
+      }
+    : await resolveDeploymentData(scanner, normalizedAddress);
 
   // For storage: use implementation source for proxies, otherwise direct contract source
   const sourceDataForStorage = isProxy && implSourceData ? implSourceData : sourceData;
@@ -978,9 +1256,8 @@ class HttpRpcClient {
     
     // Log primary RPC on initialization (commented for production)
     // const primaryRpc = this.config.rpcUrls[0];
-    // const isAlchemy = primaryRpc.includes('alchemy.com');
     // console.log(`[${this.network}] 📡 RPC Client initialized with ${this.config.rpcUrls.length} endpoints`);
-    // console.log(`[${this.network}] 🥇 Primary RPC: ${primaryRpc.split('/')[2]}${isAlchemy ? ' (Alchemy)' : ''}`);
+    // console.log(`[${this.network}] Primary RPC: ${primaryRpc.split('/')[2]}`);
   }
 
   markRpcAsFailed(rpcUrl) {
@@ -1092,22 +1369,19 @@ class HttpRpcClient {
         }
       }
       
-      // Separate slow and non-slow RPCs, excluding Alchemy
+      // Prefer fresh endpoints, but keep temporarily slow endpoints as fallbacks.
       const slowRpcList = [];
       const fastRpcList = [];
       
       for (const rpc of availableRpcs) {
-        // Skip Alchemy URLs as they're handled separately
-        if (rpc.includes('alchemy.com') || rpc.includes(':3001/rpc/')) {
-          continue;
-        } else if (this.isRpcSlow(rpc)) {
+        if (this.isRpcSlow(rpc)) {
           slowRpcList.push(rpc);
         } else {
           fastRpcList.push(rpc);
         }
       }
       
-      // Shuffle non-Alchemy fast RPCs for load balancing
+      // Shuffle fast RPCs for load balancing
       for (let i = fastRpcList.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [fastRpcList[i], fastRpcList[j]] = [fastRpcList[j], fastRpcList[i]];
@@ -1119,11 +1393,10 @@ class HttpRpcClient {
         [slowRpcList[i], slowRpcList[j]] = [slowRpcList[j], slowRpcList[i]];
       }
       
-      // Use non-Alchemy RPCs only (Alchemy handled separately)
       availableRpcs = [...fastRpcList, ...slowRpcList];
       
       if (availableRpcs.length === 0) {
-        throw new Error(`No non-Alchemy RPC endpoints available for ${this.network}`);
+        throw new Error(`No RPC endpoints available for ${this.network}`);
       }
       
       for (let i = 0; i < availableRpcs.length; i++) {
@@ -1133,10 +1406,8 @@ class HttpRpcClient {
         // Comment out in production to reduce log noise
         /*
         if (i === 0 && globalRetryCount === 0) {
-          const isAlchemy = rpcUrl.includes('alchemy.com') || rpcUrl.includes(':3001/rpc/');
-          const isProxy = rpcUrl.includes(':3001/rpc/');
           const rpcHost = rpcUrl.split('/')[2];
-          console.log(`[${this.network}] 🎯 Selected RPC: ${rpcHost}${isAlchemy ? (isProxy ? ' (Alchemy Proxy)' : ' (Alchemy)') : ''}`);
+          console.log(`[${this.network}] Selected RPC: ${rpcHost}`);
         } else if (i > 0) {
           console.log(`[${this.network}] 🔄 Switching to RPC #${i + 1}/${availableRpcs.length}: ${rpcUrl.split('/')[2]}`);
         } else if (globalRetryCount > 0) {
@@ -1153,6 +1424,7 @@ class HttpRpcClient {
           id: this.requestId
         };
 
+        const requestStart = Date.now();
         try {
           // Create promise with timeout
           const axiosPromise = axios.post(rpcUrl, payload, {
@@ -1173,12 +1445,6 @@ class HttpRpcClient {
           
           const response = await Promise.race([axiosPromise, timeoutPromise]);
           
-          // Special handling for Alchemy proxy response format
-          if (rpcUrl.includes(':3001/rpc/')) {
-            // Alchemy proxy returns the result directly in the expected format
-            // No special handling needed as proxy returns standard JSON-RPC format
-          }
-
           if (response.data.error) {
             throw new Error(`RPC Error: ${response.data.error.message} (code: ${response.data.error.code})`);
           }
@@ -1189,10 +1455,12 @@ class HttpRpcClient {
 
           const currentIndex = this.config.rpcUrls.indexOf(rpcUrl);
           rpcRotation.set(this.network, (currentIndex + 1) % this.config.rpcUrls.length);
+          recordRpcEndpointHealth(this.network, rpcUrl, true, Date.now() - requestStart).catch(() => {});
           
           return response.data.result;
         } catch (error) {
           lastError = error;
+          recordRpcEndpointHealth(this.network, rpcUrl, false, null, error.message).catch(() => {});
           
           // Check for timeout errors
           const isTimeoutError = error.code === 'ECONNABORTED' ||
@@ -1343,11 +1611,24 @@ class HttpRpcClient {
 }
 
 function createRpcClient(network) {
-  // Use Alchemy RPC for all RPC calls including getLogs
-  const alchemyClient = new AlchemyRPCClient(network);
+  const publicOnly = process.env.PUBLIC_RPC_ONLY !== 'false';
+  const useAlchemy = process.env.USE_ALCHEMY_RPC === 'true';
+
+  if (useAlchemy) {
+    if (publicOnly) {
+      throw new Error('USE_ALCHEMY_RPC requires PUBLIC_RPC_ONLY=false');
+    }
+    const alchemyClient = new AlchemyRPCClient(network);
+    return {
+      logsClient: alchemyClient,
+      alchemyClient,
+    };
+  }
+
+  const publicClient = new HttpRpcClient(network);
   return {
-    logsClient: alchemyClient,    // Same as alchemyClient (for backward compatibility)
-    alchemyClient: alchemyClient  // Primary client for all RPC calls
+    logsClient: publicClient,
+    alchemyClient: publicClient,
   };
 }
 
@@ -1586,11 +1867,79 @@ class ContractCall {
     return currentChunkSize;
   }
 
+  async fetchNativeBalancesDirect(network, addresses) {
+    if (!addresses?.length) return [];
+    const rpc = this.getAlchemyClient(network);
+    console.log(`[${network}][NativeBalance] Using direct eth_getBalance fallback for ${addresses.length} addresses`);
+
+    return this.chunkOperation(addresses, async (chunk) => {
+      const balances = await Promise.all(chunk.map(async (addr) => {
+        try {
+          const result = await rpc.getBalance(ethers.getAddress(addr));
+          return BigInt(result || '0x0').toString();
+        } catch (error) {
+          console.warn(`[${network}][NativeBalance] eth_getBalance failed for ${addr}: ${error.message}`);
+          return '0';
+        }
+      }));
+      return balances;
+    }, 50, 100);
+  }
+
+  async fetchErc20BalancesDirect(network, holders, tokens) {
+    if (!holders?.length || !tokens?.length) return new Map();
+    const rpc = this.getAlchemyClient(network);
+    const iface = new ethers.Interface(ERC20_ABI);
+    const checksumTokens = tokens.map(addr => ethers.getAddress(addr));
+    const results = new Map();
+
+    console.log(`[${network}][ERC20] Using direct ERC-20 balanceOf fallback for ${holders.length} holders × ${tokens.length} tokens`);
+
+    const entries = await this.chunkOperation(holders, async (holderChunk) => {
+      const chunkEntries = [];
+      for (const holder of holderChunk) {
+        const holderMap = new Map();
+        let checksumHolder;
+        try {
+          checksumHolder = ethers.getAddress(holder);
+        } catch (_) {
+          chunkEntries.push([holder, holderMap]);
+          continue;
+        }
+
+        const balances = await Promise.all(checksumTokens.map(async (token) => {
+          try {
+            const calldata = iface.encodeFunctionData('balanceOf', [checksumHolder]);
+            const result = await rpc.call({ to: token, data: calldata });
+            const decoded = iface.decodeFunctionResult('balanceOf', result);
+            return decoded[0].toString();
+          } catch (_) {
+            return '0';
+          }
+        }));
+
+        for (let i = 0; i < checksumTokens.length; i++) {
+          holderMap.set(tokens[i], { balance: balances[i] || '0' });
+        }
+        chunkEntries.push([holder, holderMap]);
+      }
+      return chunkEntries;
+    }, 50, 100);
+
+    for (const entry of entries) {
+      if (Array.isArray(entry) && entry.length === 2) {
+        results.set(entry[0], entry[1]);
+      }
+    }
+
+    return results;
+  }
+
   async isContracts(network, addresses) {
     if (!addresses?.length) return [];
 
     const validator = this.getValidatorContract(network);
-    const rpc = this.getAlchemyClient(network);  // Use Alchemy for contract calls
+    const rpc = this.getAlchemyClient(network);  // Legacy name; public RPC by default
 
     if (!validator) {
       return this.chunkOperation(addresses, async (chunk) => {
@@ -1660,7 +2009,7 @@ class ContractCall {
 
     const balanceHelper = this.getBalanceContract(network);
     if (!balanceHelper) {
-      throw new Error(`BalanceHelper contract not configured for network: ${network}`);
+      return this.fetchNativeBalancesDirect(network, addresses);
     }
 
     const rpc = this.getAlchemyClient(network);
@@ -1677,38 +2026,44 @@ class ContractCall {
       confidence: limits.confidence ? `${(limits.confidence * 100).toFixed(0)}%` : 'N/A'
     });
 
-    const results = await this.chunkOperation(addresses, async (chunk) => {
-      const startTime = Date.now();
-      const chunkSize = chunk.length;
+    let results;
+    try {
+      results = await this.chunkOperation(addresses, async (chunk) => {
+        const startTime = Date.now();
+        const chunkSize = chunk.length;
 
-      try {
-        const iface = new ethers.Interface(balanceHelper.abi);
-        const checksumChunk = chunk.map(addr => ethers.getAddress(addr));
-        const calldata = iface.encodeFunctionData('getNativeBalance', [checksumChunk]);
+        try {
+          const iface = new ethers.Interface(balanceHelper.abi);
+          const checksumChunk = chunk.map(addr => ethers.getAddress(addr));
+          const calldata = iface.encodeFunctionData('getNativeBalance', [checksumChunk]);
 
-        const result = await rpc.call({
-          to: ethers.getAddress(balanceHelper.address),
-          data: calldata
-        });
+          const result = await rpc.call({
+            to: ethers.getAddress(balanceHelper.address),
+            data: calldata
+          });
 
-        const decoded = iface.decodeFunctionResult('getNativeBalance', result);
-        const balances = decoded[0];
+          const decoded = iface.decodeFunctionResult('getNativeBalance', result);
+          const balances = decoded[0];
 
-        // Validate result length matches input
-        if (balances.length !== chunk.length) {
-          throw new Error(`Balance result mismatch: requested ${chunk.length} addresses, got ${balances.length} results`);
+          // Validate result length matches input
+          if (balances.length !== chunk.length) {
+            throw new Error(`Balance result mismatch: requested ${chunk.length} addresses, got ${balances.length} results`);
+          }
+
+          const duration = Date.now() - startTime;
+          optimizer.recordChunkExecution(chunkSize, duration, true, false);
+          return balances;
+        } catch (error) {
+          const duration = Date.now() - startTime;
+          const isSocketError = error.message?.includes('socket hang up');
+          optimizer.recordChunkExecution(chunkSize, duration, false, isSocketError);
+          throw error;
         }
-
-        const duration = Date.now() - startTime;
-        optimizer.recordChunkExecution(chunkSize, duration, true, false);
-        return balances;
-      } catch (error) {
-        const duration = Date.now() - startTime;
-        const isSocketError = error.message?.includes('socket hang up');
-        optimizer.recordChunkExecution(chunkSize, duration, false, isSocketError);
-        throw error;
-      }
-    }, limits.initial, limits.max);
+      }, limits.initial, limits.max);
+    } catch (error) {
+      console.warn(`[${network}][NativeBalance] BalanceHelper failed, falling back to eth_getBalance: ${error.message}`);
+      return this.fetchNativeBalancesDirect(network, addresses);
+    }
 
     // Save session stats asynchronously
     const sessionStats = optimizer.getSessionStats();
@@ -1726,7 +2081,7 @@ class ContractCall {
 
     const balanceHelper = this.getBalanceContract(network);
     if (!balanceHelper) {
-      throw new Error(`BalanceHelper contract not configured for network: ${network}`);
+      return this.fetchErc20BalancesDirect(network, holders, tokens);
     }
 
     const rpc = this.getAlchemyClient(network);
@@ -1746,116 +2101,119 @@ class ContractCall {
 
     // getTokenBalance: ~300 gas per holder per token
     // Dynamic chunk sizing based on historical performance
-    const holderChunks = await this.chunkOperation(holders, async (holderChunk) => {
-      const startTime = Date.now();
-      const chunkSize = holderChunk.length;
-      let success = false;
-      let isSocketError = false;
+    let holderChunks;
+    try {
+      holderChunks = await this.chunkOperation(holders, async (holderChunk) => {
+        const startTime = Date.now();
+        const chunkSize = holderChunk.length;
+        let isSocketError = false;
 
-      try {
-        const checksumHolders = holderChunk.map(addr => ethers.getAddress(addr));
-        const expectedLength = holderChunk.length * tokens.length;
+        try {
+          const checksumHolders = holderChunk.map(addr => ethers.getAddress(addr));
+          const expectedLength = holderChunk.length * tokens.length;
 
-        let balances;
-        let retryCount = 0;
-        const maxRetries = 3;
+          let balances;
+          let retryCount = 0;
+          const maxRetries = 3;
 
-        // Retry loop for partial results
-        while (retryCount <= maxRetries) {
-          const calldata = iface.encodeFunctionData('getTokenBalance', [checksumHolders, checksumTokens]);
-          const result = await rpc.call({
-            to: ethers.getAddress(balanceHelper.address),
-            data: calldata
-          });
+          // Retry loop for partial results
+          while (retryCount <= maxRetries) {
+            const calldata = iface.encodeFunctionData('getTokenBalance', [checksumHolders, checksumTokens]);
+            const result = await rpc.call({
+              to: ethers.getAddress(balanceHelper.address),
+              data: calldata
+            });
 
-          const decoded = iface.decodeFunctionResult('getTokenBalance', result);
-          balances = decoded[0];
+            const decoded = iface.decodeFunctionResult('getTokenBalance', result);
+            balances = decoded[0];
 
-          // Check if we got complete results
-          if (balances.length === expectedLength) {
-            break; // Success, exit retry loop
+            // Check if we got complete results
+            if (balances.length === expectedLength) {
+              break; // Success, exit retry loop
+            }
+
+            // Partial result detected
+            retryCount++;
+            if (retryCount <= maxRetries) {
+              console.warn(`[${network}][ERC20-RETRY] Partial result detected (attempt ${retryCount}/${maxRetries}): expected ${expectedLength}, got ${balances.length}. Retrying...`);
+              await new Promise(resolve => setTimeout(resolve, 500 * retryCount)); // Exponential backoff
+            }
           }
 
-          // Partial result detected
-          retryCount++;
-          if (retryCount <= maxRetries) {
-            console.warn(`[${network}][ERC20-RETRY] Partial result detected (attempt ${retryCount}/${maxRetries}): expected ${expectedLength}, got ${balances.length}. Retrying...`);
-            await new Promise(resolve => setTimeout(resolve, 500 * retryCount)); // Exponential backoff
+          // Validate result length after retries
+
+          // DEBUG: Log balance values for analysis
+          console.log(`[${network}][ERC20-DEBUG] Chunk Response:`);
+          console.log(`  - Holders: ${holderChunk.length}, Tokens: ${tokens.length}`);
+          console.log(`  - Expected balances: ${expectedLength}, Actual: ${balances.length}`);
+          console.log(`  - First 5 holders: ${holderChunk.slice(0, 5).join(', ')}`);
+          console.log(`  - First 5 tokens: ${tokens.slice(0, 5).join(', ')}`);
+
+          // Log first 10 balance values with their indices
+          console.log(`  - First 10 balance values:`);
+          for (let i = 0; i < Math.min(10, balances.length); i++) {
+            const balStr = balances[i].toString();
+            console.log(`    [${i}]: ${balStr} (${balStr.length} digits)`);
           }
-        }
 
-        // Validate result length after retries
-
-        // DEBUG: Log balance values for analysis
-        console.log(`[${network}][ERC20-DEBUG] Chunk Response:`);
-        console.log(`  - Holders: ${holderChunk.length}, Tokens: ${tokens.length}`);
-        console.log(`  - Expected balances: ${expectedLength}, Actual: ${balances.length}`);
-        console.log(`  - First 5 holders: ${holderChunk.slice(0, 5).join(', ')}`);
-        console.log(`  - First 5 tokens: ${tokens.slice(0, 5).join(', ')}`);
-
-        // Log first 10 balance values with their indices
-        console.log(`  - First 10 balance values:`);
-        for (let i = 0; i < Math.min(10, balances.length); i++) {
-          const balStr = balances[i].toString();
-          console.log(`    [${i}]: ${balStr} (${balStr.length} digits)`);
-        }
-
-        // Check for abnormally large balances
-        const abnormalBalances = balances.filter(b => b.toString().length > 30);
-        if (abnormalBalances.length > 0) {
-          console.warn(`[${network}][ERC20-DEBUG] ⚠️  Found ${abnormalBalances.length} abnormally large balances (>30 digits)`);
-          abnormalBalances.slice(0, 5).forEach((b, idx) => {
-            console.warn(`    Abnormal[${idx}]: ${b.toString()}`);
-          });
-        }
-
-        if (balances.length !== expectedLength) {
-          console.error(`[${network}] ERC20 Balance Mismatch Debug:`);
-          console.error(`  - Holders count: ${holderChunk.length}`);
-          console.error(`  - Tokens count: ${tokens.length}`);
-          console.error(`  - Expected length: ${expectedLength}`);
-          console.error(`  - Actual length: ${balances.length}`);
-          console.error(`  - Difference: ${balances.length - expectedLength}`);
-          console.error(`  - First 3 holders: ${holderChunk.slice(0, 3).join(', ')}`);
-          console.error(`  - First 3 tokens: ${tokens.slice(0, 3).join(', ')}`);
-          console.error(`  - BalanceHelper: ${balanceHelper.address}`);
-
-          throw new Error(`ERC20 balance result mismatch: expected ${expectedLength} (${holderChunk.length} holders × ${tokens.length} tokens), got ${balances.length} results`);
-        }
-
-        // Parse flat array to Map entries
-        const chunkResults = [];
-        const tokenLen = tokens.length;
-
-        for (let i = 0; i < holderChunk.length; i++) {
-          const holder = holderChunk[i];
-          const holderMap = new Map();
-          for (let j = 0; j < tokenLen; j++) {
-            const balance = balances[i * tokenLen + j];
-            holderMap.set(tokens[j], {
-              balance: balance.toString()
-              // decimals removed - fetched from metadata cache in FundUpdater
+          // Check for abnormally large balances
+          const abnormalBalances = balances.filter(b => b.toString().length > 30);
+          if (abnormalBalances.length > 0) {
+            console.warn(`[${network}][ERC20-DEBUG] ⚠️  Found ${abnormalBalances.length} abnormally large balances (>30 digits)`);
+            abnormalBalances.slice(0, 5).forEach((b, idx) => {
+              console.warn(`    Abnormal[${idx}]: ${b.toString()}`);
             });
           }
-          chunkResults.push([holder, holderMap]);
+
+          if (balances.length !== expectedLength) {
+            console.error(`[${network}] ERC20 Balance Mismatch Debug:`);
+            console.error(`  - Holders count: ${holderChunk.length}`);
+            console.error(`  - Tokens count: ${tokens.length}`);
+            console.error(`  - Expected length: ${expectedLength}`);
+            console.error(`  - Actual length: ${balances.length}`);
+            console.error(`  - Difference: ${balances.length - expectedLength}`);
+            console.error(`  - First 3 holders: ${holderChunk.slice(0, 3).join(', ')}`);
+            console.error(`  - First 3 tokens: ${tokens.slice(0, 3).join(', ')}`);
+            console.error(`  - BalanceHelper: ${balanceHelper.address}`);
+
+            throw new Error(`ERC20 balance result mismatch: expected ${expectedLength} (${holderChunk.length} holders × ${tokens.length} tokens), got ${balances.length} results`);
+          }
+
+          // Parse flat array to Map entries
+          const chunkResults = [];
+          const tokenLen = tokens.length;
+
+          for (let i = 0; i < holderChunk.length; i++) {
+            const holder = holderChunk[i];
+            const holderMap = new Map();
+            for (let j = 0; j < tokenLen; j++) {
+              const balance = balances[i * tokenLen + j];
+              holderMap.set(tokens[j], {
+                balance: balance.toString()
+                // decimals removed - fetched from metadata cache in FundUpdater
+              });
+            }
+            chunkResults.push([holder, holderMap]);
+          }
+
+          const duration = Date.now() - startTime;
+          optimizer.recordChunkExecution(chunkSize, duration, true, false);
+
+          return chunkResults;
+        } catch (error) {
+          const duration = Date.now() - startTime;
+          isSocketError = error.message?.includes('socket hang up') ||
+                         error.message?.includes('ECONNRESET') ||
+                         error.message?.includes('timeout');
+
+          optimizer.recordChunkExecution(chunkSize, duration, false, isSocketError);
+          throw error;
         }
-
-        success = true;
-        const duration = Date.now() - startTime;
-        optimizer.recordChunkExecution(chunkSize, duration, true, false);
-
-        return chunkResults;
-
-      } catch (error) {
-        const duration = Date.now() - startTime;
-        isSocketError = error.message?.includes('socket hang up') ||
-                       error.message?.includes('ECONNRESET') ||
-                       error.message?.includes('timeout');
-
-        optimizer.recordChunkExecution(chunkSize, duration, false, isSocketError);
-        throw error;
-      }
-    }, limits.initial, limits.max);
+      }, limits.initial, limits.max);
+    } catch (error) {
+      console.warn(`[${network}][ERC20] BalanceHelper failed, falling back to direct balanceOf calls: ${error.message}`);
+      return this.fetchErc20BalancesDirect(network, holders, tokens);
+    }
 
     // Merge all entries into results Map
     // Note: holderChunks is a flat array of [holder, holderMap] tuples
@@ -1887,7 +2245,7 @@ class ContractCall {
     if (!addresses?.length) return [];
 
     const validator = this.getValidatorContract(network);
-    const rpc = this.getAlchemyClient(network);  // Use Alchemy for contract calls
+    const rpc = this.getAlchemyClient(network);  // Legacy name; public RPC by default
 
     if (!validator) {
       return this.chunkOperation(addresses, async (chunk) => {
@@ -2544,7 +2902,6 @@ module.exports = {
   initEtherscan,
   etherscanRequest,
   etherscanCall: etherscanRequest,  // Alias for compatibility
-  getTokenBalanceEtherscan,
   
   // HTTP RPC
   HttpRpcClient,
