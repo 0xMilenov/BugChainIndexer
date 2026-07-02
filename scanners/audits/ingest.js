@@ -465,7 +465,9 @@ async function ensureAuditSchema(client) {
   await client.query(`
     ALTER TABLE contract_audits
       ADD COLUMN IF NOT EXISTS low_count INTEGER NOT NULL DEFAULT 0,
-      ADD COLUMN IF NOT EXISTS informational_count INTEGER NOT NULL DEFAULT 0
+      ADD COLUMN IF NOT EXISTS informational_count INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS cost_usd NUMERIC(12,4),
+      ADD COLUMN IF NOT EXISTS total_tokens BIGINT
   `);
   await client.query(`
     ALTER TABLE contract_audit_findings
@@ -497,6 +499,41 @@ async function ensureAuditSchema(client) {
   `);
 }
 
+// Sum the Plamen v2 per-phase cost ledger (_v2_cost_ledger.md) that sits next
+// to the report, so each audit records what it actually cost to produce. Best
+// effort: any parse failure returns nulls and never blocks ingestion.
+// Ledger row shape: | Phase | Attempt | Model | Dur(s) | Cost(USD) | Turns | InTok | OutTok | ...
+function parseCostLedger(reportPath) {
+  const empty = { costUsd: null, totalTokens: null };
+  try {
+    if (!reportPath) return empty;
+    const ledgerPath = path.join(path.dirname(reportPath), '.scratchpad', '_v2_cost_ledger.md');
+    if (!fs.existsSync(ledgerPath)) return empty;
+    const text = fs.readFileSync(ledgerPath, 'utf8');
+    let cost = 0, tokens = 0, rows = 0;
+    for (const line of text.split('\n')) {
+      if (!line.trim().startsWith('|')) continue;
+      const c = line.split('|').map((s) => s.trim());
+      // c[1]=Phase, c[5]=Cost(USD), c[7]=InTok, c[8]=OutTok
+      const phase = c[1] || '';
+      if (!phase || phase.toLowerCase() === 'phase' || phase.startsWith('---')) continue;
+      const costCell = parseFloat(c[5]);
+      if (!Number.isFinite(costCell)) continue;
+      cost += costCell;
+      const inTok = parseInt(c[7], 10);
+      const outTok = parseInt(c[8], 10);
+      if (Number.isFinite(inTok)) tokens += inTok;
+      if (Number.isFinite(outTok)) tokens += outTok;
+      rows++;
+    }
+    if (rows === 0) return empty;
+    return { costUsd: Number(cost.toFixed(4)), totalTokens: tokens };
+  } catch (err) {
+    console.error(`[ingest] cost ledger parse skipped: ${err?.message || err}`);
+    return empty;
+  }
+}
+
 async function upsertAudit(client, args, parsed, rawReport) {
   const now = Date.now();
   const counts = parsed.findings.reduce((acc, f) => {
@@ -506,14 +543,16 @@ async function upsertAudit(client, args, parsed, rawReport) {
 
   const startedAt = args.startedAt || now;
   const durationMs = now - startedAt;
+  const { costUsd, totalTokens } = parseCostLedger(args.report);
 
   const upsert = await client.query(
     `INSERT INTO contract_audits (
         address, network, audit_tool, audit_mode, tool_version,
         status, started_at, completed_at, duration_ms,
         raw_report, report_path,
-        critical_count, high_count, medium_count, low_count, informational_count
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+        critical_count, high_count, medium_count, low_count, informational_count,
+        cost_usd, total_tokens
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
      ON CONFLICT (address, network, audit_tool) DO UPDATE SET
         audit_mode = EXCLUDED.audit_mode,
         tool_version = EXCLUDED.tool_version,
@@ -528,13 +567,16 @@ async function upsertAudit(client, args, parsed, rawReport) {
         medium_count = EXCLUDED.medium_count,
         low_count = EXCLUDED.low_count,
         informational_count = EXCLUDED.informational_count,
+        cost_usd = COALESCE(EXCLUDED.cost_usd, contract_audits.cost_usd),
+        total_tokens = COALESCE(EXCLUDED.total_tokens, contract_audits.total_tokens),
         error_message = NULL
      RETURNING id`,
     [
       args.address, args.network, args.tool, args.mode, args.toolVersion,
       args.status, startedAt, now, durationMs,
       rawReport, args.report,
-      counts.critical, counts.high, counts.medium, counts.low, counts.informational
+      counts.critical, counts.high, counts.medium, counts.low, counts.informational,
+      costUsd, totalTokens
     ]
   );
   const auditId = upsert.rows[0].id;
