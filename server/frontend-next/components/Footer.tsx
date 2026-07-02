@@ -8,7 +8,7 @@ export function Footer() {
       <div className="mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-center py-4">
           <p className="text-xs text-text-muted">
-            &copy; {new Date().getFullYear()} VISUALISA
+            &copy; {new Date().getFullYear()} AAA · Autonomous Audit Agent
           </p>
         </div>
       </div>

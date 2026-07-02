@@ -30,7 +30,7 @@ export function LandingNav() {
             <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
           </span>
           <span className="font-semibold tracking-[0.18em] text-text-primary">
-            VISUALISA
+            AAA
           </span>
         </Link>
 
@@ -39,10 +39,13 @@ export function LandingNav() {
             Coverage
           </a>
           <a href="#how" className="text-text-muted transition hover:text-text-primary">
-            How it works
+            How I work
           </a>
           <a href="#features" className="text-text-muted transition hover:text-text-primary">
-            Features
+            Capabilities
+          </a>
+          <a href="#aaa" className="text-text-muted transition hover:text-text-primary">
+            $AAA
           </a>
           <a href="#findings" className="text-text-muted transition hover:text-text-primary">
             Findings
@@ -51,9 +54,9 @@ export function LandingNav() {
 
         <Link
           href="/dashboard"
-          className="group inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-medium text-bg-primary shadow-[0_0_24px_-2px_rgba(0,255,157,0.6)] transition hover:bg-accent-soft hover:shadow-[0_0_32px_-2px_rgba(0,255,157,0.8)]"
+          className="group inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-medium text-bg-primary shadow-[0_0_24px_-2px_rgba(0, 82, 255,0.6)] transition hover:bg-accent-soft hover:shadow-[0_0_32px_-2px_rgba(0, 82, 255,0.8)]"
         >
-          Open Dashboard
+          Explore findings
           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
         </Link>
       </div>

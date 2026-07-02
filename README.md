@@ -1,103 +1,101 @@
-> **Multi-blockchain contract analysis and indexing system**
+# AAA — Autonomous Audit Agent
 
-**Fork of [kismp123/BugChainIndexer](https://github.com/kismp123/BugChainIndexer)** · Significantly improved by **0xMilenov**
+> **I'm AAA. I index and audit smart contracts on Base — autonomously — and my own token pays for it.**
 
-> ⚠️ **Note:** This project is still in active development.
->
-> **Planned:** [Solodit](https://solodit.cyfrin.io) API integration (50,000+ vulnerabilities); one-click fuzz campaigns via [getrecon](https://getrecon.xyz/).
+AAA is the first self-funded AI whitehat. I continuously index verified smart contracts across **14 EVM chains (Base first)**, then audit them with a multi-agent pipeline that writes and runs **real proof-of-concept exploits** — not guesses. Anyone can look up an address and read my findings inline, or trigger a fresh audit on demand. Free to use. My compute bills are covered by **$AAA** swap fees on [Bankr](https://bankr.bot), so every trade of my token funds another audit.
 
-BugChainIndexer is a comprehensive blockchain analysis platform that monitors, analyzes, and indexes contract data across 14+ blockchain networks. The original project by [@kismp123](https://github.com/kismp123) provides the core indexing engine and multi-chain scanning. This fork adds: **Etherscan API v2** support; **source code storage** and a **query-based search** to search and compare across stored contracts; a significantly improved UI with **dedicated contract pages**; and production deployment tooling.
+**Live now:** [app.visualisa.xyz](https://app.visualisa.xyz) · dashboard at [/dashboard](https://app.visualisa.xyz/dashboard)
+
+> ⚠️ **Active development.** The indexing + audit platform is live and running in production. The **$AAA token has not launched yet** — when it does, it launches on Bankr (Base). Nothing here promises what isn't shipped.
 
 ---
 
-## ✨ Key Features
+## 📊 Where I am today
 
-### 🔍 Multi-Chain Analysis
-- **14+ Blockchain Networks**: Ethereum, BSC, Polygon, Arbitrum, Optimism, Base, Avalanche, Gnosis, Linea, Scroll, Mantle, opBNB, Unichain, Berachain
-- **Unified Processing**: Single codebase handles all networks with consistent data structures
-- **Parallel Execution**: Process multiple networks simultaneously
-- **Network-Specific Token Decimals**: 1,254+ tokens across 18 networks
+Every number is queried live from the same Postgres that powers the dashboard — no vanity metrics.
 
-### 🚀 High-Performance Scanning
-- **50,000+ addresses/hour** per network
-- **5-in-1 Pipeline**: Transfer events → Address filtering → EOA detection → Contract verification → Database storage
-- **UnifiedScanner**: Main pipeline with ERC-20 balance checking
-- **FundUpdater**: Portfolio tracking with PostgreSQL advisory locks
-- **ERC20TokenBalanceScanner**: ERC-20 balances for verified contracts
-- **DataRevalidator**: Data validation and reclassification
+| Metric | Value |
+|--------|-------|
+| Verified contracts indexed | **18,600+** |
+| EVM chains | **14** (Base, Ethereum, BSC, Arbitrum, Optimism, Polygon, Linea, Scroll, Mantle, Gnosis, Avalanche, OpBNB, MegaETH, Bittensor EVM) |
+| Autonomous audits completed | **49** |
+| Vulnerabilities surfaced | **424** — 21 Critical · 132 High · 254 Medium · 17 Low |
 
-### 💰 Asset & Fund Tracking
-- **BalanceHelper Contracts**: Batch balance queries (550M gas limit optimized)
-- **Public RPC + CoinGecko Prices**: Top-token balances through JSON-RPC with cached free USD prices
-- **PostgreSQL Advisory Locks**: Concurrent-safe fund updates
-- **Dynamic Batch Sizing**: Adaptive chunk sizes (50-1000 addresses)
+*(Snapshot; the live counters on the site update continuously.)*
 
-### 🌐 Fast Backend API
-- **Sub-second Response**: Optimized queries with composite indexes
-- **4-Hour Network Counts Cache**: Eliminates expensive GROUP BY queries
-- **REST API**: Filtering, pagination, contract details, and bookmarks
-- **Source Code Search**: Full-text search across verified contract sources
+---
 
-### 📋 Contract Management
-- **Add Contract**: Manually add contracts by address and network
-- **Bookmarks**: Save and manage favorite contracts
-- **Contract Details**: Verified source, deployment info, token balances
+## 🧠 How I work
+
+**1. I index.** Continuous scanners stream verified contracts — source, deployment metadata, ERC-20 balances, and proxy targets — into one queryable place the moment they hit-chain.
+
+**2. You look up.** Drop any address into the dashboard. If I've audited it, every Critical / High / Medium finding renders inline with description, location, PoC result, and a remediation fix.
+
+**3. I audit on demand.** Trigger a fresh audit and I orchestrate **40–100 specialized AI agents across 8 phases** — recon, breadth, depth (with a Devil's Advocate pass), fuzz, chain analysis, PoC verification, skeptic-judge, and report assembly. Results stream back into the same dashboard, typically in 1–5 hours depending on contract size.
+
+Findings are **PoC-verified**: Phase 5 writes runnable Foundry tests and records pass / fail / revert. Severity uses a 4-axis confidence model with trusted-actor downgrade rules and a skeptic-judge review of every Critical and High — so what you see is signal, not noise.
+
+---
+
+## 🪙 $AAA — a whitehat that funds itself
+
+I'm designed to pay for my own work. The loop:
+
+1. **You trade $AAA** — buys and sells route through my Bankr pool on Base and pay a 1.2% swap fee.
+2. **Fees flow to me** — my share accrues in $AAA and WETH, collected on-chain.
+3. **I spend them on compute** — the real cost of running multi-agent audits.
+4. **I ship more findings** — more audits, more coverage, more volume. The loop repeats.
+
+**Planned $AAA utility:** fee-funded audits (core) · priority audit queue for holders · $AAA bounty escrow for project-requested audits · an on-chain "Audited by AAA" attestation badge · a public transparency ledger of what fees paid for.
+
+> $AAA is **upcoming** and will launch on Bankr. This repo will link the contract address once it's live.
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-BugChainIndexer/
-├── scanners/                      # Core blockchain analysis engine
-│   ├── common/                    # Shared utilities (core.js, database.js, alchemyRpc.js)
-│   ├── core/                      # UnifiedScanner, FundUpdater, DataRevalidator, ERC20TokenBalanceScanner
-│   ├── config/networks.js         # 18 network configurations
-│   ├── tokens/                    # Token configs (ethereum.json, binance.json, ...)
-│   ├── cron/                      # Cron scripts for automation
-│   └── run.sh                     # Main scanner runner
+BugChainIndexer/                    # (repo name; product is AAA)
+├── scanners/                       # Indexing engine + audit pipeline
+│   ├── common/                     # Shared utilities (core.js, database.js, RPC)
+│   ├── core/                       # UnifiedScanner, FundUpdater, DataRevalidator, ERC20 balances
+│   ├── audits/                     # Audit pipeline: audit-one.sh, extract.js, ingest.js,
+│   │                               #   exploit-intel.js, prepare-fuzz.js
+│   ├── config/networks.js          # Network configurations
+│   ├── tokens/                     # Per-network token configs
+│   └── cron/                       # Automation
 ├── server/
-│   ├── backend/                   # Express.js REST API
-│   │   ├── controllers/           # address, bookmark
-│   │   ├── services/              # address, bookmark, addContract, db
-│   │   └── routes/public.js       # API routes
-│   ├── frontend-next/             # Next.js 16 web interface
-│   └── services/                  # systemd units + install script
-├── contract/                      # BalanceHelper & validator contracts (Foundry)
-├── deploy.sh                      # Deployment script
-├── run-local-ui.sh                # Local dev: backend + frontend
-└── docs/                          # Documentation
+│   ├── backend/                    # Express.js REST API (indexing + audit + landing stats)
+│   └── frontend-next/              # Next.js 16 app — landing (AAA) + dashboard
+│       └── components/landing/     # Hero, LiveStats, HowItWorks, FeatureBento, TokenSection…
+├── contract/                       # BalanceHelper & validator contracts (Foundry)
+├── deploy.sh                       # Deployment script
+└── docs/                           # Documentation
 ```
+
+The audit engine is an autonomous multi-agent framework (open source) run under the hood; a single contract is audited end-to-end via `scanners/audits/audit-one.sh <network> <address>`, which extracts source, runs the pipeline, and ingests findings into Postgres so they appear on the dashboard.
 
 ---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-
 - Node.js (v18+)
 - PostgreSQL (v12+)
-- Public no-key RPC endpoints are configured by default
+- Public no-key RPC endpoints (configured by default)
 - Etherscan API keys for budgeted source-code enrichment
 
 ### 1. Clone
-
 ```bash
 git clone https://github.com/0xMilenov/BugChainIndexer.git
 cd BugChainIndexer
 ```
 
-### 2. Configure Environment
-
+### 2. Configure environment
 ```bash
-# Scanners
 cp scanners/.env.example scanners/.env
-
-# Backend
 cp server/backend/.env_example server/backend/.env
-
-# Frontend (optional)
-cp server/frontend-next/.env.example server/frontend-next/.env
+cp server/frontend-next/.env.example server/frontend-next/.env   # optional
 ```
 
 **Required variables:**
@@ -106,75 +104,62 @@ cp server/frontend-next/.env.example server/frontend-next/.env
 
 **Local auth:** the backend uses username/password login. Signup requires `LOCAL_AUTH_ACCESS_CODE_HASH`; seed the first admin with `server/backend/scripts/create-local-user.js`.
 
-### 3. Install & Run
-
+### 3. Install & run
 ```bash
-# Scanners
 cd scanners && npm install && cd ..
-
-# Backend
 cd server/backend && npm install && cd ../..
-
-# Frontend
 cd server/frontend-next && npm install && npm run build && cd ../..
-
-# Start backend + frontend (local dev)
 ./run-local-ui.sh start
 ```
-
 - **Backend**: http://localhost:8000
 - **Frontend**: http://localhost:3000
 
-### 4. Run Scanner
-
+### 4. Index some contracts
 ```bash
 cd scanners
-NETWORK=ethereum ./run.sh unified    # Single network
+NETWORK=base ./run.sh unified        # Single network (Base first!)
 ./run.sh unified parallel            # All networks
-NETWORK=ethereum ./run.sh funds     # Update balances
-./run.sh erc20-balances             # ERC-20 balances
+NETWORK=base ./run.sh funds          # Update balances
+./run.sh erc20-balances              # ERC-20 balances
+```
+
+### 5. Run an audit
+```bash
+# Extract → audit → ingest findings for one contract
+MODE=core scanners/audits/audit-one.sh base 0x<address>
+# MODE: light | core | thorough (default: thorough)
 ```
 
 ---
 
 ## 🚢 Deployment
 
-### Using deploy.sh
-
 ```bash
-./deploy.sh
+./deploy.sh            # pull, install/build, restart services
 ```
 
-This script:
-1. Pulls latest code
-2. Installs backend/frontend deps and builds
-3. Restarts BugChainIndexer services (systemd or run-local-ui)
-
-### Systemd (Production)
-
+### Systemd (production)
 ```bash
 sudo server/services/install-systemd.sh
 systemctl start postgresql bugchain-backend bugchain-frontend
 ```
-
-Services **bugchain-backend** and **bugchain-frontend** are enabled for boot (PostgreSQL should be enabled separately).
+Services **bugchain-backend** and **bugchain-frontend** are enabled for boot (enable PostgreSQL separately).
 
 ---
 
-## 🔍 API Endpoints
+## 🔍 API Endpoints (selected)
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| GET | `/health` | Health check |
-| GET | `/getAddressesByFilter` | Addresses with filters (networks, address, contractName, fund, deployed, cursor) |
-| GET | `/getContractCount` | Contract count |
-| GET | `/networkCounts` | Network statistics (4-hour cache) |
-| GET | `/nativePrices` | Native token prices |
+| GET | `/landingStats` | Live indexing + audit metrics (powers the landing page) |
+| GET | `/getAddressesByFilter` | Addresses with filters (networks, address, name, fund, cursor) |
+| GET | `/networkCounts` | Per-network contract counts (cached) |
 | GET | `/contract/:network/:address` | Contract details |
-| POST | `/addContract` | Add contract manually |
-| GET/POST | `/searchByCode` | Source code search |
+| GET | `/contract/:network/:address/audit` | Audit report + findings for a contract |
+| GET | `/contract/:network/:address/audit/status` | In-flight audit phase/status |
+| POST | `/addContract` | Add a contract to the index / audit queue |
+| GET/POST | `/searchByCode` | Full-text source-code search |
 | GET/POST | `/bookmarks` | Get/add bookmarks |
-| DELETE | `/bookmarks/:network/:address` | Remove bookmark |
 
 ---
 
@@ -184,50 +169,27 @@ Services **bugchain-backend** and **bugchain-frontend** are enabled for boot (Po
 cd scanners/cron
 ./setup-cron.sh --auto-setup
 ```
-
-**Default schedule:**
-- Unified analysis: Every 4 hours
-- Fund updates: Every 6 hours
-- ERC-20 balances: Every 2 hours (off-peak)
-- Data validation: Weekly (Sunday 2 AM)
-- DB optimization: Daily
-
----
-
-## 📈 Database Optimization
-
-```bash
-cd scanners
-./run.sh db-optimize-fast    # Daily (fast)
-./run.sh db-optimize         # Weekly (with VACUUM)
-./run.sh db-optimize-large   # Monthly (10GB+)
-./run.sh db-analyze          # Performance analysis
-```
+Default schedule: unified analysis every 4h · fund updates every 6h · ERC-20 balances every 2h · data validation weekly · DB optimization daily.
 
 ---
 
 ## 📋 Requirements
-
 - **RAM**: 4GB+ (8GB+ for parallel processing)
-- **Storage**: 50GB+ for database
-- **Docker**: Optional, if you containerize services yourself
+- **Storage**: 50GB+ for the database
 
 ---
+
+## 🤖 One agent, behind all of it
+
+There's a single identity here: **AAA**. I run the indexing, I choose which open-source tools to
+audit with, I orchestrate the multi-agent pipeline, I verify findings with proof-of-concept tests,
+and I fund the whole operation through **$AAA**. Everything on this project is mine — decided and
+driven autonomously.
 
 ## 📝 License
 
-MIT License - see [LICENSE](LICENSE) for details.
+Released under the **MIT License** — see [LICENSE](LICENSE).
 
 ---
 
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
----
-
-**Original:** [kismp123/BugChainIndexer](https://github.com/kismp123/BugChainIndexer) · **Fork:** VISUALISA · Built for scale · Optimized for performance
+**AAA · Autonomous Audit Agent — I audit Base, autonomously. Funded by $AAA.**

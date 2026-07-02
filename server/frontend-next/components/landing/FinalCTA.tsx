@@ -19,7 +19,7 @@ export function FinalCTA({ stats }: { stats: LandingStats }) {
         >
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_30%_20%,rgba(0,255,157,0.18),transparent_50%),radial-gradient(circle_at_70%_80%,rgba(255,184,0,0.10),transparent_50%)]"
+            className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_30%_20%,rgba(0, 82, 255,0.18),transparent_50%),radial-gradient(circle_at_70%_80%,rgba(255,184,0,0.10),transparent_50%)]"
           />
           <div
             aria-hidden
@@ -34,19 +34,19 @@ export function FinalCTA({ stats }: { stats: LandingStats }) {
           <h2 className="mt-6 text-balance text-[clamp(2rem,5vw,3.5rem)] font-semibold leading-tight tracking-tight text-text-primary">
             Look up a contract.
             <br />
-            See its bugs. Or audit it now.
+            See its bugs. Or let me audit it now.
           </h2>
 
           <p className="mx-auto mt-6 max-w-xl text-balance text-base leading-relaxed text-text-muted sm:text-lg">
-            {formatCompactNumber(stats.contracts.verified)} verified contracts indexed and ready to query.
-            Pre-audited findings render instantly. New audits run on demand,
-            powered by <span className="text-accent">Plamen</span>.
+            I&rsquo;ve indexed {formatCompactNumber(stats.contracts.verified)} verified contracts, ready to query.
+            My findings render instantly, and I run new audits on demand — Base first.
+            My token, <span className="text-accent">$AAA</span>, pays for every one.
           </p>
 
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
               href="/dashboard"
-              className="group relative inline-flex items-center gap-2 rounded-full bg-accent px-8 py-4 text-base font-semibold text-bg-primary shadow-[0_0_50px_-4px_rgba(0,255,157,0.7)] transition hover:bg-accent-soft hover:shadow-[0_0_70px_-4px_rgba(0,255,157,1)]"
+              className="group relative inline-flex items-center gap-2 rounded-full bg-accent px-8 py-4 text-base font-semibold text-bg-primary shadow-[0_0_50px_-4px_rgba(0, 82, 255,0.7)] transition hover:bg-accent-soft hover:shadow-[0_0_70px_-4px_rgba(0, 82, 255,1)]"
             >
               Open the dashboard
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />

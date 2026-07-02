@@ -15,7 +15,7 @@ export function GridBackground() {
       className="pointer-events-none absolute inset-0 overflow-hidden"
     >
       {/* Animated radial glow */}
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[80vh] w-[80vh] rounded-full bg-[radial-gradient(circle_at_center,_rgba(0,255,157,0.18)_0%,_rgba(0,255,157,0.05)_30%,_transparent_70%)] blur-3xl animate-pulse-slow" />
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[80vh] w-[80vh] rounded-full bg-[radial-gradient(circle_at_center,_rgba(0, 82, 255,0.18)_0%,_rgba(0, 82, 255,0.05)_30%,_transparent_70%)] blur-3xl animate-pulse-slow" />
 
       {/* Secondary cyan-amber glow for depth */}
       <div className="absolute -right-32 -bottom-32 h-[40vh] w-[40vh] rounded-full bg-[radial-gradient(circle_at_center,_rgba(255,184,0,0.10)_0%,_transparent_70%)] blur-3xl" />

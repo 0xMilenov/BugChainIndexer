@@ -9,14 +9,17 @@ export function LandingFooter() {
           <span className="relative flex h-2 w-2">
             <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
           </span>
-          <span className="font-semibold tracking-[0.18em] text-text-primary">VISUALISA</span>
+          <span className="font-semibold tracking-[0.18em] text-text-primary">AAA</span>
           <span className="text-text-muted/60">·</span>
-          <span>autonomous Web3 security audits, indexed.</span>
+          <span>the first self-funded AI whitehat. I audit Base, autonomously.</span>
         </div>
         <div className="flex items-center gap-6">
           <Link href="/dashboard" className="transition hover:text-text-primary">
             Dashboard
           </Link>
+          <a href="#aaa" className="transition hover:text-text-primary">
+            $AAA
+          </a>
           <a
             href="https://github.com/0xMilenov/BugChainIndexer"
             target="_blank"
@@ -24,17 +27,9 @@ export function LandingFooter() {
             className="inline-flex items-center gap-1 transition hover:text-text-primary"
           >
             <Github className="h-3.5 w-3.5" />
-            GitHub
+            Open source
           </a>
-          <a
-            href="https://github.com/PlamenTSV/plamen"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="transition hover:text-text-primary"
-          >
-            Plamen
-          </a>
-          <span className="text-text-muted/60">Powered by VISUALISA</span>
+          <span className="text-text-muted/60">Funded by $AAA fees</span>
         </div>
       </div>
     </footer>
