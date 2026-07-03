@@ -10,55 +10,55 @@ import ReactMarkdown from "react-markdown";
  */
 const components: Partial<Components> = {
   h1: ({ children }) => (
-    <h4 className="mb-2 mt-4 border-b border-border pb-1 text-base font-semibold text-text-primary first:mt-0">
+    <h4 className="mb-2 mt-4 border-b border-rule pb-1 text-base font-semibold text-body first:mt-0">
       {children}
     </h4>
   ),
   h2: ({ children }) => (
-    <h4 className="mb-2 mt-4 border-b border-border pb-1 text-base font-semibold text-text-primary first:mt-0">
+    <h4 className="mb-2 mt-4 border-b border-rule pb-1 text-base font-semibold text-body first:mt-0">
       {children}
     </h4>
   ),
   h3: ({ children }) => (
-    <h5 className="mb-1.5 mt-3 text-sm font-semibold text-accent-soft first:mt-0">{children}</h5>
+    <h5 className="mb-1.5 mt-3 text-sm font-semibold text-blue-text-soft first:mt-0">{children}</h5>
   ),
   h4: ({ children }) => (
-    <h5 className="mb-1.5 mt-3 text-sm font-semibold text-text-primary first:mt-0">{children}</h5>
+    <h5 className="mb-1.5 mt-3 text-sm font-semibold text-body first:mt-0">{children}</h5>
   ),
   p: ({ children }) => (
-    <p className="mb-2 text-[13px] leading-relaxed text-text-primary/95 last:mb-0">{children}</p>
+    <p className="mb-2 text-[13px] leading-relaxed text-body/95 last:mb-0">{children}</p>
   ),
   ul: ({ children }) => (
-    <ul className="mb-2 ml-0.5 list-disc space-y-1.5 pl-4 text-[13px] leading-relaxed text-text-primary/95 marker:text-text-muted">
+    <ul className="mb-2 ml-0.5 list-disc space-y-1.5 pl-4 text-[13px] leading-relaxed text-body/95 marker:text-faint">
       {children}
     </ul>
   ),
   ol: ({ children }) => (
-    <ol className="mb-2 ml-0.5 list-decimal space-y-1.5 pl-4 text-[13px] leading-relaxed text-text-primary/95 marker:text-text-muted">
+    <ol className="mb-2 ml-0.5 list-decimal space-y-1.5 pl-4 text-[13px] leading-relaxed text-body/95 marker:text-faint">
       {children}
     </ol>
   ),
   li: ({ children }) => <li className="[&>p]:mb-1 [&>p:last-child]:mb-0">{children}</li>,
-  strong: ({ children }) => <strong className="font-semibold text-text-primary">{children}</strong>,
-  em: ({ children }) => <em className="italic text-text-primary/90">{children}</em>,
+  strong: ({ children }) => <strong className="font-semibold text-body">{children}</strong>,
+  em: ({ children }) => <em className="italic text-body/90">{children}</em>,
   blockquote: ({ children }) => (
-    <blockquote className="my-2 border-l-2 border-accent/40 bg-bg-primary/60 py-1.5 pl-3 text-[13px] text-text-muted">
+    <blockquote className="my-2 border-l-2 border-blue-600/40 bg-ink-0/60 py-1.5 pl-3 text-[13px] text-faint">
       {children}
     </blockquote>
   ),
-  hr: () => <hr className="my-3 border-border" />,
+  hr: () => <hr className="my-3 border-rule" />,
   a: ({ href, children }) => (
     <a
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="font-medium text-accent underline-offset-2 hover:text-accent-dim hover:underline"
+      className="font-medium text-blue-text underline-offset-2 hover:text-blue-text-dim hover:underline"
     >
       {children}
     </a>
   ),
   pre: ({ children }) => (
-    <pre className="my-3 max-h-[min(28rem,70vh)] overflow-auto rounded-lg border border-border bg-[#0d1117] p-3 text-[12px] leading-snug shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+    <pre className="my-3 max-h-[min(28rem,70vh)] overflow-auto rounded-lg border border-rule bg-[#0d1117] p-3 text-[12px] leading-snug shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
       {children}
     </pre>
   ),
@@ -68,14 +68,14 @@ const components: Partial<Components> = {
     if (isFenced) {
       return (
         <code
-          className={`block whitespace-pre font-mono text-[12px] leading-snug text-[#e6edf3] ${className || ""}`}
+          className={`block whitespace-pre font-data text-[12px] leading-snug text-[#e6edf3] ${className || ""}`}
         >
           {children}
         </code>
       );
     }
     return (
-      <code className="rounded-md bg-bg-tertiary/90 px-1.5 py-0.5 font-mono text-[12px] text-accent-soft [word-break:break-word]">
+      <code className="rounded-md bg-ink-2/90 px-1.5 py-0.5 font-data text-[12px] text-blue-text-soft [word-break:break-word]">
         {children}
       </code>
     );

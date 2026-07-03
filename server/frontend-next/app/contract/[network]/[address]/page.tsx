@@ -13,9 +13,8 @@ import { useBookmarks } from "@/hooks/useBookmarks";
 import { useAuth } from "@/context/AuthContext";
 import { useShowToast } from "@/context/ToastContext";
 import { EXPLORER_MAP, TX_EXPLORER_MAP, NETWORK_COLORS } from "@/lib/constants";
-import { ArrowLeft, Bookmark, BookmarkCheck } from "lucide-react";
+import { ArrowLeft, Bookmark, BookmarkCheck, ExternalLink } from "lucide-react";
 import { Header } from "@/components/Header";
-import { Badge } from "@/components/ui/Badge";
 import { AuditSection } from "@/components/audits/AuditSection";
 
 function getContractName(c: ContractDetail): string {
@@ -23,8 +22,44 @@ function getContractName(c: ContractDetail): string {
   return name || "Unnamed Contract";
 }
 
-const ACTION_BUTTON_BASE =
-  "flex items-center justify-center gap-1.5 w-full min-w-0 h-full min-h-[2.75rem] rounded-lg border border-border bg-bg-tertiary px-3 text-sm font-medium text-text-primary transition hover:border-accent/40 hover:bg-accent/10 overflow-hidden";
+const EYEBROW = "font-data text-[12px] uppercase tracking-[0.12em]";
+const BTN =
+  "flex items-center justify-center gap-1.5 h-11 min-w-0 rounded-md border border-rule bg-ink-2 px-4 text-[13px] font-medium text-body transition-colors hover:border-rule-strong hover:bg-ink-3";
+
+/** Dossier badge — small, data-font, bordered. */
+function Tag({
+  children,
+  tone = "neutral",
+}: {
+  children: React.ReactNode;
+  tone?: "neutral" | "ok" | "warn";
+}) {
+  const cls =
+    tone === "ok"
+      ? "border-blue-600/40 bg-blue-950 text-blue-300"
+      : tone === "warn"
+        ? "border-sev-high/40 bg-sev-high/10 text-sev-high"
+        : "border-rule bg-ink-2 text-faint";
+  return (
+    <span
+      className={`inline-flex items-center rounded-[3px] border px-2 py-[3px] font-data text-[11px] uppercase tracking-[0.08em] ${cls}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+function BackLink() {
+  return (
+    <Link
+      href="/dashboard"
+      className={`${EYEBROW} inline-flex items-center gap-2 text-faint transition-colors hover:text-blue-text`}
+    >
+      <ArrowLeft className="h-3.5 w-3.5" />
+      Back to the index
+    </Link>
+  );
+}
 
 export default function ContractDetailPage() {
   const params = useParams();
@@ -61,42 +96,29 @@ export default function ContractDetailPage() {
     fetchContract();
   }, [fetchContract]);
 
-  if (!address || !network) {
-    return (
-      <div className="min-h-screen bg-bg-primary">
-        <Header onShowBookmarks={() => router.push("/")} bookmarkCount={bookmarks.length} />
-        <div className="p-6">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-accent hover:text-accent-dim hover:underline mb-6"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to search
-        </Link>
-        <p className="text-text-muted">Invalid contract address or network.</p>
+  const shell = (inner: React.ReactNode) => (
+    <div className="min-h-screen bg-ink-0 text-body">
+      <Header onShowBookmarks={() => router.push("/")} bookmarkCount={bookmarks.length} />
+      <div className="mx-auto max-w-6xl px-4 py-8 lg:px-6">
+        <div className="mb-8">
+          <BackLink />
         </div>
+        {inner}
       </div>
-    );
+    </div>
+  );
+
+  if (!address || !network) {
+    return shell(<p className="text-dim">Invalid contract address or network.</p>);
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-bg-primary">
-        <Header onShowBookmarks={() => router.push("/")} bookmarkCount={bookmarks.length} />
-        <div className="p-6">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-accent hover:text-accent-dim hover:underline mb-6"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to search
-        </Link>
-        <div className="space-y-4">
-          <div className="h-8 w-64 skeleton rounded" />
-          <div className="h-4 w-full skeleton rounded" />
-          <div className="h-4 w-3/4 skeleton rounded" />
-        </div>
-        </div>
+    return shell(
+      <div className="space-y-4">
+        <div className="skeleton h-10 w-72 rounded" />
+        <div className="skeleton h-4 w-full rounded" />
+        <div className="skeleton h-4 w-3/4 rounded" />
+        <div className="skeleton mt-6 h-40 w-full rounded" />
       </div>
     );
   }
@@ -104,212 +126,212 @@ export default function ContractDetailPage() {
   if (error || !contract) {
     const message =
       error ||
-      "Contract not found. The contract may not be indexed yet, or the backend may be unreachable.";
-    return (
-      <div className="min-h-screen bg-bg-primary">
-        <Header onShowBookmarks={() => router.push("/")} bookmarkCount={bookmarks.length} />
-        <div className="p-6">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-accent hover:text-accent-dim hover:underline mb-6"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to search
-        </Link>
-        <p className="text-red-400">{message}</p>
-        <p className="mt-2 text-sm text-text-muted">
-          Ensure the backend is running and the contract exists in the database.
+      "Contract not found. It may not be indexed yet, or the backend may be unreachable.";
+    return shell(
+      <div className="border border-rule bg-ink-1 p-8">
+        <div className={`${EYEBROW} text-sev-high`}>Not found</div>
+        <p className="mt-3 text-body">{message}</p>
+        <p className="mt-2 text-sm text-faint">
+          Try searching for it from the index, or check that it exists on this network.
         </p>
-        </div>
       </div>
     );
   }
 
   const netKey = (contract.network || "").toLowerCase();
-  const explorerUrl = EXPLORER_MAP[netKey]
-    ? `${EXPLORER_MAP[netKey]}${contract.address}`
-    : null;
+  const explorerUrl = EXPLORER_MAP[netKey] ? `${EXPLORER_MAP[netKey]}${contract.address}` : null;
   const deployTxHash = contract.deploy_tx_hash;
   const txExplorerUrl =
-    deployTxHash && TX_EXPLORER_MAP[netKey]
-      ? `${TX_EXPLORER_MAP[netKey]}${deployTxHash}`
-      : null;
+    deployTxHash && TX_EXPLORER_MAP[netKey] ? `${TX_EXPLORER_MAP[netKey]}${deployTxHash}` : null;
   const netColor = NETWORK_COLORS[netKey] ?? "bg-gray-500";
+  const bookmarked = isBookmarked(address, network);
+  const src = contract.source_code || "";
+  const srcLines = src ? src.split("\n").length : 0;
+  const srcKb = src ? (src.length / 1024).toFixed(1) : "0";
 
-  return (
-    <div className="min-h-screen bg-bg-primary bg-grid-overlay">
-      <Header
-        onShowBookmarks={() => router.push("/")}
-        bookmarkCount={bookmarks.length}
-      />
-      <div className="max-w-6xl mx-auto p-4 lg:p-6">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-accent hover:text-accent-dim hover:underline mb-6"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to search
-        </Link>
+  return shell(
+    <div className="space-y-6">
+      {/* ── Subject header ── */}
+      <div className="border border-rule bg-ink-1 d-rim">
+        <div className="border-t-2 border-blue-600 px-6 pb-6 pt-5 sm:px-8">
+          <div className="flex flex-wrap items-start justify-between gap-5">
+            <div className="min-w-0">
+              <div className={`${EYEBROW} flex items-center gap-2 text-blue-text`}>
+                <span className={`inline-block h-2 w-2 rounded-full ${netColor}`} aria-hidden />
+                Subject ·· {contract.network}
+              </div>
+              <h1 className="mt-3 font-serif text-[clamp(1.6rem,4vw,2.25rem)] leading-[1.1] text-paper">
+                {getContractName(contract)}
+              </h1>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Tag tone={contract.verified ? "ok" : "neutral"}>
+                  {contract.verified ? "Verified" : "Unverified"}
+                </Tag>
+                {contract.is_proxy && <Tag tone="warn">Proxy</Tag>}
+              </div>
 
-        <div className="space-y-6">
-          {/** Header: name, address, network */}
-          <div className="rounded-xl border border-border bg-bg-secondary p-6">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <h1 className="text-xl font-semibold text-text-primary">
-                    {getContractName(contract)}
-                  </h1>
-                  <span
-                    className={`inline-flex rounded-full px-2 py-1 text-xs font-medium text-white ${netColor}`}
-                  >
-                    {contract.network}
-                  </span>
-                  <Badge variant={contract.verified ? "success" : "muted"}>
-                    {contract.verified ? "Verified" : "Unverified"}
-                  </Badge>
-                  {contract.is_proxy && <Badge variant="warning">Proxy</Badge>}
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-4 font-mono text-sm">
-                  <span className="text-text-muted">Address:</span>
+              <div className="mt-5">
+                <div className={`${EYEBROW} text-faint`}>Address</div>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
                   {explorerUrl ? (
                     <a
                       href={explorerUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-accent hover:text-accent-dim hover:underline"
+                      className="inline-flex items-center gap-1.5 break-all font-data text-[13px] text-blue-text hover:text-blue-300"
                     >
                       {contract.address}
+                      <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-70" />
                     </a>
                   ) : (
-                    <span className="text-text-primary">{contract.address}</span>
+                    <span className="break-all font-data text-[13px] text-dim">{contract.address}</span>
                   )}
                 </div>
-              </div>
-              <div className="flex flex-shrink-0 w-[200px] min-w-[200px] overflow-hidden">
-                <div className="grid h-[48px] grid-cols-1 grid-rows-1 gap-2 w-full min-w-0">
-                  <div className="min-w-0 min-h-0 overflow-hidden h-full">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!user) {
-                        router.push(loginUrl);
-                        return;
-                      }
-                      try {
-                        if (isBookmarked(address, network)) {
-                          await removeBookmark(address, network);
-                          showToast?.("Bookmark removed.", "info");
-                        } else {
-                          await saveBookmark({ address, network, contract_name: getContractName(contract) });
-                          showToast?.("Bookmark saved.", "success");
-                        }
-                      } catch {
-                        showToast?.("Failed to update bookmark.", "error");
-                      }
-                    }}
-                    className={ACTION_BUTTON_BASE}
-                    aria-label={isBookmarked(address, network) ? "Remove bookmark" : "Add bookmark"}
-                  >
-                    {isBookmarked(address, network) ? (
-                      <BookmarkCheck className="h-4 w-4 flex-shrink-0 fill-accent text-accent" />
-                    ) : (
-                      <Bookmark className="h-4 w-4 flex-shrink-0" />
-                    )}
-                    <span className="truncate">{isBookmarked(address, network) ? "Bookmarked" : "Bookmark"}</span>
-                  </button>
+                {contract.is_proxy && contract.implementation_address && (
+                  <div className="mt-3">
+                    <div className={`${EYEBROW} text-faint`}>Implementation</div>
+                    <div className="mt-1 break-all font-data text-[13px] text-dim">
+                      {contract.implementation_address}
+                    </div>
                   </div>
-                </div>
-              </div>
-            </div>
-            {contract.is_proxy && contract.implementation_address && (
-              <div className="mt-2 text-sm text-text-muted">
-                Implementation:{" "}
-                <span className="font-mono">{contract.implementation_address}</span>
-              </div>
-            )}
-          </div>
-
-          {/** Metadata grid */}
-          <div className="rounded-xl border border-border bg-bg-secondary p-6">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-text-muted mb-4">
-              Contract Details
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div>
-                <div className="text-xs text-text-muted uppercase">Deployed</div>
-                <div className="text-text-primary">
-                  {formatContractDate(contract as Contract)}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-text-muted uppercase">Native Balance</div>
-                <div className="font-semibold text-accent">
-                  {formatFund(contract as Contract, nativePrices || {})}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-text-muted uppercase">Deploy TX</div>
-                {txExplorerUrl ? (
-                  <a
-                    href={txExplorerUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-accent hover:underline text-sm truncate block max-w-full"
-                  >
-                    {deployTxHash?.slice(0, 10)}...{deployTxHash?.slice(-8)}
-                  </a>
-                ) : (
-                  <span className="text-text-muted">—</span>
                 )}
               </div>
-              <div>
-                <div className="text-xs text-text-muted uppercase">Deployer</div>
-                <div className="font-mono text-sm truncate">
-                  {contract.deployer_address || "—"}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-text-muted uppercase">Compiler</div>
-                <div className="text-sm">
-                  {contract.compiler_version || "—"}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-text-muted uppercase">ERC-20 Tokens</div>
-                <div className="text-sm">
-                  <Erc20BalancesDisplay balances={Array.isArray(contract.erc20_balances) ? contract.erc20_balances : undefined} />
-                </div>
-              </div>
             </div>
+
+            <button
+              type="button"
+              onClick={async () => {
+                if (!user) {
+                  router.push(loginUrl);
+                  return;
+                }
+                try {
+                  if (bookmarked) {
+                    await removeBookmark(address, network);
+                    showToast?.("Bookmark removed.", "info");
+                  } else {
+                    await saveBookmark({ address, network, contract_name: getContractName(contract) });
+                    showToast?.("Bookmark saved.", "success");
+                  }
+                } catch {
+                  showToast?.("Failed to update bookmark.", "error");
+                }
+              }}
+              className={`${BTN} shrink-0 ${bookmarked ? "border-blue-600/50 text-blue-text" : ""}`}
+              aria-label={bookmarked ? "Remove bookmark" : "Add bookmark"}
+            >
+              {bookmarked ? (
+                <BookmarkCheck className="h-4 w-4 fill-blue-600 text-blue-600" />
+              ) : (
+                <Bookmark className="h-4 w-4" />
+              )}
+              <span>{bookmarked ? "Bookmarked" : "Bookmark"}</span>
+            </button>
           </div>
-
-          <AuditSection address={address} network={network} />
-
-          {/** Source code */}
-          {contract.source_code && (
-            <div className="rounded-xl border border-border bg-bg-secondary overflow-hidden">
-              <div className="px-4 py-3 border-b border-border bg-bg-tertiary">
-                <h2 className="text-sm font-semibold uppercase tracking-wider text-text-muted">
-                  Source Code
-                </h2>
-              </div>
-              <div className="overflow-x-auto">
-                <pre className="m-0 p-4 text-xs leading-relaxed overflow-x-auto bg-bg-secondary font-mono text-text-primary whitespace-pre">
-                  <code>{contract.source_code}</code>
-                </pre>
-              </div>
-            </div>
-          )}
-
-          {!contract.source_code && (
-            <div className="rounded-xl border border-border bg-bg-secondary p-6 text-text-muted">
-              No source code available for this contract.
-            </div>
-          )}
-
         </div>
       </div>
+
+      {/* ── Metadata register ── */}
+      <div className="border border-rule bg-ink-1">
+        <div className={`${EYEBROW} border-b border-rule px-6 py-3 text-faint`}>
+          Contract details
+        </div>
+        <dl className="grid grid-cols-1 divide-y divide-rule-dot sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-3">
+          <Field label="Deployed" value={formatContractDate(contract as Contract)} />
+          <Field
+            label="Native balance"
+            value={formatFund(contract as Contract, nativePrices || {})}
+            accent
+          />
+          <Field
+            label="Deploy tx"
+            value={
+              txExplorerUrl ? (
+                <a
+                  href={txExplorerUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-data text-[13px] text-blue-text hover:text-blue-300"
+                >
+                  {deployTxHash?.slice(0, 10)}…{deployTxHash?.slice(-8)}
+                </a>
+              ) : (
+                "—"
+              )
+            }
+          />
+          <Field
+            label="Deployer"
+            value={
+              contract.deployer_address ? (
+                <span className="break-all font-data text-[13px] text-dim">
+                  {contract.deployer_address}
+                </span>
+              ) : (
+                "—"
+              )
+            }
+          />
+          <Field label="Compiler" value={contract.compiler_version || "—"} mono />
+          <Field
+            label="ERC-20 tokens"
+            value={
+              <Erc20BalancesDisplay
+                balances={Array.isArray(contract.erc20_balances) ? contract.erc20_balances : undefined}
+              />
+            }
+          />
+        </dl>
+      </div>
+
+      {/* ── Findings ── */}
+      <AuditSection address={address} network={network} />
+
+      {/* ── Source code ── */}
+      {src ? (
+        <div className="overflow-hidden border border-rule bg-ink-1">
+          <div className="flex items-center justify-between border-b border-rule bg-ink-2 px-6 py-3">
+            <span className={`${EYEBROW} text-faint`}>Source code</span>
+            <span className="font-data text-[11px] tabular-nums text-ghost">
+              {srcLines.toLocaleString()} lines · {srcKb} KB
+            </span>
+          </div>
+          <div className="d-groove max-h-[70vh] overflow-auto">
+            <pre className="m-0 whitespace-pre p-5 font-data text-[12px] leading-[1.6] text-dim">
+              <code>{src}</code>
+            </pre>
+          </div>
+        </div>
+      ) : (
+        <div className="border border-rule bg-ink-1 p-6 text-faint">
+          No source code available for this contract.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  accent,
+  mono,
+}: {
+  label: string;
+  value: React.ReactNode;
+  accent?: boolean;
+  mono?: boolean;
+}) {
+  return (
+    <div className="border-rule-dot px-6 py-4 sm:border-b sm:[&:nth-last-child(-n+1)]:border-b-0 lg:border-r lg:[&:nth-child(3n)]:border-r-0">
+      <dt className="font-data text-[11px] uppercase tracking-[0.1em] text-faint">{label}</dt>
+      <dd
+        className={`mt-1.5 text-[14px] ${
+          accent ? "font-data font-semibold text-blue-text" : mono ? "font-data text-dim" : "text-body"
+        }`}
+      >
+        {value}
+      </dd>
     </div>
   );
 }

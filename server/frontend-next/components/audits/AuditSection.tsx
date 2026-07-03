@@ -22,11 +22,11 @@ interface AuditSectionProps {
 }
 
 const SEVERITY_STYLE: Record<AuditFinding["severity"], string> = {
-  critical: "bg-red-500/15 text-red-400 border-red-500/40",
-  high: "bg-orange-500/15 text-orange-400 border-orange-500/40",
-  medium: "bg-amber-500/15 text-amber-400 border-amber-500/40",
-  low: "bg-sky-500/15 text-sky-400 border-sky-500/40",
-  informational: "bg-zinc-500/15 text-zinc-400 border-zinc-500/40",
+  critical: "bg-sev-crit/15 text-sev-crit-text border-sev-crit/40",
+  high: "bg-sev-high/15 text-sev-high border-sev-high/40",
+  medium: "bg-sev-med/15 text-sev-med border-sev-med/40",
+  low: "bg-sev-low/15 text-sev-low-text border-sev-low/40",
+  informational: "bg-ink-3 text-faint border-rule-strong",
 };
 
 /** DB / JSON may return millis as number, string, or seconds (10-digit). */
@@ -79,7 +79,7 @@ function FindingCard({ finding, index }: { finding: AuditFinding; index: number 
   const evidenceTags = uniqueEvidenceTags(finding);
 
   return (
-    <div className="rounded-lg border border-border bg-bg-tertiary/40">
+    <div className="rounded-lg border border-rule bg-ink-2/40">
       <button
         type="button"
         onClick={() => hasDetails && setExpanded((v) => !v)}
@@ -91,58 +91,58 @@ function FindingCard({ finding, index }: { finding: AuditFinding; index: number 
           {finding.severity}
         </span>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium text-text-primary">
-            <span className="text-text-muted mr-2">#{index + 1}</span>
+          <div className="text-sm font-medium text-body">
+            <span className="text-faint mr-2">#{index + 1}</span>
             {finding.title}
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {finding.report_id && (
-              <span className="inline-flex rounded border border-border bg-bg-primary px-1.5 py-0.5 font-mono text-[10px] text-text-muted">
+              <span className="inline-flex rounded border border-rule bg-ink-0 px-1.5 py-0.5 font-data text-[10px] text-faint">
                 {finding.report_id}
               </span>
             )}
             {finding.source_finding_id && (
-              <span className="inline-flex rounded border border-border bg-bg-primary px-1.5 py-0.5 font-mono text-[10px] text-text-muted">
+              <span className="inline-flex rounded border border-rule bg-ink-0 px-1.5 py-0.5 font-data text-[10px] text-faint">
                 {finding.source_finding_id}
               </span>
             )}
             {finding.verification_status && (
-              <span className="inline-flex rounded border border-border bg-bg-primary px-1.5 py-0.5 text-[10px] font-semibold uppercase text-text-muted">
+              <span className="inline-flex rounded border border-rule bg-ink-0 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-faint">
                 {finding.verification_status}
               </span>
             )}
             {isDemoted && (
-              <span className="inline-flex rounded border border-orange-500/30 bg-orange-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-orange-300">
+              <span className="inline-flex rounded border border-sev-high/30 bg-sev-high/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-sev-high">
                 Demoted from {labelize(originalSeverity)}
               </span>
             )}
             {evidenceTags.map((tag) => (
               <span
                 key={tag}
-                className="inline-flex rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-300"
+                className="inline-flex rounded border border-signal/30 bg-signal/10 px-1.5 py-0.5 font-data text-[10px] font-semibold text-signal"
               >
                 {tag}
               </span>
             ))}
           </div>
           {finding.location && (
-            <div className="mt-1 font-mono text-[11px] text-text-muted truncate">
+            <div className="mt-1 font-data text-[11px] text-faint truncate">
               {finding.location}
             </div>
           )}
         </div>
         {hasDetails && (
-          <span className="flex-shrink-0 text-text-muted text-xs select-none">
+          <span className="flex-shrink-0 text-faint text-xs select-none">
             {expanded ? "▾" : "▸"}
           </span>
         )}
       </button>
 
       {expanded && hasDetails && (
-        <div className="border-t border-border px-4 py-3 space-y-3 text-sm">
+        <div className="border-t border-rule px-4 py-3 space-y-3 text-sm">
           {finding.description && (
             <div>
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-text-muted mb-1">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-faint mb-1">
                 Description
               </div>
               <AuditMarkdown content={finding.description} />
@@ -150,7 +150,7 @@ function FindingCard({ finding, index }: { finding: AuditFinding; index: number 
           )}
           {finding.proof_of_concept && (
             <div>
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-text-muted mb-1">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-faint mb-1">
                 Proof of Concept
               </div>
               <AuditMarkdown content={finding.proof_of_concept} />
@@ -158,7 +158,7 @@ function FindingCard({ finding, index }: { finding: AuditFinding; index: number 
           )}
           {finding.recommendation && (
             <div>
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-text-muted mb-1">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-faint mb-1">
                 Recommendation
               </div>
               <AuditMarkdown content={finding.recommendation} />
@@ -171,16 +171,16 @@ function FindingCard({ finding, index }: { finding: AuditFinding; index: number 
 }
 
 const STATUS_STYLE: Record<string, string> = {
-  running: "bg-accent/15 text-accent border-accent/40",
-  pending: "bg-accent/15 text-accent border-accent/40",
-  completed: "bg-emerald-500/15 text-emerald-400 border-emerald-500/40",
-  failed: "bg-red-500/15 text-red-400 border-red-500/40",
-  stalled: "bg-amber-500/15 text-amber-400 border-amber-500/40",
-  cancelled: "bg-text-muted/15 text-text-muted border-border",
+  running: "bg-blue-600/15 text-blue-text border-blue-600/40",
+  pending: "bg-blue-600/15 text-blue-text border-blue-600/40",
+  completed: "bg-signal/15 text-signal border-signal/40",
+  failed: "bg-sev-crit/15 text-sev-crit-text border-sev-crit/40",
+  stalled: "bg-sev-high/15 text-sev-high border-sev-high/40",
+  cancelled: "bg-ink-3 text-faint border-rule-strong",
 };
 
 function StatusPill({ status }: { status: string }) {
-  const cls = STATUS_STYLE[status] || "bg-bg-tertiary text-text-muted border-border";
+  const cls = STATUS_STYLE[status] || "bg-ink-2 text-faint border-rule";
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${cls}`}
@@ -330,11 +330,11 @@ export function AuditSection({ address, network }: AuditSectionProps) {
   const showFindings = isCompleted && audit;
 
   return (
-    <div className="rounded-xl border border-border bg-bg-secondary overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-border bg-bg-tertiary">
+    <div className="border border-rule bg-ink-1 overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3 border-b border-rule bg-ink-2">
         <div className="flex items-center gap-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-text-muted">
-            Security Audit
+          <h2 className="font-data text-[12px] uppercase tracking-[0.12em] text-faint">
+            Security audit
           </h2>
           {status && <StatusPill status={status.status} />}
         </div>
@@ -349,7 +349,7 @@ export function AuditSection({ address, network }: AuditSectionProps) {
             />
           )}
           {isCompleted && status?.completed_at && (
-            <span className="text-[11px] text-text-muted">
+            <span className="text-[11px] text-faint">
               {formatTimestamp(status.completed_at)}
             </span>
           )}
@@ -357,22 +357,22 @@ export function AuditSection({ address, network }: AuditSectionProps) {
       </div>
 
       <div className="p-4 space-y-4">
-        {loading && <div className="text-sm text-text-muted">Loading audit…</div>}
+        {loading && <div className="text-sm text-faint">Loading audit…</div>}
 
         {!loading && error && (
-          <div className="text-sm text-red-400">Error: {error}</div>
+          <div className="text-sm text-sev-crit-text">Error: {error}</div>
         )}
 
         {/* No audit ever started for this contract */}
         {!loading && !error && !status && (
-          <div className="rounded-lg border border-dashed border-border bg-bg-tertiary/40 p-6 text-center">
-            <div className="mx-auto mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-accent/10 text-accent">
+          <div className="rounded-lg border border-dashed border-rule bg-ink-2/40 p-6 text-center">
+            <div className="mx-auto mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-blue-600/10 text-blue-text">
               <Play className="h-5 w-5" />
             </div>
-            <h3 className="text-sm font-semibold text-text-primary">
+            <h3 className="text-sm font-semibold text-body">
               This contract hasn&apos;t been audited yet.
             </h3>
-            <p className="mx-auto mt-1 max-w-md text-xs text-text-muted">
+            <p className="mx-auto mt-1 max-w-md text-xs text-faint">
               Run an AAA audit to surface findings and their evidence trail. The
               run takes ~1–5 hours depending on contract size.
             </p>
@@ -381,7 +381,7 @@ export function AuditSection({ address, network }: AuditSectionProps) {
                 type="button"
                 onClick={handleRun}
                 disabled={triggering}
-                className="mt-4 inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-bg-primary transition hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-4 inline-flex items-center gap-2 rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-paper transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {triggering ? (
                   <>
@@ -398,56 +398,56 @@ export function AuditSection({ address, network }: AuditSectionProps) {
             ) : (
               <Link
                 href={loginUrl}
-                className="mt-4 inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-5 py-2 text-sm font-semibold text-accent transition hover:bg-accent/20"
+                className="mt-4 inline-flex items-center gap-2 rounded-full border border-blue-600/40 bg-blue-600/10 px-5 py-2 text-sm font-semibold text-blue-text transition hover:bg-blue-600/20"
               >
                 Log in
               </Link>
             )}
             {triggerError && (
-              <p className="mt-3 text-xs text-red-400">{triggerError}</p>
+              <p className="mt-3 text-xs text-sev-crit-text">{triggerError}</p>
             )}
           </div>
         )}
 
         {/* In-flight audit */}
         {!loading && !error && isRunning && (
-          <div className="rounded-lg border border-accent/30 bg-accent/5 p-4">
-            <div className="flex items-center gap-2 text-sm font-semibold text-accent">
+          <div className="rounded-lg border border-blue-600/30 bg-blue-600/5 p-4">
+            <div className="flex items-center gap-2 text-sm font-semibold text-blue-text">
               <Activity className="h-4 w-4 animate-pulse" />
               AAA audit in progress
             </div>
-            <div className="mt-2 grid grid-cols-1 gap-2 text-xs text-text-muted sm:grid-cols-3">
+            <div className="mt-2 grid grid-cols-1 gap-2 text-xs text-faint sm:grid-cols-3">
               <div>
                 <span className="uppercase tracking-wider">Mode</span>
-                <div className="font-mono text-text-primary">
+                <div className="font-data text-body">
                   {status?.audit_mode || "—"}
                 </div>
               </div>
               <div>
                 <span className="uppercase tracking-wider">Phase</span>
-                <div className="font-mono text-text-primary">
+                <div className="font-data text-body">
                   {status?.phase || "starting…"}
                 </div>
               </div>
               <div>
                 <span className="uppercase tracking-wider">Started</span>
-                <div className="font-mono text-text-primary">
+                <div className="font-data text-body">
                   {formatTimestamp(status?.started_at) || "—"}
                 </div>
               </div>
             </div>
             {status?.log_tail && (
               <details className="mt-3 group">
-                <summary className="cursor-pointer text-[11px] uppercase tracking-wider text-text-muted hover:text-text-primary">
+                <summary className="cursor-pointer text-[11px] uppercase tracking-wider text-faint hover:text-body">
                   Live log tail
                 </summary>
-                <pre className="mt-2 max-h-48 overflow-auto rounded-md border border-border bg-bg-primary p-3 font-mono text-[11px] leading-relaxed text-text-muted">
+                <pre className="mt-2 max-h-48 overflow-auto rounded-md border border-rule bg-ink-0 p-3 font-data text-[11px] leading-relaxed text-faint">
                   {status.log_tail}
                 </pre>
               </details>
             )}
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-              <p className="text-[11px] text-text-muted">
+              <p className="text-[11px] text-faint">
                 The page polls every 5s. You can leave and come back — findings
                 will appear here once the run finishes.
               </p>
@@ -456,7 +456,7 @@ export function AuditSection({ address, network }: AuditSectionProps) {
                   type="button"
                   onClick={handleCancel}
                   disabled={cancelling}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-red-400 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-sev-crit/40 bg-sev-crit/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-sev-crit-text transition hover:bg-sev-crit/20 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {cancelling ? (
                     <>
@@ -473,14 +473,14 @@ export function AuditSection({ address, network }: AuditSectionProps) {
               ) : (
                 <Link
                   href={loginUrl}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-bg-tertiary px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-text-muted transition hover:border-accent/40 hover:text-accent"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-rule bg-ink-2 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-faint transition hover:border-blue-600/40 hover:text-blue-text"
                 >
                   Log in
                 </Link>
               )}
             </div>
             {cancelError && (
-              <p className="mt-2 text-[11px] text-red-400">{cancelError}</p>
+              <p className="mt-2 text-[11px] text-sev-crit-text">{cancelError}</p>
             )}
           </div>
         )}
@@ -490,15 +490,15 @@ export function AuditSection({ address, network }: AuditSectionProps) {
           <div
             className={
               status?.status === "cancelled"
-                ? "rounded-lg border border-border bg-bg-tertiary/40 p-4"
-                : "rounded-lg border border-red-500/30 bg-red-500/5 p-4"
+                ? "rounded-lg border border-rule bg-ink-2/40 p-4"
+                : "rounded-lg border border-sev-crit/30 bg-sev-crit/5 p-4"
             }
           >
             <div
               className={
                 status?.status === "cancelled"
-                  ? "flex items-center gap-2 text-sm font-semibold text-text-muted"
-                  : "flex items-center gap-2 text-sm font-semibold text-red-400"
+                  ? "flex items-center gap-2 text-sm font-semibold text-faint"
+                  : "flex items-center gap-2 text-sm font-semibold text-sev-crit-text"
               }
             >
               {status?.status === "cancelled" ? (
@@ -513,14 +513,14 @@ export function AuditSection({ address, network }: AuditSectionProps) {
                   : "Audit failed"}
             </div>
             {status?.error_message && (
-              <p className="mt-1 text-xs text-text-muted">{status.error_message}</p>
+              <p className="mt-1 text-xs text-faint">{status.error_message}</p>
             )}
             {user ? (
               <button
                 type="button"
                 onClick={handleRun}
                 disabled={triggering}
-                className="mt-3 inline-flex items-center gap-2 rounded-full border border-border bg-bg-tertiary px-4 py-1.5 text-xs font-semibold text-text-primary transition hover:border-accent/40 hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-3 inline-flex items-center gap-2 rounded-full border border-rule bg-ink-2 px-4 py-1.5 text-xs font-semibold text-body transition hover:border-blue-600/40 hover:bg-blue-600/10 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {triggering ? (
                   <Loader2 className="h-3 w-3 animate-spin" />
@@ -532,20 +532,20 @@ export function AuditSection({ address, network }: AuditSectionProps) {
             ) : (
               <Link
                 href={loginUrl}
-                className="mt-3 inline-flex items-center gap-2 rounded-full border border-border bg-bg-tertiary px-4 py-1.5 text-xs font-semibold text-text-primary transition hover:border-accent/40 hover:bg-accent/10"
+                className="mt-3 inline-flex items-center gap-2 rounded-full border border-rule bg-ink-2 px-4 py-1.5 text-xs font-semibold text-body transition hover:border-blue-600/40 hover:bg-blue-600/10"
               >
                 Log in
               </Link>
             )}
             {triggerError && (
-              <p className="mt-2 text-xs text-red-400">{triggerError}</p>
+              <p className="mt-2 text-xs text-sev-crit-text">{triggerError}</p>
             )}
           </div>
         )}
 
         {/* Completed: render findings */}
         {!loading && !error && showFindings && audit.findings.length === 0 && (
-          <div className="text-sm text-emerald-400">
+          <div className="text-sm text-signal">
             Audit completed - no persisted findings.
           </div>
         )}
@@ -559,22 +559,22 @@ export function AuditSection({ address, network }: AuditSectionProps) {
 
         {/* Completed but findings still loading */}
         {!loading && !error && isCompleted && !audit && (
-          <div className="text-sm text-text-muted">Loading findings…</div>
+          <div className="text-sm text-faint">Loading findings…</div>
         )}
       </div>
 
       {(audit || status) && (
-        <div className="border-t border-border bg-bg-tertiary/40 px-4 py-2 text-[11px] text-text-muted flex flex-wrap gap-3">
+        <div className="border-t border-rule bg-ink-2/40 px-4 py-2 text-[11px] text-faint flex flex-wrap gap-3">
           <span>
             Tool:{" "}
-            <span className="font-mono text-text-primary">
+            <span className="font-data text-body">
               {audit?.audit_tool || status?.audit_tool || "plamen"}
             </span>
           </span>
           {(audit?.audit_mode || status?.audit_mode) && (
             <span>
               Mode:{" "}
-              <span className="font-mono text-text-primary">
+              <span className="font-data text-body">
                 {audit?.audit_mode || status?.audit_mode}
               </span>
             </span>
@@ -582,7 +582,7 @@ export function AuditSection({ address, network }: AuditSectionProps) {
           {isCompleted && audit?.duration_ms && (
             <span>
               Duration:{" "}
-              <span className="font-mono text-text-primary">
+              <span className="font-data text-body">
                 {formatDuration(audit.duration_ms)}
               </span>
             </span>
