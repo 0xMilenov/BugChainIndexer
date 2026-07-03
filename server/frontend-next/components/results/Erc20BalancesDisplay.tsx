@@ -61,23 +61,23 @@ export function Erc20BalancesDisplay({
   const dropdownContent = hasMore && isOpen && typeof document !== "undefined" && document.body && (
     createPortal(
       <div
-        className="fixed z-[9999] min-w-[180px] max-w-[280px] rounded-lg border border-border bg-bg-secondary py-2 shadow-lg"
+        className="fixed z-[9999] min-w-[180px] max-w-[280px] rounded-lg border border-rule bg-ink-1 py-2 shadow-lg"
         style={{ top: position.top, left: position.left }}
         role="tooltip"
         onMouseEnter={handleEnter}
         onMouseLeave={handleLeave}
       >
         <div className="max-h-[240px] overflow-y-auto px-3">
-          <div className="text-[10px] uppercase tracking-wider text-text-muted mb-1.5 px-0.5">
+          <div className="text-[10px] uppercase tracking-wider text-faint mb-1.5 px-0.5">
             All token balances
           </div>
           {sorted.map((b) => (
             <div
               key={b.symbol}
-              className="flex justify-between gap-4 py-1 text-xs text-text-primary"
+              className="flex justify-between gap-4 py-1 text-xs text-body"
             >
               <span className="font-medium">{b.symbol}</span>
-              <span className="tabular-nums text-text-muted">
+              <span className="tabular-nums text-faint">
                 {formatValue(b.value)}
               </span>
             </div>
@@ -96,15 +96,15 @@ export function Erc20BalancesDisplay({
         onMouseEnter={handleEnter}
         onMouseLeave={handleLeave}
       >
-        <span className="inline-flex cursor-default items-center gap-0.5 font-medium text-text-primary">
+        <span className="inline-flex cursor-default items-center gap-0.5 font-medium text-body">
           <span>
             {top.symbol}: {formatValue(top.value)}
           </span>
           {hasMore && (
             <>
-              <span className="text-text-muted">+{restCount} more</span>
+              <span className="text-faint">+{restCount} more</span>
               <ChevronDown
-                className={`h-3 w-3 text-text-muted transition-transform ${isOpen ? "rotate-180" : ""}`}
+                className={`h-3 w-3 text-faint transition-transform ${isOpen ? "rotate-180" : ""}`}
               />
             </>
           )}
