@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { Geist, Geist_Mono, Fraunces } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { getServerAuth } from "@/lib/auth-server";
@@ -8,6 +8,20 @@ const geist = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
   display: "swap",
+});
+
+// Dossier landing type system: Fraunces (display serif) + Geist Mono (data).
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
+  subsets: ["latin"],
+  display: "swap",
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
@@ -25,7 +39,7 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geist.variable} antialiased`}
+        className={`${geist.variable} ${geistMono.variable} ${fraunces.variable} antialiased`}
         suppressHydrationWarning
       >
         <Providers

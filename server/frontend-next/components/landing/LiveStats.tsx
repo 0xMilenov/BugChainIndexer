@@ -1,140 +1,180 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Database, ShieldAlert, AlertOctagon, Radio } from "lucide-react";
 import { AnimatedCounter } from "./AnimatedCounter";
+import { SectionHeader } from "./SectionHeader";
 import type { LandingStats } from "@/lib/landing-types";
 
 interface LiveStatsProps {
   stats: LandingStats;
 }
 
+const EASE = [0.16, 1, 0.3, 1] as const;
+
 export function LiveStats({ stats }: LiveStatsProps) {
-  const cards = [
+  const { audits, contracts } = stats;
+
+  const severities = [
     {
-      icon: Database,
-      label: "Verified contracts indexed",
-      value: stats.contracts.verified,
-      sub: `${stats.contracts.networks} EVM networks · live`,
-      tone: "accent" as const,
+      key: "crit",
+      label: "CRIT",
+      count: audits.critical,
+      fill: "bg-sev-crit",
+      labelColor: "text-sev-crit-text",
+      countColor: "text-sev-crit-text font-medium",
+      footMark: true,
     },
     {
-      icon: Radio,
-      label: "Autonomous audits completed",
-      value: stats.audits.total,
-      sub: "multi-agent · proof-of-concept verified",
-      tone: "accent" as const,
+      key: "high",
+      label: "HIGH",
+      count: audits.high,
+      fill: "bg-sev-high",
+      labelColor: "text-sev-high",
+      countColor: "text-body",
+      footMark: true,
     },
     {
-      icon: AlertOctagon,
-      label: "High & critical findings",
-      value: stats.audits.critical + stats.audits.high,
-      sub: `${stats.audits.critical} critical · ${stats.audits.high} high`,
-      tone: "danger" as const,
+      key: "med",
+      label: "MED",
+      count: audits.medium,
+      fill: "bg-sev-med",
+      labelColor: "text-sev-med",
+      countColor: "text-body",
+      footMark: false,
     },
     {
-      icon: ShieldAlert,
-      label: "Total vulnerabilities surfaced",
-      value: stats.audits.findings,
-      sub: `${stats.audits.low} low · ${stats.audits.medium} medium · ${stats.audits.high} high`,
-      tone: "warn" as const,
+      key: "low",
+      label: "LOW",
+      count: audits.low,
+      fill: "bg-sev-low",
+      labelColor: "text-sev-low-text",
+      countColor: "text-body",
+      footMark: false,
+    },
+  ];
+
+  const maxCount = Math.max(1, ...severities.map((s) => s.count));
+
+  const instruments = [
+    {
+      key: "contracts",
+      chip: "▤",
+      label: "Contracts indexed",
+      value: contracts.total,
+      ctx: `across ${contracts.networks} EVM chains — Base first, streamed as they verify`,
+    },
+    {
+      key: "audits",
+      chip: "◎",
+      label: "Audits completed",
+      value: audits.total,
+      ctx: "multi-agent · every one PoC-checked before filing",
+    },
+    {
+      key: "networks",
+      chip: "⬡",
+      label: "Networks covered",
+      value: contracts.networks,
+      ctx: "base · ethereum · arbitrum · optimism · and more",
     },
   ];
 
   return (
-    <section id="stats" className="relative border-t border-border/40 py-24 sm:py-32">
+    <section id="stats" className="relative border-t border-rule bg-ink-1 py-24 sm:py-32">
       <div className="mx-auto max-w-6xl px-6">
         <SectionHeader
-          eyebrow="Live coverage"
-          title="Indexed at scale, audited with depth."
-          sub="Every number on this page is queried live from the same Postgres that powers the dashboard. No vanity metrics."
+          eyebrow="01 ·· Coverage"
+          title="What I've covered so far."
+          sub="Every number is queried live from the same Postgres that powers my dashboard. No vanity metrics — this is the working file."
         />
 
-        <div className="mt-16 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {cards.map((c, i) => (
-            <StatCard key={c.label} card={c} index={i} />
-          ))}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+          {/* Dominant panel — Findings on file */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.5, ease: EASE }}
+            className="d-rim rounded-[14px] border border-rule bg-ink-2 px-8 py-9 transition-colors hover:border-rule-strong hover:bg-ink-3 sm:px-10 lg:col-span-7"
+          >
+            <span className="font-data text-xs font-medium uppercase tracking-[0.14em] text-faint">
+              Findings on file
+            </span>
+
+            <div className="mt-3.5 font-data text-[clamp(2.5rem,4vw,3.5rem)] font-medium leading-none tracking-[-0.02em] text-paper d-tabular">
+              <AnimatedCounter to={audits.findings} format={(n) => n.toLocaleString()} />
+            </div>
+
+            <div className="mt-7 grid gap-3.5" aria-label="Findings by severity">
+              {severities.map((s, i) => (
+                <div
+                  key={s.key}
+                  className="grid items-center gap-3.5"
+                  style={{ gridTemplateColumns: "52px 1fr 64px" }}
+                >
+                  <span
+                    className={`font-data text-[11.5px] tracking-[0.12em] ${s.labelColor}`}
+                  >
+                    {s.label}
+                  </span>
+                  <div className="d-groove h-2 overflow-hidden rounded-[2px]">
+                    <motion.div
+                      initial={{ scaleX: 0 }}
+                      whileInView={{ scaleX: 1 }}
+                      viewport={{ once: true, amount: 0.3 }}
+                      transition={{ duration: 0.9, ease: EASE, delay: 0.1 + i * 0.1 }}
+                      className={`h-full origin-left rounded-[2px] ${s.fill}`}
+                      style={{ width: `${(s.count / maxCount) * 100}%` }}
+                    />
+                  </div>
+                  <span
+                    className={`text-right font-data text-sm d-tabular ${s.countColor}`}
+                  >
+                    {s.count}
+                    {s.footMark && (
+                      <span className="font-data text-faint">¹</span>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 border-t border-rule-dot pt-4 font-sans text-[13px] leading-relaxed text-dim">
+              <span className="font-data text-faint">¹</span> Every critical and high
+              finding is PoC-verified before it&apos;s filed.
+            </div>
+          </motion.div>
+
+          {/* Stacked instrument rows */}
+          <div className="flex flex-col gap-4 lg:col-span-5">
+            {instruments.map((inst, i) => (
+              <motion.div
+                key={inst.key}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.3 }}
+                transition={{ duration: 0.5, ease: EASE, delay: i * 0.08 }}
+                className="d-rim flex flex-1 flex-col justify-center gap-2 rounded-md border border-rule bg-ink-2 px-6 py-5 transition-colors hover:border-rule-strong hover:bg-ink-3"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-7 w-7 flex-none items-center justify-center rounded-[2px] border border-blue-600/20 bg-blue-950 font-data text-[13px] text-blue-400">
+                    {inst.chip}
+                  </span>
+                  <span className="font-data text-xs font-medium uppercase tracking-[0.14em] text-faint">
+                    {inst.label}
+                  </span>
+                </div>
+                <div className="font-data text-[2.25rem] font-medium leading-tight tracking-[-0.02em] text-paper d-tabular">
+                  <AnimatedCounter to={inst.value} format={(n) => n.toLocaleString()} />
+                </div>
+                <div className="text-[13.5px] font-medium leading-relaxed text-dim">
+                  {inst.ctx}
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </div>
     </section>
-  );
-}
-
-function StatCard({
-  card,
-  index,
-}: {
-  card: {
-    icon: React.ComponentType<{ className?: string }>;
-    label: string;
-    value: number;
-    sub: string;
-    tone: "accent" | "danger" | "warn";
-  };
-  index: number;
-}) {
-  const Icon = card.icon;
-  const toneRing = {
-    accent: "ring-accent/30",
-    danger: "ring-red-500/30",
-    warn: "ring-amber-500/30",
-  }[card.tone];
-  const toneText = {
-    accent: "text-accent",
-    danger: "text-red-400",
-    warn: "text-amber-400",
-  }[card.tone];
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.4 }}
-      transition={{ duration: 0.6, delay: index * 0.08, ease: [0.22, 1, 0.36, 1] }}
-      className={`group relative overflow-hidden rounded-2xl border border-border/60 bg-bg-secondary/40 p-6 ring-1 ring-inset ${toneRing} backdrop-blur transition hover:border-border hover:bg-bg-secondary/70`}
-    >
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_right,rgba(0, 82, 255,0.08),transparent_60%)] opacity-0 transition-opacity group-hover:opacity-100" />
-      <Icon className={`h-5 w-5 ${toneText}`} />
-      <div className="mt-6 font-mono text-4xl font-semibold tracking-tight text-text-primary">
-        <AnimatedCounter to={card.value} format={(n) => n.toLocaleString()} />
-      </div>
-      <div className="mt-2 text-sm text-text-primary">{card.label}</div>
-      <div className="mt-1 text-xs text-text-muted">{card.sub}</div>
-    </motion.div>
-  );
-}
-
-export function SectionHeader({
-  eyebrow,
-  title,
-  sub,
-  align = "center",
-}: {
-  eyebrow: string;
-  title: string;
-  sub?: string;
-  align?: "left" | "center";
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.5 }}
-      transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-      className={`max-w-3xl ${align === "center" ? "mx-auto text-center" : ""}`}
-    >
-      <div className="mb-4 inline-flex items-center gap-2 text-xs font-mono uppercase tracking-[0.2em] text-accent">
-        <span className="h-px w-8 bg-accent/60" />
-        {eyebrow}
-      </div>
-      <h2 className="text-balance text-[clamp(1.75rem,4vw,3rem)] font-semibold leading-[1.1] tracking-tight text-text-primary">
-        {title}
-      </h2>
-      {sub && (
-        <p className="mt-4 text-balance text-base leading-relaxed text-text-muted sm:text-lg">
-          {sub}
-        </p>
-      )}
-    </motion.div>
   );
 }

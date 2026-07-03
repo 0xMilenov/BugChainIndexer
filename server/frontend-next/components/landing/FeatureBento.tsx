@@ -1,135 +1,235 @@
 "use client";
 
 import { motion } from "framer-motion";
-import {
-  Activity,
-  Bot,
-  CircleDot,
-  Code2,
-  GitBranch,
-  Layers,
-  Network,
-  Plus,
-  ShieldCheck,
-  Workflow,
-} from "lucide-react";
-import { SectionHeader } from "./LiveStats";
+import Link from "next/link";
+import { SectionHeader } from "./SectionHeader";
 
-const TILES = [
-  {
-    icon: Bot,
-    title: "My audit engine",
-    body: "Under the hood I run a multi-agent pipeline — ~40-100 specialized AI agents across 8 phases: recon, breadth, depth iter 1+2 (Devil's Advocate), fuzz, chain analysis, PoC verification, skeptic-judge, and report assembly. It's how I turn raw source into severity-ranked, proof-backed findings. Open source.",
-    span: "lg:col-span-2 lg:row-span-2",
-    accent: true,
-  },
-  {
-    icon: Plus,
-    title: "Audit on demand",
-    body: "Drop any address into my dashboard. If I haven't audited it yet, click to put it in my queue — I take it from there and stream results back into the same UI when I'm done.",
-    span: "",
-  },
-  {
-    icon: Network,
-    title: "14 EVM chains, Base first",
-    body: "Base, Ethereum, BSC, Arbitrum, Optimism, Polygon, Linea, Scroll, Mantle, Gnosis, Avalanche, OpBNB, MegaETH, Bittensor EVM — one query interface. Base leads.",
-    span: "",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Severity, scored honestly",
-    body: "4-axis confidence (Evidence, Consensus, Quality, RAG). TRUSTED-ACTOR downgrade rules. Skeptic-judge reviews every Critical and High before persistence — so you don't see noise.",
-    span: "lg:col-span-2",
-  },
-  {
-    icon: Code2,
-    title: "PoC-verified findings",
-    body: "Phase 5 of every audit writes runnable Foundry tests. Pass / fail / revert is recorded. Findings on the dashboard carry [POC-PASS] tags when mechanically proven.",
-    span: "",
-  },
-  {
-    icon: Workflow,
-    title: "Compound attack chains",
-    body: "Postcondition→precondition matching across all findings. Discovers exploits where one bug's side effect enables another bug's attack path.",
-    span: "",
-  },
-  {
-    icon: Layers,
-    title: "Source-aware extraction",
-    body: "Handles Etherscan single-file, multi-file solc-j, and standard JSON formats. Auto-detects Foundry source roots, derives remappings on the fly. Just works.",
-    span: "",
-  },
-  {
-    icon: Activity,
-    title: "Live findings ticker",
-    body: "Critical and high findings flow through the dashboard in real time. Click any contract to see severity badges and the full report inline.",
-    span: "",
-  },
-  {
-    icon: GitBranch,
-    title: "Pause + resume",
-    body: "Multi-hour audits survive rate limits. Session state persisted continuously; resume from the exact phase boundary with one command — no re-runs from scratch.",
-    span: "",
-  },
-  {
-    icon: CircleDot,
-    title: "Free to you — funded by $AAA.",
-    body: "You never pay to read my findings or queue an audit. My compute bills are covered by $AAA swap fees, so every trade of my token funds another audit. That's the whole point: a whitehat that pays for itself.",
-    span: "lg:col-span-2",
-  },
+const REVEAL = {
+  initial: { opacity: 0, y: 16 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, amount: 0.3 },
+} as const;
+
+const CHAINS = [
+  "ethereum",
+  "bsc",
+  "arbitrum",
+  "optimism",
+  "polygon",
+  "linea",
+  "scroll",
+  "mantle",
+  "gnosis",
+  "avalanche",
+  "opbnb",
+  "megaeth",
+  "bittensor",
+];
+
+const FEE_SEGMENTS = [
+  { pct: 45, className: "bg-alloc-audit" },
+  { pct: 25, className: "bg-alloc-burn" },
+  { pct: 15, className: "bg-alloc-dev" },
+  { pct: 10, className: "bg-alloc-stake" },
+  { pct: 5, className: "bg-alloc-growth" },
 ];
 
 export function FeatureBento() {
   return (
-    <section id="features" className="relative border-t border-border/40 py-24 sm:py-32">
+    <section
+      id="features"
+      className="relative border-t border-rule bg-ink-1 py-24 sm:py-32"
+    >
       <div className="mx-auto max-w-7xl px-6">
         <SectionHeader
-          eyebrow="What I can do"
+          eyebrow="03 ·· Capabilities"
           title="Built for real audit work, not demos."
-          sub="Every capability here maps to code I run in production. The dashboard you'll open is wired to all of it."
+          sub="Every tile below shows the thing itself — no claims without exhibits."
         />
 
-        <div className="mt-16 grid auto-rows-[minmax(180px,auto)] grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {TILES.map((t, i) => (
-            <Tile key={t.title} tile={t} index={i} />
-          ))}
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
+          {/* PoC-verified findings — large */}
+          <motion.article
+            {...REVEAL}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="d-rim flex flex-col gap-3 rounded-md border border-rule bg-ink-2 p-[26px] transition-colors hover:border-rule-strong hover:bg-ink-3 lg:col-span-7 lg:row-span-2"
+          >
+            <span className="font-data text-[11px] font-medium uppercase tracking-[0.14em] text-dim">
+              Exhibit A · Verification
+            </span>
+            <h3 className="font-sans text-[1.1875rem] font-semibold leading-[1.35] text-paper">
+              PoC-verified findings
+            </h3>
+            <p className="text-[14px] leading-[1.6] text-dim">
+              Phase 5 of every audit writes runnable Foundry tests. Pass, fail,
+              or revert is recorded on the finding.
+            </p>
+            <div className="d-well mt-1 flex-1 rounded-[6px] border border-rule bg-ink-0 px-4 py-3.5 font-data text-[13px] leading-[2] text-dim">
+              <div className="text-body">$ forge test --match-test test_H01 -vvv</div>
+              <div>[⠔] Compiling 14 files with solc 0.8.24</div>
+              <div>Ran 1 test for test/H01_FeeRounding.t.sol</div>
+              <div className="text-blue-400">
+                [PASS] test_H01_lastClaimantShortfall() (gas: 287,441)
+              </div>
+              <div>assertion: last claimant receives 15% less than pro-rata ✓</div>
+              <div className="mt-1 flex items-center gap-2">
+                <span className="inline-block rounded-[2px] border border-sev-crit-text/35 bg-sev-crit/10 px-[7px] py-[2px] font-data text-[11px] font-medium tracking-[0.1em] text-sev-crit-text">
+                  POC-PASS
+                </span>
+                <span className="text-dim">filed → PoolFees · base</span>
+              </div>
+            </div>
+          </motion.article>
+
+          {/* 14 EVM chains */}
+          <motion.article
+            {...REVEAL}
+            transition={{ duration: 0.5, delay: 0.06, ease: [0.16, 1, 0.3, 1] }}
+            className="d-rim flex flex-col gap-3 rounded-md border border-rule bg-ink-2 p-[26px] transition-colors hover:border-rule-strong hover:bg-ink-3 lg:col-span-5"
+          >
+            <span className="font-data text-[11px] font-medium uppercase tracking-[0.14em] text-dim">
+              Reach
+            </span>
+            <h3 className="font-sans text-[1.1875rem] font-semibold leading-[1.35] text-paper">
+              14 EVM chains, Base first
+            </h3>
+            <div className="flex flex-wrap gap-1.5">
+              <span className="inline-flex items-center gap-1.5 rounded-[2px] border border-blue-600/35 bg-blue-950 px-2 py-[3px] font-data text-[11.5px] text-blue-300">
+                <i className="d-breathe h-[5px] w-[5px] rounded-[1px] bg-signal" />
+                base
+              </span>
+              {CHAINS.map((chain) => (
+                <span
+                  key={chain}
+                  className="rounded-[2px] border border-rule px-2 py-[3px] font-data text-[11.5px] text-dim"
+                >
+                  {chain}
+                </span>
+              ))}
+            </div>
+          </motion.article>
+
+          {/* Multi-agent pipeline */}
+          <motion.article
+            {...REVEAL}
+            transition={{ duration: 0.5, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
+            className="d-rim flex flex-col gap-3 rounded-md border border-rule bg-ink-2 p-[26px] transition-colors hover:border-rule-strong hover:bg-ink-3 lg:col-span-5"
+          >
+            <span className="font-data text-[11px] font-medium uppercase tracking-[0.14em] text-dim">
+              Engine
+            </span>
+            <h3 className="font-sans text-[1.1875rem] font-semibold leading-[1.35] text-paper">
+              Multi-agent pipeline
+            </h3>
+            <p className="text-[14px] leading-[1.6] text-dim">
+              40–100 agents, 8 phases, skeptic-judge on every Critical and High.
+              Open source.
+            </p>
+          </motion.article>
+
+          {/* Autonomous funding */}
+          <motion.article
+            {...REVEAL}
+            transition={{ duration: 0.5, delay: 0.06, ease: [0.16, 1, 0.3, 1] }}
+            className="d-rim flex flex-col gap-3 rounded-md border border-rule bg-ink-2 p-[26px] transition-colors hover:border-rule-strong hover:bg-ink-3 lg:col-span-4"
+          >
+            <span className="font-data text-[11px] font-medium uppercase tracking-[0.14em] text-dim">
+              Funding
+            </span>
+            <h3 className="font-sans text-[1.1875rem] font-semibold leading-[1.35] text-paper">
+              Autonomous funding
+            </h3>
+            <div className="font-data text-[13px] text-dim">
+              1.2% fee → 45 / 25 / 15 / 10 / 5
+            </div>
+            <div
+              aria-hidden="true"
+              className="d-groove flex h-[5px] overflow-hidden rounded-[2px]"
+            >
+              {FEE_SEGMENTS.map((seg, i) => (
+                <motion.span
+                  key={seg.className}
+                  initial={{ scaleX: 0 }}
+                  whileInView={{ scaleX: 1 }}
+                  viewport={{ once: true, amount: 0.3 }}
+                  transition={{
+                    duration: 0.5,
+                    delay: 0.2 + i * 0.08,
+                    ease: [0.16, 1, 0.3, 1],
+                  }}
+                  style={{ width: `${seg.pct}%` }}
+                  className={`origin-left ${seg.className}`}
+                />
+              ))}
+            </div>
+            <Link
+              href="#allocation"
+              className="mt-auto self-start font-data text-[12px] tracking-[0.06em] text-blue-text transition-colors hover:text-blue-300"
+            >
+              Full split ↓
+            </Link>
+          </motion.article>
+
+          {/* Findings wire */}
+          <motion.article
+            {...REVEAL}
+            transition={{ duration: 0.5, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
+            className="d-rim flex flex-col gap-3 rounded-md border border-rule bg-ink-2 p-[26px] transition-colors hover:border-rule-strong hover:bg-ink-3 lg:col-span-4"
+          >
+            <span className="font-data text-[11px] font-medium uppercase tracking-[0.14em] text-dim">
+              Live
+            </span>
+            <h3 className="font-sans text-[1.1875rem] font-semibold leading-[1.35] text-paper">
+              Findings wire
+            </h3>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 overflow-hidden text-ellipsis whitespace-nowrap font-data text-[12.5px] text-dim">
+                <span className="shrink-0 rounded-[2px] border border-sev-high/35 bg-sev-high/10 px-[7px] py-[2px] font-data text-[11px] font-medium tracking-[0.1em] text-sev-high">
+                  HIGH
+                </span>
+                adminMoveAlpha accounting desync…
+              </div>
+              <div className="flex items-center gap-2 overflow-hidden text-ellipsis whitespace-nowrap font-data text-[12.5px] text-dim">
+                <span className="shrink-0 rounded-[2px] border border-sev-med/35 bg-sev-med/10 px-[7px] py-[2px] font-data text-[11px] font-medium tracking-[0.1em] text-sev-med">
+                  MED
+                </span>
+                depositAlpha two-phase not atomic…
+              </div>
+            </div>
+          </motion.article>
+
+          {/* Severity taxonomy */}
+          <motion.article
+            {...REVEAL}
+            transition={{ duration: 0.5, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            className="d-rim flex flex-col gap-3 rounded-md border border-rule bg-ink-2 p-[26px] transition-colors hover:border-rule-strong hover:bg-ink-3 lg:col-span-4"
+          >
+            <span className="font-data text-[11px] font-medium uppercase tracking-[0.14em] text-dim">
+              Taxonomy
+            </span>
+            <h3 className="font-sans text-[1.1875rem] font-semibold leading-[1.35] text-paper">
+              Severity, scored honestly
+            </h3>
+            <div className="flex flex-wrap gap-1.5">
+              <span className="rounded-[2px] border border-sev-crit-text/35 bg-sev-crit/10 px-[7px] py-[2px] font-data text-[11px] font-medium tracking-[0.1em] text-sev-crit-text">
+                CRIT
+              </span>
+              <span className="rounded-[2px] border border-sev-high/35 bg-sev-high/10 px-[7px] py-[2px] font-data text-[11px] font-medium tracking-[0.1em] text-sev-high">
+                HIGH
+              </span>
+              <span className="rounded-[2px] border border-sev-med/35 bg-sev-med/10 px-[7px] py-[2px] font-data text-[11px] font-medium tracking-[0.1em] text-sev-med">
+                MED
+              </span>
+              <span className="rounded-[2px] border border-sev-low-text/35 bg-sev-low/10 px-[7px] py-[2px] font-data text-[11px] font-medium tracking-[0.1em] text-sev-low-text">
+                LOW
+              </span>
+              <span className="rounded-[2px] border border-rule-strong px-[7px] py-[2px] font-data text-[11px] font-medium tracking-[0.1em] text-dim">
+                INFO
+              </span>
+            </div>
+          </motion.article>
         </div>
       </div>
     </section>
-  );
-}
-
-function Tile({
-  tile,
-  index,
-}: {
-  tile: (typeof TILES)[number];
-  index: number;
-}) {
-  const Icon = tile.icon;
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.3 }}
-      transition={{ duration: 0.6, delay: (index % 4) * 0.06, ease: [0.22, 1, 0.36, 1] }}
-      className={`group relative overflow-hidden rounded-2xl border border-border/60 bg-bg-secondary/40 p-6 backdrop-blur transition hover:border-border hover:bg-bg-secondary/70 ${tile.span}`}
-    >
-      {tile.accent && (
-        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(0, 82, 255,0.12),transparent_60%)]" />
-      )}
-      <Icon className={`h-6 w-6 ${tile.accent ? "text-accent" : "text-text-primary"}`} />
-      <h3
-        className={`mt-5 leading-snug tracking-tight text-text-primary ${
-          tile.accent ? "text-xl sm:text-2xl font-semibold" : "text-lg font-semibold"
-        }`}
-      >
-        {tile.title}
-      </h3>
-      <p className={`mt-3 text-sm leading-relaxed text-text-muted ${tile.accent ? "max-w-prose" : ""}`}>
-        {tile.body}
-      </p>
-      <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-accent/20 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-    </motion.div>
   );
 }

@@ -28,6 +28,58 @@
   --color-border: #27272a;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-sans);
+
+  /* ===== Dossier landing tokens (v2) — additive; dashboard keeps the tokens above ===== */
+  --color-ink-0: #06070b;
+  --color-ink-1: #0c0e15;
+  --color-ink-2: #121620;
+  --color-ink-3: #1b2030;
+  --color-ink-4: #242a3a;
+  --color-rule: #242b3b;
+  --color-rule-strong: #333b52;
+  --color-rule-dot: #3e465c;
+  --color-paper: #f2f3f7;
+  --color-body: #dde1ea;
+  --color-dim: #b0b6c7;
+  --color-faint: #828aa0;
+  --color-ghost: #3b4152;
+  --color-blue-950: #001233;
+  --color-blue-700: #0041cc;
+  --color-blue-600: #0052ff;
+  --color-blue-500: #3d7bff;
+  --color-blue-400: #7aa5ff;
+  --color-blue-300: #b0c9ff;
+  --color-blue-text: #5e90ff;
+  --color-signal: #57d7ff;
+  --color-sev-crit: #ff4757;
+  --color-sev-high: #ff8a3d;
+  --color-sev-med: #ffc24d;
+  --color-sev-low: #4da3ff;
+  --color-sev-crit-text: #ff6b78;
+  --color-sev-low-text: #66b1ff;
+  --color-alloc-audit: #0052ff;
+  --color-alloc-burn: #ff6b3d;
+  --color-alloc-dev: #7aa5ff;
+  --color-alloc-stake: #57d7ff;
+  --color-alloc-growth: #8a90a2;
+
+  --font-serif: var(--font-fraunces);
+  --font-data: var(--font-geist-mono);
+}
+
+/* Dossier CSS custom-properties for effects that aren't Tailwind color utilities */
+:root {
+  --track: #070910;
+  --rim: inset 0 1px 0 rgb(255 255 255 / 0.05);
+  --groove: inset 0 1px 3px rgb(0 0 0 / 0.55), 0 1px 0 rgb(255 255 255 / 0.03);
+  --well: inset 0 2px 8px rgb(0 0 0 / 0.6), inset 0 1px 0 rgb(0 0 0 / 0.8), 0 1px 0 rgb(255 255 255 / 0.04);
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.5);
+  --shadow-2: 0 2px 8px rgb(0 0 0 / 0.45), 0 8px 24px -8px rgb(0 0 0 / 0.5);
+  --shadow-3: 0 4px 16px rgb(0 0 0 / 0.5), 0 24px 48px -12px rgb(0 0 0 / 0.6);
+  --glow-blue: 0 0 0 1px #0052ff3d, 0 0 32px -6px #0052ff66;
+  --glow-signal: 0 0 12px -2px #57d7ff80;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-inout: cubic-bezier(0.65, 0, 0.35, 1);
 }
 
 body {
@@ -129,3 +181,85 @@ body {
 
 /* Subtle smoothing for landing scroll */
 html { scroll-behavior: smooth; }
+
+/* ===================================================================== */
+/* Dossier landing v2 — shared effect classes & keyframes                */
+/* ===================================================================== */
+
+/* elevation / surfaces */
+.d-rim { box-shadow: var(--rim), var(--shadow-1); }
+.d-rim-2 { box-shadow: var(--rim), var(--shadow-2); }
+.d-rim-3 { box-shadow: var(--rim), var(--shadow-3); }
+.d-groove { background: var(--track); box-shadow: var(--groove); }
+.d-well { box-shadow: var(--well); }
+.d-glow-blue { box-shadow: var(--glow-blue); }
+.d-glow-signal { box-shadow: var(--glow-signal); }
+.d-tabular { font-variant-numeric: tabular-nums; }
+
+/* the breathing live-signal square (replaces animate-ping) */
+@keyframes d-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.d-breathe { animation: d-breathe 2.4s var(--ease-inout) infinite; }
+
+/* the single 14s scanning sweep line */
+@keyframes d-sweep { 0% { transform: translateY(0); } 100% { transform: translateY(100vh); } }
+.d-sweep {
+  position: fixed; left: 0; right: 0; top: -2px; height: 1px;
+  background: var(--color-signal); opacity: 0.08; z-index: 5; pointer-events: none;
+  animation: d-sweep 14s linear infinite;
+}
+
+/* hero unredaction cover bars */
+@keyframes d-unredact { to { transform: scaleX(0); } }
+.d-redact { position: relative; display: inline-block; }
+.d-redact::after {
+  content: ""; position: absolute; inset: -0.02em -0.05em;
+  background: var(--color-ghost); border-left: 2px solid var(--color-signal);
+  transform-origin: right; transform: scaleX(1);
+}
+.d-loaded .d-redact::after { animation: d-unredact 480ms var(--ease-inout) forwards; }
+.d-loaded .d-redact.d-r2::after { animation-delay: 340ms; }
+.d-nb { white-space: nowrap; }
+
+/* File Header rule draw-in */
+@keyframes d-drawx { to { transform: scaleX(1); } }
+.d-fhline { transform: scaleX(0); transform-origin: left; }
+.in-view .d-fhline { animation: d-drawx 900ms var(--ease-out) forwards; }
+
+/* ledger / register bar fills grow on view */
+.d-fill { transform: scaleX(0); transform-origin: left; }
+.in-view .d-fill { transition: transform 900ms var(--ease-out); transform: scaleX(1); }
+/* ledger trunk + connectors */
+.d-trunk { transform: scaleY(0); transform-origin: top; }
+.in-view .d-trunk { transition: transform 900ms var(--ease-out); transform: scaleY(1); }
+
+/* burn allocation ember pulse */
+@keyframes d-ember { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.25); } }
+.d-ember { animation: d-ember 2s var(--ease-inout) infinite; }
+
+/* index-stream loop */
+@keyframes d-streamup { 0% { transform: translateY(0); } 100% { transform: translateY(-50%); } }
+.d-streamup { animation: d-streamup 12s linear infinite; }
+
+/* wire marquee */
+@keyframes d-wire { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+.d-wire { animation: d-wire 48s linear infinite; }
+.d-wirehost:hover .d-wire { animation-play-state: paused; }
+
+/* self-typing lookup */
+@keyframes d-typein { to { max-width: 24ch; } }
+@keyframes d-caretoff { to { border-color: transparent; } }
+.d-caret { display: inline-block; overflow: hidden; white-space: nowrap; max-width: 0; border-right: 2px solid var(--color-signal); }
+.in-view .d-caret { animation: d-typein 1.4s steps(22, end) 0.3s forwards, d-caretoff 1ms 1.9s forwards; }
+
+/* generic scroll reveal */
+[data-io] { opacity: 0; transform: translateY(16px); transition: opacity 480ms var(--ease-out), transform 480ms var(--ease-out); }
+[data-io].in-view { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .d-sweep { display: none; }
+  .d-redact::after { display: none; }
+  .d-breathe, .d-ember, .d-streamup, .d-wire { animation: none; }
+  [data-io] { opacity: 1; transform: none; transition: none; }
+  .d-caret { max-width: 24ch; border-color: transparent; animation: none; }
+  html { scroll-behavior: auto; }
+}

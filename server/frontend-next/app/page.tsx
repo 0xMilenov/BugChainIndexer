@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { fetchLandingStats } from "@/lib/landing";
 import { LandingNav } from "@/components/landing/LandingNav";
+import { TelemetryRail } from "@/components/landing/TelemetryRail";
 import { Hero } from "@/components/landing/Hero";
 import { LiveStats } from "@/components/landing/LiveStats";
 import { HowItWorks } from "@/components/landing/HowItWorks";
@@ -28,17 +29,20 @@ export default async function LandingPage() {
   const stats = await fetchLandingStats();
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-bg-primary text-text-primary">
-      <LandingNav />
-      <main>
-        <Hero stats={stats} />
-        <LiveStats stats={stats} />
-        <HowItWorks />
-        <FeatureBento />
-        <LiveFindings findings={stats.latest_findings} recentAudits={stats.recent_audits} />
-        <TokenSection />
-        <FinalCTA stats={stats} />
-      </main>
+    <div className="relative min-h-screen overflow-x-hidden bg-ink-0 text-body">
+      <LandingNav stats={stats} />
+      <div className="pt-14">
+        <TelemetryRail stats={stats} />
+        <main>
+          <Hero stats={stats} />
+          <LiveStats stats={stats} />
+          <HowItWorks />
+          <FeatureBento />
+          <LiveFindings findings={stats.latest_findings} recentAudits={stats.recent_audits} />
+          <TokenSection />
+          <FinalCTA stats={stats} />
+        </main>
+      </div>
       <LandingFooter />
     </div>
   );
