@@ -4,7 +4,7 @@ export function LoadingSkeleton() {
   const skeletonRows = Array(10)
     .fill(0)
     .map((_, i) => (
-      <tr key={i} className="border-b border-border">
+      <tr key={i} className="border-b border-rule">
         <td className="px-4 py-3">
           <div className="skeleton h-4 w-32" />
         </td>
@@ -35,7 +35,7 @@ export function LoadingSkeleton() {
   const skeletonCards = Array(6)
     .fill(0)
     .map((_, i) => (
-      <div key={i} className="rounded-xl border border-border bg-bg-secondary p-4">
+      <div key={i} className="rounded-md border border-rule bg-ink-1 p-4">
         <div className="flex items-center justify-between gap-3">
           <div className="skeleton h-4 w-32" />
           <div className="skeleton h-6 w-24" />
@@ -51,10 +51,10 @@ export function LoadingSkeleton() {
     ));
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-bg-secondary">
+    <div className="overflow-hidden rounded-md border border-rule bg-ink-1">
       <div className="hidden overflow-x-auto sm:block">
         <table className="min-w-full text-sm">
-          <thead className="bg-bg-tertiary text-text-muted">
+          <thead className="bg-ink-2 text-faint">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
                 Address

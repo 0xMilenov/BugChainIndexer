@@ -27,19 +27,19 @@ export function Pagination({
         <button
           onClick={onPrev}
           disabled={!hasPrev}
-          className="rounded-lg bg-bg-secondary px-3 py-1.5 text-sm font-medium text-text-primary transition hover:bg-bg-tertiary disabled:bg-bg-secondary disabled:text-text-muted disabled:cursor-not-allowed"
+          className="rounded-md bg-ink-1 px-3 py-1.5 text-sm font-medium text-body transition hover:bg-ink-2 disabled:bg-ink-1 disabled:text-faint disabled:cursor-not-allowed"
         >
           Prev
         </button>
         <button
           onClick={onNext}
           disabled={!hasNext}
-          className="rounded-lg bg-bg-secondary px-3 py-1.5 text-sm font-medium text-text-primary transition hover:bg-bg-tertiary disabled:bg-bg-secondary disabled:text-text-muted disabled:cursor-not-allowed"
+          className="rounded-md bg-ink-1 px-3 py-1.5 text-sm font-medium text-body transition hover:bg-ink-2 disabled:bg-ink-1 disabled:text-faint disabled:cursor-not-allowed"
         >
           Next
         </button>
       </div>
-      <div className="flex-1 text-right text-sm text-text-muted">
+      <div className="flex-1 text-right text-sm text-faint">
         <span className="whitespace-nowrap">
           Page size: {pageLimit}
           {pageIndex === 1 ? " (first page)" : ""}

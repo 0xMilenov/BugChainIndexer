@@ -58,9 +58,9 @@ export function RunAuditCell({
   if (state === "running" || state === "pending") {
     return (
       <span
-        className={`inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 ${
+        className={`inline-flex items-center gap-1.5 rounded-full border border-blue-600/40 bg-blue-600/10 ${
           compact ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-1 text-[11px]"
-        } font-semibold uppercase tracking-wider text-accent`}
+        } font-semibold uppercase tracking-wider text-blue-text`}
         title={
           contract.audit_phase
             ? `AAA audit in progress · ${contract.audit_phase}`
@@ -79,7 +79,7 @@ export function RunAuditCell({
     return (
       <Link
         href={loginUrl}
-        className={`inline-flex items-center gap-1.5 rounded-full border border-border bg-bg-secondary font-semibold uppercase tracking-wider text-text-muted transition hover:border-accent/40 hover:text-accent ${
+        className={`inline-flex items-center gap-1.5 rounded-full border border-rule bg-ink-1 font-semibold uppercase tracking-wider text-faint transition hover:border-blue-600/40 hover:text-blue-text ${
           compact ? "px-2.5 py-0.5 text-[10px]" : "px-3 py-1 text-[11px]"
         }`}
       >
@@ -98,8 +98,8 @@ export function RunAuditCell({
           compact ? "px-2.5 py-0.5 text-[10px]" : "px-3 py-1 text-[11px]"
         } ${
           isRetry
-            ? "border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20"
-            : "border-accent/40 bg-accent/10 text-accent hover:bg-accent/20"
+            ? "border-sev-crit/40 bg-sev-crit/10 text-sev-crit-text hover:bg-sev-crit/20"
+            : "border-blue-600/40 bg-blue-600/10 text-blue-text hover:bg-blue-600/20"
         }`}
         title={
           isRetry
@@ -118,7 +118,7 @@ export function RunAuditCell({
       </button>
       {err && (
         <span
-          className="inline-flex items-center gap-1 text-[10px] text-red-400"
+          className="inline-flex items-center gap-1 text-[10px] text-sev-crit-text"
           title={err}
         >
           <AlertTriangle className="h-3 w-3" />

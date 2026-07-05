@@ -38,7 +38,7 @@ export function ContractCard({ contract, nativePrices, isBookmarked = false, onB
   const netColor = NETWORK_COLORS[netKey] ?? "bg-gray-500";
 
   return (
-    <div className="rounded-xl border border-border bg-bg-secondary p-4 shadow-sm transition hover:border-accent/30 hover:shadow-lg">
+    <div className="rounded-md border border-rule bg-ink-1 p-4 shadow-sm transition hover:border-blue-600/30 hover:shadow-lg">
       <div className="flex items-center justify-between gap-3">
         {onBookmarkToggle && (
           <button
@@ -47,11 +47,11 @@ export function ContractCard({ contract, nativePrices, isBookmarked = false, onB
               e.preventDefault();
               onBookmarkToggle({ address: contract.address, network: contract.network ?? "" });
             }}
-            className="flex-shrink-0 rounded p-0.5 text-text-muted hover:text-accent transition"
+            className="flex-shrink-0 rounded p-0.5 text-faint hover:text-blue-text transition"
             aria-label={isBookmarked ? "Remove bookmark" : "Add bookmark"}
           >
             {isBookmarked ? (
-              <BookmarkCheck className="h-4 w-4 fill-accent text-accent" />
+              <BookmarkCheck className="h-4 w-4 fill-blue-600 text-blue-text" />
             ) : (
               <Bookmark className="h-4 w-4" />
             )}
@@ -62,13 +62,13 @@ export function ContractCard({ contract, nativePrices, isBookmarked = false, onB
             href={link}
             target="_blank"
             rel="noopener noreferrer"
-            className="break-all font-mono text-xs font-medium text-accent hover:underline flex-1 min-w-0"
+            className="break-all font-data text-xs font-medium text-blue-text hover:underline flex-1 min-w-0"
             title="View on explorer"
           >
             {short}
           </a>
         ) : (
-          <span className="break-all font-mono text-xs font-medium text-accent flex-1 min-w-0">
+          <span className="break-all font-data text-xs font-medium text-blue-text flex-1 min-w-0">
             {short}
           </span>
         )}
@@ -82,7 +82,7 @@ export function ContractCard({ contract, nativePrices, isBookmarked = false, onB
       </div>
       <Link
         href={`/contract/${contract.network}/${contract.address}`}
-        className={`mt-2 block truncate text-sm hover:underline ${isUnnamed ? "italic text-text-muted" : "text-text-primary"}`}
+        className={`mt-2 block truncate text-sm hover:underline ${isUnnamed ? "italic text-faint" : "text-body"}`}
       >
         {displayName}
       </Link>
@@ -93,19 +93,19 @@ export function ContractCard({ contract, nativePrices, isBookmarked = false, onB
         {isProxy && <Badge variant="warning">Proxy</Badge>}
       </div>
       {isProxy && implAddress && (
-        <div className="mt-1 font-mono text-[10px] text-text-muted">
+        <div className="mt-1 font-data text-[10px] text-faint">
           Impl: {implAddress.slice(0, 8)}...{implAddress.slice(-6)}
         </div>
       )}
-      <div className="mt-3 flex flex-col rounded-lg bg-bg-tertiary px-2 py-1.5 text-xs">
-        <span className="text-text-muted">Funds</span>
-        <span className="mt-0.5 font-semibold text-accent">
+      <div className="mt-3 flex flex-col rounded-md bg-ink-2 px-2 py-1.5 text-xs">
+        <span className="text-faint">Funds</span>
+        <span className="mt-0.5 font-semibold text-blue-text">
           {formatFund(contract, nativePrices)}
         </span>
       </div>
       {(contract.erc20_balances?.length ?? 0) > 0 && (
-        <div className="mt-2 flex flex-col rounded-lg bg-bg-tertiary px-2 py-1.5 text-xs">
-          <span className="text-text-muted">ERC-20</span>
+        <div className="mt-2 flex flex-col rounded-md bg-ink-2 px-2 py-1.5 text-xs">
+          <span className="text-faint">ERC-20</span>
           <span className="mt-0.5">
             <Erc20BalancesDisplay balances={contract.erc20_balances} />
           </span>
@@ -113,49 +113,49 @@ export function ContractCard({ contract, nativePrices, isBookmarked = false, onB
       )}
       {hasCompletedAuditListing(contract) ? (
         <div className="mt-2 grid grid-cols-4 gap-2 text-xs">
-          <div className="flex flex-col rounded-lg bg-bg-tertiary px-2 py-1.5">
-            <span className="text-red-400/90">Crit</span>
+          <div className="flex flex-col rounded-md bg-ink-2 px-2 py-1.5">
+            <span className="text-sev-crit-text/90">Crit</span>
             <span
-              className={`mt-0.5 font-mono tabular-nums ${
+              className={`mt-0.5 font-data tabular-nums ${
                 formatAuditSeverityCell(contract, "critical") === "-"
-                  ? "text-text-muted"
-                  : "font-semibold text-text-primary"
+                  ? "text-faint"
+                  : "font-semibold text-body"
               }`}
             >
               {formatAuditSeverityCell(contract, "critical")}
             </span>
           </div>
-          <div className="flex flex-col rounded-lg bg-bg-tertiary px-2 py-1.5">
-            <span className="text-orange-400/90">High</span>
+          <div className="flex flex-col rounded-md bg-ink-2 px-2 py-1.5">
+            <span className="text-sev-high/90">High</span>
             <span
-              className={`mt-0.5 font-mono tabular-nums ${
+              className={`mt-0.5 font-data tabular-nums ${
                 formatAuditSeverityCell(contract, "high") === "-"
-                  ? "text-text-muted"
-                  : "font-semibold text-text-primary"
+                  ? "text-faint"
+                  : "font-semibold text-body"
               }`}
             >
               {formatAuditSeverityCell(contract, "high")}
             </span>
           </div>
-          <div className="flex flex-col rounded-lg bg-bg-tertiary px-2 py-1.5">
-            <span className="text-amber-400/90">Med</span>
+          <div className="flex flex-col rounded-md bg-ink-2 px-2 py-1.5">
+            <span className="text-sev-med/90">Med</span>
             <span
-              className={`mt-0.5 font-mono tabular-nums ${
+              className={`mt-0.5 font-data tabular-nums ${
                 formatAuditSeverityCell(contract, "medium") === "-"
-                  ? "text-text-muted"
-                  : "font-semibold text-text-primary"
+                  ? "text-faint"
+                  : "font-semibold text-body"
               }`}
             >
               {formatAuditSeverityCell(contract, "medium")}
             </span>
           </div>
-          <div className="flex flex-col rounded-lg bg-bg-tertiary px-2 py-1.5">
-            <span className="text-sky-400/90">Low</span>
+          <div className="flex flex-col rounded-md bg-ink-2 px-2 py-1.5">
+            <span className="text-sev-low-text/90">Low</span>
             <span
-              className={`mt-0.5 font-mono tabular-nums ${
+              className={`mt-0.5 font-data tabular-nums ${
                 formatAuditSeverityCell(contract, "low") === "-"
-                  ? "text-text-muted"
-                  : "font-semibold text-text-primary"
+                  ? "text-faint"
+                  : "font-semibold text-body"
               }`}
             >
               {formatAuditSeverityCell(contract, "low")}

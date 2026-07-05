@@ -51,10 +51,10 @@ export function Sidebar({
         <button
           type="button"
           onClick={onClose}
-          className="rounded-lg p-1.5 hover:bg-bg-tertiary transition"
+          className="rounded-lg p-1.5 hover:bg-ink-2 transition"
           aria-label="Close filters"
         >
-          <X className="h-4 w-4 text-text-muted" />
+          <X className="h-4 w-4 text-faint" />
         </button>
       </div>
 
@@ -80,11 +80,11 @@ export function Sidebar({
 
       <ActiveFiltersSummary onClear={onClearFilters} />
 
-      <div className="border-t border-border pt-1.5 mt-1">
+      <div className="border-t border-rule pt-1.5 mt-1">
         <button
           type="button"
           onClick={() => setAdvancedOpen((o) => !o)}
-          className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-text-muted transition hover:bg-bg-tertiary hover:text-text-primary"
+          className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-faint transition hover:bg-ink-2 hover:text-body"
           aria-expanded={advancedOpen}
         >
           <span>Search & Filters</span>
@@ -126,17 +126,17 @@ export function Sidebar({
                         initial={{ opacity: 0, y: -4 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -4 }}
-                        className="absolute top-full left-0 right-0 mt-1 rounded-lg border border-border bg-bg-secondary shadow-xl z-50 overflow-hidden"
+                        className="absolute top-full left-0 right-0 mt-1 rounded-lg border border-rule bg-ink-1 shadow-xl z-50 overflow-hidden"
                       >
                         <button
                           onClick={onExportCSV}
-                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-text-primary hover:bg-bg-tertiary transition"
+                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-body hover:bg-ink-2 transition"
                         >
                           Export CSV
                         </button>
                         <button
                           onClick={onExportJSON}
-                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-text-primary hover:bg-bg-tertiary transition"
+                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-body hover:bg-ink-2 transition"
                         >
                           Export JSON
                         </button>
@@ -155,7 +155,7 @@ export function Sidebar({
   return (
     <>
       <aside
-        className={`fixed top-0 left-0 bottom-0 z-40 w-80 overflow-y-auto border-r border-border bg-bg-secondary/95 backdrop-blur-md shadow-2xl transition-transform duration-200 ease-out
+        className={`fixed top-0 left-0 bottom-0 z-40 w-80 overflow-y-auto border-r border-rule bg-ink-1/95 backdrop-blur-md shadow-2xl transition-transform duration-200 ease-out
           lg:z-20 lg:w-72 xl:w-80 lg:shadow-none lg:backdrop-blur-none
           ${open ? "translate-x-0" : "-translate-x-full"}`}
       >

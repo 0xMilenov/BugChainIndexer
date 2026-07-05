@@ -24,7 +24,7 @@ export default function ContractError({
       <div className="max-w-2xl mx-auto p-6">
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-blue-text hover:text-blue-text-dim hover:underline mb-6"
+          className="inline-flex items-center gap-2 text-blue-text hover:text-blue-300 hover:underline mb-6"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to search

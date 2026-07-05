@@ -20,7 +20,7 @@ const components: Partial<Components> = {
     </h4>
   ),
   h3: ({ children }) => (
-    <h5 className="mb-1.5 mt-3 text-sm font-semibold text-blue-text-soft first:mt-0">{children}</h5>
+    <h5 className="mb-1.5 mt-3 text-sm font-semibold text-blue-text first:mt-0">{children}</h5>
   ),
   h4: ({ children }) => (
     <h5 className="mb-1.5 mt-3 text-sm font-semibold text-body first:mt-0">{children}</h5>
@@ -52,7 +52,7 @@ const components: Partial<Components> = {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="font-medium text-blue-text underline-offset-2 hover:text-blue-text-dim hover:underline"
+      className="font-medium text-blue-text underline-offset-2 hover:text-blue-300 hover:underline"
     >
       {children}
     </a>
@@ -75,7 +75,7 @@ const components: Partial<Components> = {
       );
     }
     return (
-      <code className="rounded-md bg-ink-2/90 px-1.5 py-0.5 font-data text-[12px] text-blue-text-soft [word-break:break-word]">
+      <code className="rounded-md bg-ink-2/90 px-1.5 py-0.5 font-data text-[12px] text-blue-text [word-break:break-word]">
         {children}
       </code>
     );

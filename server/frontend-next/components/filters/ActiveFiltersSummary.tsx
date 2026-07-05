@@ -40,9 +40,9 @@ export function ActiveFiltersSummary({ onClear }: ActiveFiltersSummaryProps) {
   const hasFilters = chips.length > 0;
 
   return (
-    <div className="border-t border-border pt-3">
+    <div className="border-t border-rule pt-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2 text-sm text-text-muted">
+        <div className="flex items-center gap-2 text-sm text-faint">
           <ListFilter className="h-4 w-4" />
           <span>Active filters</span>
           <span className={hasFilters ? "hidden" : ""}>None</span>
@@ -50,9 +50,9 @@ export function ActiveFiltersSummary({ onClear }: ActiveFiltersSummaryProps) {
         <button
           onClick={() => (onClear ?? clearFilters)()}
           disabled={!hasFilters}
-          className={`rounded-md border border-border px-2 py-1 text-xs transition focus-ring ${
+          className={`rounded-md border border-rule px-2 py-1 text-xs transition focus-ring ${
             hasFilters
-              ? "text-text-muted hover:bg-bg-tertiary hover:text-text-primary"
+              ? "text-faint hover:bg-ink-2 hover:text-body"
               : "cursor-not-allowed opacity-50"
           }`}
         >
@@ -63,7 +63,7 @@ export function ActiveFiltersSummary({ onClear }: ActiveFiltersSummaryProps) {
         {chips.map((chip) => (
           <span
             key={chip}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-bg-secondary px-2.5 py-1 text-xs text-text-primary"
+            className="inline-flex items-center gap-1.5 rounded-full border border-rule bg-ink-1 px-2.5 py-1 text-xs text-body"
           >
             {chip}
           </span>

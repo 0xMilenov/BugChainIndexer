@@ -12,7 +12,7 @@ export function AuthStatus() {
     return (
       <a
         href={loginUrl}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-bg-secondary text-text-primary hover:bg-bg-tertiary hover:text-accent hover:border-accent/40 transition flex-shrink-0 font-medium"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-rule bg-ink-1 text-body hover:bg-ink-2 hover:text-blue-text hover:border-blue-600/40 transition flex-shrink-0 font-medium"
         aria-label="Log in"
       >
         <LogIn className="h-4 w-4 flex-shrink-0" />
@@ -32,7 +32,7 @@ export function AuthStatus() {
       unoptimized
     />
   ) : (
-    <div className="flex size-6 items-center justify-center rounded-full bg-bg-tertiary text-text-muted text-xs font-medium uppercase">
+    <div className="flex size-6 items-center justify-center rounded-full bg-ink-2 text-faint text-xs font-medium uppercase">
       {user.username.slice(0, 1)}
     </div>
   );
@@ -45,7 +45,7 @@ export function AuthStatus() {
       </div>
       <a
         href={logoutUrl}
-        className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-text-muted hover:bg-bg-tertiary hover:text-accent transition"
+        className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-faint hover:bg-ink-2 hover:text-blue-text transition"
         title="Log out"
       >
         <LogOut className="h-4 w-4" />

@@ -25,7 +25,7 @@ export function Layout({
 }: LayoutProps) {
   return (
     <SidebarProvider sidebarOpen={sidebarOpen}>
-      <div className="min-h-screen bg-bg-primary text-text-primary bg-grid-overlay">
+      <div className="min-h-screen bg-ink-0 text-body bg-grid-overlay">
         <a href="#main-content" className="skip-link">
           Skip to results
         </a>
@@ -53,7 +53,7 @@ export function Layout({
           <button
             type="button"
             onClick={() => onSidebarOpenChange(true)}
-            className="fixed left-0 top-[calc(4rem+1rem)] z-30 flex items-center gap-1.5 rounded-r-lg border border-l-0 border-border bg-bg-secondary px-2.5 py-2.5 text-sm text-text-muted shadow-lg transition hover:bg-bg-tertiary hover:text-text-primary"
+            className="fixed left-0 top-[calc(4rem+1rem)] z-30 flex items-center gap-1.5 rounded-r-lg border border-l-0 border-rule bg-ink-1 px-2.5 py-2.5 text-sm text-faint shadow-lg transition hover:bg-ink-2 hover:text-body"
             aria-label="Open filters"
           >
             <SlidersHorizontal className="h-4 w-4" />

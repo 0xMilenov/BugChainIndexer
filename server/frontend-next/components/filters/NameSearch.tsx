@@ -8,7 +8,7 @@ export function NameSearch() {
   const { filters, setName } = useFilters();
   return (
     <div>
-      <label className="mb-2 block text-sm font-medium text-text-primary">
+      <label className="mb-2 block text-sm font-medium text-body">
         Search by Contract Name
       </label>
       <Input

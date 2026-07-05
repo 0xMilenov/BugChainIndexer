@@ -19,22 +19,22 @@ export function FundRangeSlider() {
   return (
     <div>
       <div className="mb-3 flex items-center gap-2">
-        <DollarSign className="h-4 w-4 text-text-muted" />
-        <label className="text-sm font-medium text-text-primary">
+        <DollarSign className="h-4 w-4 text-faint" />
+        <label className="text-sm font-medium text-body">
           Fund Range:{" "}
-          <span className="font-normal text-text-muted">
+          <span className="font-normal text-faint">
             ${fmt(filters.fundMin)} - ${fmt(filters.fundMax)}
           </span>
         </label>
       </div>
       <div className="relative">
-        <div className="mb-2 flex justify-between text-xs text-text-muted">
+        <div className="mb-2 flex justify-between text-xs text-faint">
           <span>Min: $0</span>
           <span>Max: ∞</span>
         </div>
-        <div className="relative h-2 rounded-lg bg-bg-tertiary">
+        <div className="relative h-2 rounded-lg bg-ink-2">
           <div
-            className="absolute h-2 rounded-lg bg-accent"
+            className="absolute h-2 rounded-lg bg-blue-600"
             style={{ left: `${fMin}%`, width: `${fMax - fMin}%` }}
           />
           <input
