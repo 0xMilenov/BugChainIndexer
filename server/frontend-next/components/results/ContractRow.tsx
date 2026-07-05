@@ -37,8 +37,8 @@ function SeverityCountCell({
   const isCount = text !== "-";
   return (
     <td
-      className={`whitespace-nowrap px-4 py-3 text-right font-mono text-sm tabular-nums ${className} ${
-        isCount ? "font-semibold" : "text-text-muted font-normal"
+      className={`whitespace-nowrap px-4 py-3.5 text-right font-data text-sm tabular-nums ${
+        isCount ? `font-semibold ${className}` : "font-normal text-ghost"
       }`}
     >
       {text}
@@ -66,8 +66,9 @@ export function ContractRow({
   const netColor = NETWORK_COLORS[netKey] ?? "bg-gray-500";
 
   return (
-    <tr className="border-b border-border transition hover:bg-bg-tertiary/50">
-      <td className="whitespace-nowrap px-4 py-3 font-mono text-xs">
+    <tr className="border-b border-rule/60 transition-colors last:border-b-0 hover:bg-ink-2/50">
+      {/* Address */}
+      <td className="whitespace-nowrap px-4 py-3.5">
         <div className="flex items-center gap-2">
           {onBookmarkToggle && (
             <button
@@ -76,11 +77,11 @@ export function ContractRow({
                 e.preventDefault();
                 onBookmarkToggle({ address: contract.address, network: contract.network ?? "" });
               }}
-              className="flex-shrink-0 rounded p-0.5 text-text-muted hover:text-accent transition"
+              className="flex-shrink-0 rounded p-0.5 text-faint transition-colors hover:text-blue-text"
               aria-label={isBookmarked ? "Remove bookmark" : "Add bookmark"}
             >
               {isBookmarked ? (
-                <BookmarkCheck className="h-4 w-4 fill-accent text-accent" />
+                <BookmarkCheck className="h-4 w-4 fill-blue-600 text-blue-600" />
               ) : (
                 <Bookmark className="h-4 w-4" />
               )}
@@ -91,23 +92,27 @@ export function ContractRow({
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium text-accent hover:text-accent-dim hover:underline"
+              className="font-data text-[12px] text-blue-text transition-colors hover:text-blue-300"
               title="View on explorer"
             >
               {short}
             </a>
           ) : (
-            <span className="font-medium text-accent">{short}</span>
+            <span className="font-data text-[12px] text-dim">{short}</span>
           )}
         </div>
       </td>
-      <td className="max-w-[20rem] px-4 py-3">
+
+      {/* Contract name + status */}
+      <td className="max-w-[20rem] px-4 py-3.5">
         <Link
           href={`/contract/${contract.network}/${contract.address}`}
-          className={`block truncate hover:underline ${isUnnamed ? "italic text-text-muted" : "text-text-primary"}`}
+          className={`group/name flex items-center gap-2 ${
+            isUnnamed ? "italic text-faint" : "text-body hover:text-paper"
+          }`}
         >
-          {displayName}
-          <span className="ml-2 inline-flex gap-1">
+          <span className="truncate group-hover/name:underline">{displayName}</span>
+          <span className="inline-flex flex-shrink-0 gap-1">
             <Badge variant={verified ? "success" : "muted"}>
               {verified ? "Verified" : "Unverified"}
             </Badge>
@@ -115,39 +120,44 @@ export function ContractRow({
           </span>
         </Link>
         {isProxy && proxyImpl && (
-          <div className="mt-1 text-[10px] text-text-muted font-mono">
-            Impl: {proxyImpl.slice(0, 6)}...{proxyImpl.slice(-4)}
+          <div className="mt-1 font-data text-[10px] text-faint">
+            impl {proxyImpl.slice(0, 6)}...{proxyImpl.slice(-4)}
           </div>
         )}
       </td>
-      <td className="whitespace-nowrap px-4 py-3">
+
+      {/* Network */}
+      <td className="whitespace-nowrap px-4 py-3.5">
         {contract.network && (
-          <span
-            className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium text-white ${netColor}`}
-          >
+          <span className="inline-flex items-center gap-1.5 rounded-[3px] border border-rule bg-ink-2 px-2 py-[3px] font-data text-[11px] text-dim">
+            <span className={`h-1.5 w-1.5 rounded-[1px] ${netColor}`} aria-hidden />
             {contract.network}
           </span>
         )}
       </td>
-      <td className="whitespace-nowrap px-4 py-3 text-right">
-        <span className="font-semibold text-accent">
+
+      {/* Native balance */}
+      <td className="whitespace-nowrap px-4 py-3.5 text-right">
+        <span className="font-data text-sm font-medium tabular-nums text-body">
           {formatFund(contract, nativePrices)}
         </span>
       </td>
-      <td className="max-w-[12rem] px-4 py-3 text-left text-xs">
+
+      {/* Holdings */}
+      <td className="max-w-[12rem] px-4 py-3.5 text-left text-xs">
         <Erc20BalancesDisplay balances={contract.erc20_balances} />
       </td>
+
+      {/* Severity counts, or an audit action when none exists yet */}
       {hasCompletedAuditListing(contract) ? (
         <>
-          <SeverityCountCell contract={contract} severity="critical" className="text-red-400/95" />
-          <SeverityCountCell contract={contract} severity="high" className="text-orange-400/95" />
-          <SeverityCountCell contract={contract} severity="medium" className="text-amber-400/95" />
-          <SeverityCountCell contract={contract} severity="low" className="text-sky-400/95" />
+          <SeverityCountCell contract={contract} severity="critical" className="text-sev-crit-text" />
+          <SeverityCountCell contract={contract} severity="high" className="text-sev-high" />
+          <SeverityCountCell contract={contract} severity="medium" className="text-sev-med" />
+          <SeverityCountCell contract={contract} severity="low" className="text-sev-low-text" />
         </>
       ) : (
-        // Collapse the severity columns into one action cell when this
-        // contract has no completed audit yet - preserves table column count.
-        <td colSpan={4} className="whitespace-nowrap px-4 py-3 text-right">
+        <td colSpan={4} className="whitespace-nowrap px-4 py-3.5 text-right">
           <RunAuditCell contract={contract} compact />
         </td>
       )}

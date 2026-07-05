@@ -8,14 +8,14 @@ interface BadgeProps {
 
 export function Badge({ children, variant = "muted", className = "" }: BadgeProps) {
   const variants = {
-    primary: "bg-accent/20 text-accent border-accent/40",
-    success: "bg-emerald-500/20 text-emerald-400 border-emerald-500/40",
-    warning: "bg-accent-amber/20 text-accent-amber border-accent-amber/40",
-    muted: "bg-bg-tertiary text-text-muted border-border",
+    primary: "border-blue-600/40 bg-blue-950 text-blue-300",
+    success: "border-blue-600/35 bg-blue-950 text-blue-300",
+    warning: "border-sev-med/40 bg-sev-med/10 text-sev-med",
+    muted: "border-rule bg-ink-2 text-faint",
   };
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${variants[variant]} ${className}`}
+      className={`inline-flex items-center rounded-[3px] border px-1.5 py-[2px] font-data text-[10px] font-medium uppercase tracking-[0.06em] ${variants[variant]} ${className}`}
     >
       {children}
     </span>

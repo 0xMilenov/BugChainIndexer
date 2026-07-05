@@ -8,7 +8,7 @@ export function AddressSearch() {
   const { filters, setAddress } = useFilters();
   return (
     <div>
-      <label className="mb-2 block text-sm font-medium text-text-primary">
+      <label className="mb-2 block text-sm font-medium text-body">
         Search by Address
       </label>
       <Input

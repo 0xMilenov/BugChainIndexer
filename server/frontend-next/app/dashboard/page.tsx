@@ -476,7 +476,7 @@ function SearchPageContent() {
       <div className="mb-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-2 flex-wrap">
           <span
-            className={`text-sm text-text-muted transition-[padding] duration-200 ${
+            className={`text-sm text-faint transition-[padding] duration-200 ${
               !sidebarOpen ? "pl-14 lg:pl-16" : ""
             }`}
           >
@@ -496,12 +496,12 @@ function SearchPageContent() {
         <div className="flex items-center gap-1.5 shrink-0">
           <div className="group relative">
             <span
-              className="inline-flex text-text-muted hover:text-text-primary transition cursor-default"
+              className="inline-flex text-faint hover:text-body transition cursor-default"
               aria-label="Don't see the contract you need? Add it manually."
             >
               <Info className="h-4 w-4" />
             </span>
-            <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden whitespace-nowrap rounded bg-bg-tertiary px-2.5 py-1.5 text-xs text-text-primary shadow-lg border border-border group-hover:block z-50">
+            <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden whitespace-nowrap rounded bg-ink-2 px-2.5 py-1.5 text-xs text-body shadow-lg border border-rule group-hover:block z-50">
               Don&apos;t see the contract you need? Add it manually.
             </span>
           </div>
@@ -515,56 +515,56 @@ function SearchPageContent() {
           </Button>
         </div>
       </div>
-      <section className="mb-4 rounded-lg border border-border bg-bg-secondary px-4 py-3">
+      <section className="mb-4 rounded-lg border border-rule bg-ink-1 px-4 py-3">
         <div className="grid gap-4 md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] md:items-center">
           <div className="flex min-w-0 items-start gap-3">
-            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-accent/30 bg-accent/10 text-accent">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-blue-600/30 bg-blue-600/10 text-blue-text">
               <CalendarDays className="h-4 w-4" />
             </span>
             <div className="min-w-0">
-              <div className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+              <div className="text-xs font-semibold uppercase tracking-wide text-faint">
                 Today
               </div>
-              <div className="mt-1 text-2xl font-semibold tabular-nums text-text-primary">
+              <div className="mt-1 text-2xl font-semibold tabular-nums text-body">
                 {dailyStatsLoading
                   ? "..."
                   : (dailyStats?.total ?? 0).toLocaleString("en-US")}
               </div>
-              <div className="mt-1 text-xs text-text-muted">
+              <div className="mt-1 text-xs text-faint">
                 {dailyStatsLoading
                   ? "Loading daily collection..."
                   : `${(dailyStats?.verified ?? 0).toLocaleString("en-US")} verified • ${(dailyStats?.networks ?? 0).toLocaleString("en-US")} networks${dailyNetworkSummary ? ` • ${dailyNetworkSummary}` : ""}`}
               </div>
             </div>
           </div>
-          <div className="flex min-w-0 items-start gap-3 border-t border-border pt-3 md:border-l md:border-t-0 md:pl-4 md:pt-0">
-            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-bg-tertiary text-text-muted">
+          <div className="flex min-w-0 items-start gap-3 border-t border-rule pt-3 md:border-l md:border-t-0 md:pl-4 md:pt-0">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-rule bg-ink-2 text-faint">
               <Trophy className="h-4 w-4" />
             </span>
             <div className="min-w-0">
-              <div className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+              <div className="text-xs font-semibold uppercase tracking-wide text-faint">
                 Largest today
               </div>
               {dailyTopContract ? (
                 <>
                   <Link
                     href={`/contract/${dailyTopContract.network}/${dailyTopContract.address}`}
-                    className="mt-1 block truncate text-sm font-semibold text-accent hover:underline"
+                    className="mt-1 block truncate text-sm font-semibold text-blue-text hover:underline"
                     title={dailyTopContract.address}
                   >
                     {dailyTopContractName || dailyTopContract.address}
                   </Link>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-muted">
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-faint">
                     <span>{dailyTopValue}</span>
                     <span>{dailyTopNetworkLabel}</span>
-                    <span className="font-mono">
+                    <span className="font-data">
                       {dailyTopContract.address.slice(0, 6)}...
                       {dailyTopContract.address.slice(-4)}
                     </span>
                   </div>
                 </>
               ) : (
-                <div className="mt-1 text-sm text-text-muted">
+                <div className="mt-1 text-sm text-faint">
                   {dailyStatsLoading ? "Checking..." : "No contracts collected yet."}
                 </div>
               )}
@@ -572,69 +572,69 @@ function SearchPageContent() {
           </div>
         </div>
       </section>
-      <section className="mb-4 rounded-lg border border-border bg-bg-secondary px-4 py-3">
+      <section className="mb-4 rounded-lg border border-rule bg-ink-1 px-4 py-3">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-center">
           <div className="flex min-w-0 items-start gap-3">
             <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${
               scannerHealth?.running
-                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                : "border-border bg-bg-tertiary text-text-muted"
+                ? "border-signal/30 bg-signal/10 text-signal"
+                : "border-rule bg-ink-2 text-faint"
             }`}>
               <Activity className="h-4 w-4" />
             </span>
             <div className="min-w-0">
-              <div className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+              <div className="text-xs font-semibold uppercase tracking-wide text-faint">
                 Scanner health
               </div>
-              <div className="mt-1 text-xl font-semibold text-text-primary">
+              <div className="mt-1 text-xl font-semibold text-body">
                 {scannerStatus}
               </div>
-              <div className="mt-1 text-xs text-text-muted">
+              <div className="mt-1 text-xs text-faint">
                 {scannerHealthLoading
                   ? "Loading scanner state..."
                   : `${(scannerHealth?.db?.collected_today ?? 0).toLocaleString("en-US")} collected today • ${(scannerHealth?.db?.explorer_requests_today ?? 0).toLocaleString("en-US")} explorer calls`}
               </div>
             </div>
           </div>
-          <div className="grid min-w-0 gap-3 border-t border-border pt-3 sm:grid-cols-3 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
+          <div className="grid min-w-0 gap-3 border-t border-rule pt-3 sm:grid-cols-3 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
             <div className="min-w-0">
-              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
+              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-faint">
                 <Clock className="h-3.5 w-3.5" />
                 Last run
               </div>
-              <div className="mt-1 truncate text-sm font-medium text-text-primary">
+              <div className="mt-1 truncate text-sm font-medium text-body">
                 {scannerHealthLoading ? "..." : formatTimestamp(scannerLastRun)}
               </div>
-              <div className="mt-1 truncate text-xs text-text-muted">
+              <div className="mt-1 truncate text-xs text-faint">
                 {scannerHealth?.cron?.enabled
                   ? `Next ${formatTimestamp(scannerNextRun)} • ${scannerCronJobs} job${scannerCronJobs === 1 ? "" : "s"}`
                   : "Cron off"}
               </div>
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
+              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-faint">
                 <RadioTower className="h-3.5 w-3.5" />
                 RPC
               </div>
-              <div className="mt-1 text-sm font-medium text-text-primary">
+              <div className="mt-1 text-sm font-medium text-body">
                 {scannerHealthLoading
                   ? "..."
                   : `${(scannerHealth?.rpc?.get_logs_requests ?? 0).toLocaleString("en-US")} calls`}
               </div>
-              <div className="mt-1 truncate text-xs text-text-muted">
+              <div className="mt-1 truncate text-xs text-faint">
                 Avg {formatDurationMs(scannerRpcAverage)} • {scannerErrors.toLocaleString("en-US")} errors
               </div>
             </div>
             <div className="min-w-0">
-              <div className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+              <div className="text-xs font-semibold uppercase tracking-wide text-faint">
                 Recent networks
               </div>
-              <div className="mt-1 truncate text-sm font-medium text-text-primary">
+              <div className="mt-1 truncate text-sm font-medium text-body">
                 {scannerHealthLoading
                   ? "..."
                   : `${scannerHealth?.recent_networks?.length ?? 0} tracked`}
               </div>
-              <div className="mt-1 truncate text-xs text-text-muted">
+              <div className="mt-1 truncate text-xs text-faint">
                 {scannerRecentNetworks || "No scanner logs yet"}
               </div>
             </div>
@@ -699,7 +699,7 @@ function SearchPageContent() {
               />
             </div>
             <div className="sm:hidden">
-              <div className="overflow-hidden rounded-xl border border-border bg-bg-secondary">
+              <div className="overflow-hidden rounded-xl border border-rule bg-ink-1">
                 <ResultsCards
                   contracts={sortedResults}
                   nativePrices={nativePrices}
@@ -729,7 +729,7 @@ function SearchPageContent() {
 
 export default function Page() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-bg-primary" />}>
+    <Suspense fallback={<div className="min-h-screen bg-ink-0" />}>
       <FilterProvider>
         <SearchPageContent />
       </FilterProvider>

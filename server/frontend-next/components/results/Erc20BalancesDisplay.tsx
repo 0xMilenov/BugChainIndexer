@@ -61,7 +61,7 @@ export function Erc20BalancesDisplay({
   const dropdownContent = hasMore && isOpen && typeof document !== "undefined" && document.body && (
     createPortal(
       <div
-        className="fixed z-[9999] min-w-[180px] max-w-[280px] rounded-lg border border-rule bg-ink-1 py-2 shadow-lg"
+        className="fixed z-[9999] min-w-[180px] max-w-[280px] rounded-md border border-rule bg-ink-1 py-2 shadow-lg"
         style={{ top: position.top, left: position.left }}
         role="tooltip"
         onMouseEnter={handleEnter}

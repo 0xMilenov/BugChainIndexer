@@ -80,11 +80,11 @@ export function AddContractModal({
         onClick={handleClose}
         aria-hidden="true"
       />
-      <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-bg-secondary p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-text-primary mb-4">
+      <div className="relative z-10 w-full max-w-md rounded-xl border border-rule bg-ink-1 p-6 shadow-xl">
+        <h2 className="text-lg font-semibold text-body mb-4">
           Add Verified Contract
         </h2>
-        <p className="text-sm text-text-muted mb-4">
+        <p className="text-sm text-faint mb-4">
           Enter a verified smart contract address and select the chain. The
           contract must be verified on the block explorer with source code
           available.
@@ -93,7 +93,7 @@ export function AddContractModal({
           <div>
             <label
               htmlFor="add-contract-address"
-              className="block text-sm font-medium text-text-muted mb-1"
+              className="block text-sm font-medium text-faint mb-1"
             >
               Contract Address
             </label>
@@ -110,7 +110,7 @@ export function AddContractModal({
           <div>
             <label
               htmlFor="add-contract-network"
-              className="block text-sm font-medium text-text-muted mb-1"
+              className="block text-sm font-medium text-faint mb-1"
             >
               Network
             </label>
@@ -119,7 +119,7 @@ export function AddContractModal({
               value={network}
               onChange={(e) => setNetwork(e.target.value)}
               disabled={loading}
-              className="w-full rounded-lg border border-border bg-bg-secondary px-4 py-2 text-text-primary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50"
+              className="w-full rounded-lg border border-rule bg-ink-1 px-4 py-2 text-body focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-accent/50"
             >
               {NETWORK_KEYS.map((key) => (
                 <option key={key} value={key}>
@@ -128,7 +128,7 @@ export function AddContractModal({
               ))}
             </select>
           </div>
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-sev-crit-text">{error}</p>}
           <div className="flex gap-3 justify-end pt-2">
             <Button
               type="button"

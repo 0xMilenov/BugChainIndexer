@@ -17,7 +17,7 @@ interface HeaderProps {
 export function Header({ onToggleFilters, sidebarOpen, filterBadgeCount, onShowBookmarks, bookmarkCount = 0 }: HeaderProps) {
   const { user, loginUrl } = useAuth();
   return (
-    <header className="sticky top-0 z-30 h-16 flex flex-col justify-center border-b border-border bg-bg-primary/95 backdrop-blur-md shadow-cyan-500/5">
+    <header className="sticky top-0 z-30 h-16 flex flex-col justify-center border-b border-rule bg-ink-0/95 backdrop-blur-md shadow-cyan-500/5">
       <div className="mx-auto w-full px-4 sm:px-6">
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center space-x-3 group">
@@ -53,7 +53,7 @@ export function Header({ onToggleFilters, sidebarOpen, filterBadgeCount, onShowB
             ) : (
               <Link
                 href={loginUrl}
-                className="flex items-center gap-1 px-3 py-1 rounded-md transition relative bg-bg-secondary text-text-muted hover:bg-bg-tertiary hover:text-accent flex-shrink-0"
+                className="flex items-center gap-1 px-3 py-1 rounded-md transition relative bg-ink-1 text-faint hover:bg-ink-2 hover:text-blue-text flex-shrink-0"
                 aria-label="Log in"
               >
                 <LogIn className="h-4 w-4" />
@@ -63,13 +63,13 @@ export function Header({ onToggleFilters, sidebarOpen, filterBadgeCount, onShowB
             {onShowBookmarks && (
               <button
                 onClick={onShowBookmarks}
-                className="flex items-center gap-1 px-3 py-1 rounded-md transition relative bg-bg-secondary text-text-muted hover:bg-bg-tertiary hover:text-accent flex-shrink-0"
+                className="flex items-center gap-1 px-3 py-1 rounded-md transition relative bg-ink-1 text-faint hover:bg-ink-2 hover:text-blue-text flex-shrink-0"
                 aria-label="Show bookmarks"
               >
                 <Bookmark className="h-4 w-4" />
                 <span className="hidden sm:inline">Bookmarks</span>
                 {bookmarkCount > 0 && (
-                  <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-accent/20 text-accent px-1.5 text-xs font-medium">
+                  <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600/20 text-blue-text px-1.5 text-xs font-medium">
                     {bookmarkCount}
                   </span>
                 )}
@@ -78,13 +78,13 @@ export function Header({ onToggleFilters, sidebarOpen, filterBadgeCount, onShowB
             {onToggleFilters && (
               <button
                 onClick={onToggleFilters}
-                className="flex items-center gap-1 px-3 py-1 rounded-md transition relative bg-bg-secondary text-text-muted hover:bg-bg-tertiary"
+                className="flex items-center gap-1 px-3 py-1 rounded-md transition relative bg-ink-1 text-faint hover:bg-ink-2"
                 aria-label={sidebarOpen ? "Close filters" : "Open filters"}
               >
                 <SlidersHorizontal className="h-4 w-4" />
                 <span>Filters</span>
                 {filterBadgeCount && filterBadgeCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
+                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-sev-crit text-white text-xs font-bold">
                     {filterBadgeCount}
                   </span>
                 )}
