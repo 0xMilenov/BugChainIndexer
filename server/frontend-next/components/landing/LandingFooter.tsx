@@ -11,12 +11,12 @@ const reveal = {
 };
 
 const INDEX_LINKS: { id: string; label: string }[] = [
-  { id: "#s00", label: "00 · Cover" },
-  { id: "#coverage", label: "01 · Coverage" },
-  { id: "#procedure", label: "02 · Procedure" },
-  { id: "#capabilities", label: "03 · Capabilities" },
-  { id: "#allocation", label: "04 · Allocation" },
-  { id: "#findings", label: "05 · Findings" },
+  { id: "#s00", label: "Cover" },
+  { id: "#coverage", label: "Coverage" },
+  { id: "#procedure", label: "Procedure" },
+  { id: "#capabilities", label: "Capabilities" },
+  { id: "#allocation", label: "Allocation" },
+  { id: "#findings", label: "Findings" },
 ];
 
 const GITHUB_HREF = "https://github.com/0xMilenov/BugChainIndexer";
@@ -81,7 +81,7 @@ export function LandingFooter() {
                 rel="noopener noreferrer"
                 className="transition-colors hover:text-paper"
               >
-                GitHub — open source ↗
+                GitHub: open source ↗
               </a>
               <a
                 href="https://basescan.org"
@@ -110,7 +110,7 @@ export function LandingFooter() {
         </motion.div>
 
         <div className="mt-14 flex flex-wrap justify-between gap-4 border-t border-dotted border-rule-dot pt-5 font-data text-[11px] tracking-[0.08em] text-faint">
-          <span>AAA/FR-2026 · BUILD a01e9ad</span>
+          <span className="uppercase tracking-[0.14em]">Autonomous Audit Agent</span>
           <Link href="/dashboard" className="transition-colors hover:text-paper">
             DASHBOARD ↗
           </Link>

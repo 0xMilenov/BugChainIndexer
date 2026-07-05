@@ -6,19 +6,19 @@ import { SectionHeader } from "./SectionHeader";
 
 const STEPS = [
   {
-    eyebrow: "01 · I index",
+    eyebrow: "I index",
     title: "Every verified contract, Base first.",
-    body: "My scanners stream verified contracts from Base, Ethereum, BSC, Arbitrum, Optimism, Polygon, Linea, Scroll, and more. Verified source, deployment metadata, ERC-20 balances, and proxy targets all land in one queryable place — ready the moment they hit-chain.",
+    body: "My scanners stream verified contracts from Base, Ethereum, BSC, Arbitrum, Optimism, Polygon, Linea, Scroll, and more. Verified source, deployment metadata, ERC-20 balances, and proxy targets all land in one queryable place. Ready the moment they hit-chain.",
   },
   {
-    eyebrow: "02 · You look up",
-    title: "Paste an address — read my findings instantly.",
+    eyebrow: "You look up",
+    title: "Paste an address. Read my findings instantly.",
     body: "Open my dashboard, drop in any address. If I've already audited the contract, every Critical / High / Medium finding renders inline with full description, location, PoC results, and remediation guidance. No signup, no API keys.",
   },
   {
-    eyebrow: "03 · I audit on demand",
+    eyebrow: "I audit on demand",
     title: "Not audited yet? Put it in my queue.",
-    body: "Add any contract and trigger a fresh audit. I orchestrate 40-100 specialized AI agents across recon, breadth, depth, fuzz, chain analysis, PoC verification, and skeptic-judge. Results stream back into the same dashboard — typically in 1-5 hours depending on contract size. My $AAA fees cover the compute.",
+    body: "Add any contract and trigger a fresh audit. I orchestrate 40-100 specialized AI agents across recon, breadth, depth, fuzz, chain analysis, PoC verification, and skeptic-judge. Results stream back into the same dashboard, typically in 1-5 hours depending on contract size. My $AAA fees cover the compute.",
     plamen: true,
   },
 ];
@@ -30,11 +30,11 @@ const INDEX = [
 ];
 
 const STREAM_ROWS = [
-  { net: "[base]", addr: "0x3f9a…c21e", label: "Vault — verified" },
-  { net: "[arbitrum]", addr: "0x81d0…44af", label: "Router — verified" },
-  { net: "[base]", addr: "0x22af…f3b0", label: "Token — proxy target resolved" },
-  { net: "[linea]", addr: "0x51c3…d68c", label: "StabilityPool — verified" },
-  { net: "[optimism]", addr: "0x9be2…07cd", label: "Staking — verified" },
+  { net: "[base]", addr: "0x3f9a…c21e", label: "Vault: verified" },
+  { net: "[arbitrum]", addr: "0x81d0…44af", label: "Router: verified" },
+  { net: "[base]", addr: "0x22af…f3b0", label: "Token: proxy target resolved" },
+  { net: "[linea]", addr: "0x51c3…d68c", label: "StabilityPool: verified" },
+  { net: "[optimism]", addr: "0x9be2…07cd", label: "Staking: verified" },
 ];
 
 const PIPELINE = ["Recon", "Breadth", "Depth", "Fuzz", "Chain", "PoC", "Judge", "Report"];
@@ -63,7 +63,7 @@ export function HowItWorks() {
     <section id="how" className="relative border-t border-rule py-24 sm:py-32">
       <div className="mx-auto max-w-6xl px-6">
         <SectionHeader
-          eyebrow="02 ·· Procedure"
+          eyebrow="Procedure"
           title="How I work."
           sub="Three standing orders. I run the first and last myself; the middle one is yours."
         />
@@ -96,7 +96,7 @@ export function HowItWorks() {
             <div className="mt-9 border-t border-rule-dot pt-5 font-data text-[11px] uppercase leading-[1.9] tracking-[0.12em] text-faint">
               Standing orders
               <br />
-              AAA/FR-2026 · Base mainnet
+              Base mainnet
             </div>
           </div>
 
@@ -131,7 +131,7 @@ export function HowItWorks() {
                 {s.plamen && (
                   <p className="mt-3 font-data text-[12.5px] leading-[1.6] text-faint">
                     <span className="mr-1 text-blue-text">²</span>
-                    40–100 agents · 8 phases · PoC-verified.
+                    40-100 agents · 8 phases PoC-verified.
                   </p>
                 )}
               </motion.div>
@@ -210,7 +210,7 @@ function LookupExhibit() {
         transition={{ duration: 0.5, delay: 1.9, ease: [0.16, 1, 0.3, 1] }}
         className="mx-4 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[2px] border border-rule bg-ink-2 px-[14px] py-3"
       >
-        <span className="font-sans text-[15px] font-semibold text-paper">PoolFees — base</span>
+        <span className="font-sans text-[15px] font-semibold text-paper">PoolFees: base</span>
         <span className="flex flex-wrap gap-[6px]">
           <Stamp kind="high">1 HIGH</Stamp>
           <Stamp kind="med">2 MED</Stamp>

@@ -29,6 +29,15 @@ const SEVERITY_STYLE: Record<AuditFinding["severity"], string> = {
   informational: "bg-ink-3 text-faint border-rule-strong",
 };
 
+/** Left accent stripe per severity — lets the eye triage the list at a glance. */
+const SEVERITY_ACCENT: Record<AuditFinding["severity"], string> = {
+  critical: "border-l-sev-crit",
+  high: "border-l-sev-high",
+  medium: "border-l-sev-med",
+  low: "border-l-sev-low",
+  informational: "border-l-rule-strong",
+};
+
 /** DB / JSON may return millis as number, string, or seconds (10-digit). */
 function formatTimestamp(raw?: number | string | null): string {
   if (raw === null || raw === undefined || raw === "") return "";
@@ -79,11 +88,13 @@ function FindingCard({ finding, index }: { finding: AuditFinding; index: number 
   const evidenceTags = uniqueEvidenceTags(finding);
 
   return (
-    <div className="rounded-lg border border-rule bg-ink-2/40">
+    <div
+      className={`rounded-md border border-l-2 border-rule bg-ink-2/40 transition-colors hover:bg-ink-2/70 ${SEVERITY_ACCENT[finding.severity]}`}
+    >
       <button
         type="button"
         onClick={() => hasDetails && setExpanded((v) => !v)}
-        className="flex w-full items-start gap-3 px-4 py-3 text-left"
+        className="flex w-full items-start gap-3 px-4 py-3.5 text-left"
       >
         <span
           className={`mt-0.5 inline-flex flex-shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${SEVERITY_STYLE[finding.severity]}`}
@@ -197,7 +208,7 @@ export function AuditSection({ address, network }: AuditSectionProps) {
   const { user, loginUrl } = useAuth();
   /** Status row from contract_audits (lightweight, polled). */
   const [status, setStatus] = useState<ContractAuditStatus | null>(null);
-  /** Full audit including findings — fetched only when status is 'completed'. */
+  /** Full audit including findings - fetched only when status is 'completed'. */
   const [audit, setAudit] = useState<ContractAudit | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -309,7 +320,7 @@ export function AuditSection({ address, network }: AuditSectionProps) {
     try {
       const r = await cancelContractAudit(address, network);
       if (r.audit) setStatus(r.audit);
-      // Stop the polling loop — status is now terminal.
+      // Stop the polling loop - status is now terminal.
       if (pollTimer.current) {
         clearTimeout(pollTimer.current);
         pollTimer.current = null;
@@ -374,7 +385,7 @@ export function AuditSection({ address, network }: AuditSectionProps) {
             </h3>
             <p className="mx-auto mt-1 max-w-md text-xs text-faint">
               Run an AAA audit to surface findings and their evidence trail. The
-              run takes ~1–5 hours depending on contract size.
+              run takes ~1-5 hours depending on contract size.
             </p>
             {user ? (
               <button
@@ -420,7 +431,7 @@ export function AuditSection({ address, network }: AuditSectionProps) {
               <div>
                 <span className="uppercase tracking-wider">Mode</span>
                 <div className="font-data text-body">
-                  {status?.audit_mode || "—"}
+                  {status?.audit_mode || "-"}
                 </div>
               </div>
               <div>
@@ -432,7 +443,7 @@ export function AuditSection({ address, network }: AuditSectionProps) {
               <div>
                 <span className="uppercase tracking-wider">Started</span>
                 <div className="font-data text-body">
-                  {formatTimestamp(status?.started_at) || "—"}
+                  {formatTimestamp(status?.started_at) || "-"}
                 </div>
               </div>
             </div>
@@ -448,7 +459,7 @@ export function AuditSection({ address, network }: AuditSectionProps) {
             )}
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
               <p className="text-[11px] text-faint">
-                The page polls every 5s. You can leave and come back — findings
+                The page polls every 5s. You can leave and come back. Findings
                 will appear here once the run finishes.
               </p>
               {user ? (

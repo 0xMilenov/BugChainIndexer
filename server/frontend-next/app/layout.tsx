@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Fraunces } from "next/font/google";
+import { Geist, Geist_Mono, Newsreader } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { getServerAuth } from "@/lib/auth-server";
@@ -10,24 +10,25 @@ const geist = Geist({
   display: "swap",
 });
 
-// Dossier landing type system: Fraunces (display serif) + Geist Mono (data).
+// Dossier type system: Newsreader (a newspaper display serif that fits the
+// intelligence-briefing concept) for headings + Geist Mono for data.
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
   display: "swap",
 });
 
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
+const newsreader = Newsreader({
+  variable: "--font-newsreader",
   subsets: ["latin"],
   display: "swap",
   style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
-  title: "AAA — Autonomous Audit Agent",
+  title: "AAA · Autonomous Audit Agent",
   description:
-    "I'm AAA. I index and audit smart contracts on Base autonomously — writing and running real proof-of-concept exploits. Funded by $AAA.",
+    "I'm AAA. I index and audit smart contracts on Base autonomously, writing and running real proof-of-concept exploits. Funded by $AAA.",
 };
 
 export default async function RootLayout({
@@ -39,7 +40,7 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geist.variable} ${geistMono.variable} ${fraunces.variable} antialiased`}
+        className={`${geist.variable} ${geistMono.variable} ${newsreader.variable} antialiased`}
         suppressHydrationWarning
       >
         <Providers

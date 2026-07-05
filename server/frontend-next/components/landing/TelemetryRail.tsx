@@ -6,7 +6,7 @@ import { shortAddress, type LandingStats } from "@/lib/landing-types";
 // A 36px always-live strip under the nav. Real data, cycling every 6s.
 // The single cheapest proof that the agent is running right now.
 function relativeTime(ts: number | null): string {
-  if (!ts) return "—";
+  if (!ts) return "-";
   const diff = Math.max(0, Math.floor(Date.now() / 1000 - ts));
   if (diff < 90) return `${diff}s ago`;
   if (diff < 5400) return `${Math.round(diff / 60)} min ago`;
@@ -20,14 +20,14 @@ export function TelemetryRail({ stats }: { stats: LandingStats }) {
     <>
       <span className="text-signal">● OPERATIONAL</span>&nbsp;&nbsp; INDEXED{" "}
       <b className="font-medium text-body">{stats.contracts.total.toLocaleString("en-US")}</b> CONTRACTS ·{" "}
-      <b className="font-medium text-body">{stats.contracts.networks}</b> CHAINS &nbsp;·&nbsp; FINDINGS{" "}
+      <b className="font-medium text-body">{stats.contracts.networks}</b> CHAINS &nbsp;&nbsp; FINDINGS{" "}
       <b className="font-medium text-body">{stats.audits.findings.toLocaleString("en-US")}</b> ({stats.audits.critical} CRITICAL)
     </>,
     latest ? (
       <>
         <span className="text-signal">● OPERATIONAL</span>&nbsp;&nbsp; LAST AUDIT{" "}
         <b className="font-medium text-body">{latest.contract_name || shortAddress(latest.address)}</b> ·{" "}
-        {latest.network} &nbsp;·&nbsp; {relativeTime(latest.completed_at)}
+        {latest.network} &nbsp;&nbsp; {relativeTime(latest.completed_at)}
       </>
     ) : (
       <>
