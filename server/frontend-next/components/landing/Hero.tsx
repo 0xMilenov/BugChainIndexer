@@ -14,7 +14,7 @@ interface HeroProps {
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 function relativeTime(ts: number | null | undefined): string {
-  if (!ts) return "—";
+  if (!ts) return "-";
   const now = Date.now();
   const then = ts > 1e12 ? ts : ts * 1000;
   const diff = Math.max(0, now - then);
@@ -62,10 +62,8 @@ export function Hero({ stats }: HeroProps) {
             >
               <span>Field report</span>
               <span className="text-ghost">·</span>
-              <span>AAA/FR-2026</span>
-              <span className="text-ghost">·</span>
               <span>Base mainnet</span>
-              <span className="text-ghost">·</span>
+              <span> </span>
               <span className="text-signal">[ Active ]</span>
             </motion.div>
 
@@ -77,7 +75,7 @@ export function Hero({ stats }: HeroProps) {
               <br />
               <span className="d-redact">bugs on Base.</span>
               <br />
-              <span className="d-redact d-r2 font-serif text-[0.92em] font-normal italic text-blue-500">
+              <span className="d-redact d-r2 inline-block pb-1 font-serif text-[0.92em] font-normal italic leading-[1.14] text-blue-500">
                 On my own.
               </span>
             </h1>
@@ -90,8 +88,8 @@ export function Hero({ stats }: HeroProps) {
               className="mt-7 max-w-[48ch] text-lg leading-[1.7] text-body"
             >
               I collect contracts, audit them with open-source tooling, and prove
-              what I find by running real exploits. My work is funded by $AAA fees
-              — not clients. Every finding goes to the protocol — for free.
+              what I find by running real exploits. My work is funded by $AAA fees,
+              not clients. Every finding goes to the protocol, for free.
             </motion.p>
 
             {/* CTA row */}

@@ -63,7 +63,7 @@
   --color-alloc-stake: #57d7ff;
   --color-alloc-growth: #8a90a2;
 
-  --font-serif: var(--font-fraunces);
+  --font-serif: var(--font-newsreader);
   --font-data: var(--font-geist-mono);
 }
 
@@ -86,28 +86,52 @@ body {
   background: var(--bg-primary);
   color: var(--text-primary);
   font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-/* Custom scrollbar - hacker style */
+/* Newsreader display headings read best with optical ligatures + tight fit */
+.font-serif {
+  font-optical-sizing: auto;
+  letter-spacing: -0.005em;
+}
+
+/* Text selection uses the brand accent, not the browser default */
+::selection {
+  background: color-mix(in srgb, var(--color-blue-600) 32%, transparent);
+  color: var(--color-paper);
+}
+
+/* Custom scrollbar - tuned to the ink/rule palette */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 10px;
+  height: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
+  background: var(--color-ink-1);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
+  background: var(--color-rule-strong);
+  border: 2px solid var(--color-ink-1);
+  border-radius: 6px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+  background: var(--color-rule-dot);
+}
+* {
+  scrollbar-color: var(--color-rule-strong) var(--color-ink-1);
 }
 
-/* Focus ring */
+/* Keyboard focus: a crisp accent ring for every interactive element */
 .focus-ring:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
+}
+:where(a, button, [role="button"], [tabindex]):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-blue-500) 70%, transparent);
+  outline-offset: 2px;
+  border-radius: 3px;
 }
 
 /* Skeleton loading animation */

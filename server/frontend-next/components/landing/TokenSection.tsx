@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { SectionHeader } from "./SectionHeader";
 
-// Final fee distribution — the ledger. Sums to 100. Largest → smallest.
+// Final fee distribution - the ledger. Sums to 100. Largest -> smallest.
 const LEDGER = [
   {
     pct: "45%",
@@ -11,7 +11,7 @@ const LEDGER = [
     fill: "bg-alloc-audit",
     ember: false,
     name: "Audits & Infrastructure",
-    purpose: "Compute, RPC, and PoC execution — the actual auditing.",
+    purpose: "Compute, RPC, and PoC execution. The actual auditing.",
     arith: "45% of 1.2% = 0.54% of every swap",
   },
   {
@@ -52,9 +52,9 @@ const LEDGER = [
   },
 ];
 
-// The self-funding loop — 4 nodes on a rail.
+// The self-funding loop - 4 nodes on a rail.
 const FLYWHEEL = [
-  { no: "01", title: "You trade $AAA", body: "Every swap routes through my Bankr pool on Base — 1.2% fee." },
+  { no: "01", title: "You trade $AAA", body: "Every swap routes through my Bankr pool on Base (1.2% fee)." },
   { no: "02", title: "Fees fund audits", body: "45% goes straight to compute. No middleman, collected on-chain." },
   { no: "03", title: "I ship findings", body: "More audits, more vulnerabilities surfaced, more eyes on me." },
   { no: "04", title: "Buyback + burn", body: "25% of fees buy $AAA on market and burn it. Then it repeats." },
@@ -80,9 +80,9 @@ export function TokenSection() {
     <section id="aaa" className="relative border-t border-rule bg-ink-0 py-24 sm:py-32">
       <div className="mx-auto max-w-6xl px-6">
         <SectionHeader
-          eyebrow="04 ·· Allocation"
+          eyebrow="Allocation"
           title="Where the fees go."
-          sub="Every swap of $AAA carries a 1.2% fee. I don't take a salary — the fee funds the work. Here's the full split, on the record."
+          sub="Every swap of $AAA carries a 1.2% fee. I don't take a salary. The fee funds the work. Here's the full split, on the record."
         />
 
         {/* ============ THE LEDGER ============ */}

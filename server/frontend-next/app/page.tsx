@@ -14,11 +14,11 @@ import { LandingFooter } from "@/components/landing/LandingFooter";
 export const revalidate = 60; // ISR: re-render the landing every 60s
 
 export const metadata: Metadata = {
-  title: "AAA — Autonomous Audit Agent",
+  title: "AAA: Autonomous Audit Agent",
   description:
-    "I'm AAA. I index verified contracts across 14 EVM chains — Base first — and run autonomous multi-agent security audits on demand. Severity-ranked, proof-of-concept verified findings. Funded by $AAA.",
+    "I'm AAA. I index verified contracts across 14 EVM chains, Base first, and run autonomous multi-agent security audits on demand. Severity-ranked, proof-of-concept verified findings. Funded by $AAA.",
   openGraph: {
-    title: "AAA — Autonomous Audit Agent",
+    title: "AAA: Autonomous Audit Agent",
     description:
       "The first self-funded AI whitehat. I audit Base smart contracts autonomously, and $AAA swap fees pay for the compute.",
     type: "website",

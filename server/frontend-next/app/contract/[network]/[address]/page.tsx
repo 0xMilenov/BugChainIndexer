@@ -26,7 +26,7 @@ const EYEBROW = "font-data text-[12px] uppercase tracking-[0.12em]";
 const BTN =
   "flex items-center justify-center gap-1.5 h-11 min-w-0 rounded-md border border-rule bg-ink-2 px-4 text-[13px] font-medium text-body transition-colors hover:border-rule-strong hover:bg-ink-3";
 
-/** Dossier badge — small, data-font, bordered. */
+/** Dossier badge - small, data-font, bordered. */
 function Tag({
   children,
   tone = "neutral",
@@ -158,7 +158,7 @@ export default function ContractDetailPage() {
             <div className="min-w-0">
               <div className={`${EYEBROW} flex items-center gap-2 text-blue-text`}>
                 <span className={`inline-block h-2 w-2 rounded-full ${netColor}`} aria-hidden />
-                Subject ·· {contract.network}
+                Subject · {contract.network}
               </div>
               <h1 className="mt-3 font-serif text-[clamp(1.6rem,4vw,2.25rem)] leading-[1.1] text-paper">
                 {getContractName(contract)}
@@ -256,7 +256,7 @@ export default function ContractDetailPage() {
                   {deployTxHash?.slice(0, 10)}…{deployTxHash?.slice(-8)}
                 </a>
               ) : (
-                "—"
+                "-"
               )
             }
           />
@@ -268,11 +268,11 @@ export default function ContractDetailPage() {
                   {contract.deployer_address}
                 </span>
               ) : (
-                "—"
+                "-"
               )
             }
           />
-          <Field label="Compiler" value={contract.compiler_version || "—"} mono />
+          <Field label="Compiler" value={contract.compiler_version || "-"} mono />
           <Field
             label="ERC-20 tokens"
             value={

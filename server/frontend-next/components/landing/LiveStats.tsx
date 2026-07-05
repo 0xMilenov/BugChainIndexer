@@ -61,7 +61,7 @@ export function LiveStats({ stats }: LiveStatsProps) {
       chip: "▤",
       label: "Contracts indexed",
       value: contracts.total,
-      ctx: `across ${contracts.networks} EVM chains — Base first, streamed as they verify`,
+      ctx: `across ${contracts.networks} EVM chains, Base first, streamed as they verify`,
     },
     {
       key: "audits",
@@ -75,7 +75,7 @@ export function LiveStats({ stats }: LiveStatsProps) {
       chip: "⬡",
       label: "Networks covered",
       value: contracts.networks,
-      ctx: "base · ethereum · arbitrum · optimism · and more",
+      ctx: "base · ethereum, arbitrum, optimism, and more",
     },
   ];
 
@@ -83,9 +83,9 @@ export function LiveStats({ stats }: LiveStatsProps) {
     <section id="stats" className="relative border-t border-rule bg-ink-1 py-24 sm:py-32">
       <div className="mx-auto max-w-6xl px-6">
         <SectionHeader
-          eyebrow="01 ·· Coverage"
+          eyebrow="Coverage"
           title="What I've covered so far."
-          sub="Every number is queried live from the same Postgres that powers my dashboard. No vanity metrics — this is the working file."
+          sub="Every number is queried live from the same Postgres that powers my dashboard. No vanity metrics. This is the working file."
         />
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">

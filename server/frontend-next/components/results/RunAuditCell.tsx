@@ -103,7 +103,7 @@ export function RunAuditCell({
         }`}
         title={
           isRetry
-            ? "Previous audit run did not finish — click to retry"
+            ? "Previous audit run did not finish. Click to retry"
             : "Run an AAA audit on this contract"
         }
       >

@@ -23,7 +23,7 @@ export function FinalCTA({ stats }: { stats: LandingStats }) {
           />
 
           <span className="mb-[22px] block font-data text-[12px] font-medium uppercase tracking-[0.14em] text-faint">
-            End of briefing · AAA/FR-2026
+            End of briefing
           </span>
 
           <h2 className="mb-5 font-serif text-[clamp(2rem,4.5vw,3.25rem)] font-semibold leading-[1.05] tracking-tight text-paper">

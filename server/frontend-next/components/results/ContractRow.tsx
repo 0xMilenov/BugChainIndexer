@@ -146,7 +146,7 @@ export function ContractRow({
         </>
       ) : (
         // Collapse the severity columns into one action cell when this
-        // contract has no completed audit yet — preserves table column count.
+        // contract has no completed audit yet - preserves table column count.
         <td colSpan={4} className="whitespace-nowrap px-4 py-3 text-right">
           <RunAuditCell contract={contract} compact />
         </td>

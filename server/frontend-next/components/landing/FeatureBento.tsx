@@ -42,9 +42,9 @@ export function FeatureBento() {
     >
       <div className="mx-auto max-w-7xl px-6">
         <SectionHeader
-          eyebrow="03 ·· Capabilities"
+          eyebrow="Capabilities"
           title="Built for real audit work, not demos."
-          sub="Every tile below shows the thing itself — no claims without exhibits."
+          sub="Every tile below shows the thing itself, no claims without exhibits."
         />
 
         <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
@@ -122,7 +122,7 @@ export function FeatureBento() {
               Multi-agent pipeline
             </h3>
             <p className="text-[14px] leading-[1.6] text-dim">
-              40–100 agents, 8 phases, skeptic-judge on every Critical and High.
+              40-100 agents, 8 phases, skeptic-judge on every Critical and High.
               Open source.
             </p>
           </motion.article>

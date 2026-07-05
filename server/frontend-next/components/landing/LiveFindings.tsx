@@ -45,7 +45,7 @@ const SEV_FILL: Record<Sev, string> = {
 const SEV_ORDER: Sev[] = ["critical", "high", "medium", "low", "informational"];
 
 function relativeTime(ts: number | null): { label: string; fresh: boolean } {
-  if (!ts) return { label: "—", fresh: false };
+  if (!ts) return { label: "-", fresh: false };
   const now = Date.now();
   const then = ts > 1e12 ? ts : ts * 1000;
   const diff = Math.max(0, now - then);
@@ -61,7 +61,7 @@ function relativeTime(ts: number | null): { label: string; fresh: boolean } {
 }
 
 function findingTime(ts: number | null): string {
-  if (!ts) return "——:——Z";
+  if (!ts) return "--:--Z";
   const d = new Date(ts > 1e12 ? ts : ts * 1000);
   const hh = String(d.getUTCHours()).padStart(2, "0");
   const mm = String(d.getUTCMinutes()).padStart(2, "0");
@@ -78,13 +78,13 @@ export function LiveFindings({ findings, recentAudits }: LiveFindingsProps) {
 
       <div className="mx-auto max-w-7xl px-6">
         <SectionHeader
-          eyebrow="05 ·· Findings"
+          eyebrow="Findings"
           title="Real bugs, from real audits."
-          sub="Sourced directly from contract_audit_findings — no marketing fluff, no manufactured screenshots."
+          sub="Sourced directly from contract_audit_findings, no marketing fluff, no manufactured screenshots."
         />
       </div>
 
-      {/* ── (A) THE WIRE — full-bleed marquee ──────────────────────── */}
+      {/* (A) THE WIRE - full-bleed marquee */}
       {wire.length > 0 && (
         <div className="d-wirehost relative mb-[72px] overflow-hidden border-y border-rule bg-ink-1">
           {/* Fixed ● LIVE tag over a fade mask */}
@@ -120,7 +120,7 @@ export function LiveFindings({ findings, recentAudits }: LiveFindingsProps) {
                       {shortAddress(f.address)} · {f.network}
                     </span>
                   </Link>
-                  <span className="px-0.5 font-data text-ghost">··</span>
+                  <span className="px-0.5 font-data text-ghost">·</span>
                 </span>
               );
             })}
@@ -128,7 +128,7 @@ export function LiveFindings({ findings, recentAudits }: LiveFindingsProps) {
         </div>
       )}
 
-      {/* ── (B) CASE FILES ─────────────────────────────────────────── */}
+      {/* (B) CASE FILES */}
       {recentAudits.length > 0 && (
         <div className="mx-auto max-w-7xl px-6">
           <motion.div
@@ -188,7 +188,7 @@ function CaseCard({
   const highest = SEV_ORDER.find((s) => counts[s] > 0);
   const spineFill = highest ? SEV_FILL[highest] : "bg-ghost";
 
-  // Segmented micro-bar — omit zero-count segments.
+  // Segmented micro-bar - omit zero-count segments.
   const segments = SEV_ORDER.filter((s) => counts[s] > 0).map((s) => ({
     sev: s,
     pct: total > 0 ? (counts[s] / total) * 100 : 0,
@@ -222,7 +222,7 @@ function CaseCard({
         <div className="flex justify-between gap-2 font-data text-[11px] font-medium uppercase tracking-[0.12em] text-dim">
           <span className="truncate">
             Case · {audit.network}
-            {featured ? ` · ${shortAddress(audit.address)}` : ""}
+            {featured ? ` ${shortAddress(audit.address)}` : ""}
           </span>
           <span
             className={`whitespace-nowrap font-normal normal-case tracking-[0.04em] ${
@@ -286,7 +286,7 @@ function CaseCard({
             </>
           ) : (
             <span className="font-data text-[11.5px] text-dim">
-              clean — 0 findings
+              clean: 0 findings
             </span>
           )}
         </div>
