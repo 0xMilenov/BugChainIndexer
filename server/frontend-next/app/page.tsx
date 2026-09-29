@@ -35,11 +35,11 @@ export default async function LandingPage() {
         <TelemetryRail stats={stats} />
         <main>
           <Hero stats={stats} />
+          <TokenSection />
           <LiveStats stats={stats} />
           <HowItWorks />
           <FeatureBento />
           <LiveFindings findings={stats.latest_findings} recentAudits={stats.recent_audits} />
-          <TokenSection />
           <FinalCTA stats={stats} />
         </main>
       </div>

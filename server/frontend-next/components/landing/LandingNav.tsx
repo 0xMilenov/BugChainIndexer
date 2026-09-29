@@ -6,10 +6,10 @@ import { ArrowRight } from "lucide-react";
 import type { LandingStats } from "@/lib/landing-types";
 
 const SECTIONS = [
-  { id: "stats", label: "01 Coverage" },
-  { id: "how", label: "02 Procedure" },
-  { id: "features", label: "03 Capabilities" },
-  { id: "aaa", label: "04 $AAA" },
+  { id: "aaa", label: "01 $AAA" },
+  { id: "stats", label: "02 Coverage" },
+  { id: "how", label: "03 Procedure" },
+  { id: "features", label: "04 Capabilities" },
   { id: "findings", label: "05 Findings" },
 ];
 
@@ -24,7 +24,7 @@ function relativeTime(ts: number | null): string {
 
 export function LandingNav({ stats }: { stats?: LandingStats }) {
   const [scrolled, setScrolled] = useState(false);
-  const [active, setActive] = useState<string>("stats");
+  const [active, setActive] = useState<string>("aaa");
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);

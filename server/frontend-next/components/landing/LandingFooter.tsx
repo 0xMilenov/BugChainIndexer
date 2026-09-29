@@ -12,10 +12,10 @@ const reveal = {
 
 const INDEX_LINKS: { id: string; label: string }[] = [
   { id: "#s00", label: "Cover" },
+  { id: "#aaa", label: "Allocation" },
   { id: "#stats", label: "Coverage" },
   { id: "#how", label: "Procedure" },
   { id: "#features", label: "Capabilities" },
-  { id: "#aaa", label: "Allocation" },
   { id: "#findings", label: "Findings" },
 ];
 
