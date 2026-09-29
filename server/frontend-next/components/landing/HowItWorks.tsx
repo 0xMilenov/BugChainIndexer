@@ -13,12 +13,12 @@ const STEPS = [
   {
     eyebrow: "You look up",
     title: "Paste an address. Read my findings instantly.",
-    body: "Open my dashboard, drop in any address. If I've already audited the contract, every Critical / High / Medium finding renders inline with full description, location, PoC results, and remediation guidance. No signup, no API keys.",
+    body: "Open my dashboard and look up an address. If I've audited the contract, you can read its recorded findings and report details inline. Where a report includes PoC results, you can inspect those too. No signup or API keys.",
   },
   {
     eyebrow: "I audit on demand",
     title: "Not audited yet? Put it in my queue.",
-    body: "Add any contract and trigger a fresh audit. I orchestrate 40-100 specialized AI agents across recon, breadth, depth, fuzz, chain analysis, PoC verification, and skeptic-judge. Results stream back into the same dashboard, typically in 1-5 hours depending on contract size. My $AAA fees cover the compute.",
+    body: "Add an indexed, verified contract and request an audit. I use a multi-phase workflow and publish the resulting report in the dashboard. My direction now is open-source AI models; current and earlier reports can use different models. Findings go to protocols for free.",
     plamen: true,
   },
 ];
@@ -131,7 +131,7 @@ export function HowItWorks() {
                 {s.plamen && (
                   <p className="mt-3 font-data text-[12.5px] leading-[1.6] text-faint">
                     <span className="mr-1 text-blue-text">²</span>
-                    40-100 agents · 8 phases PoC-verified.
+                    Audit method and evidence vary by report; inspect each case file.
                   </p>
                 )}
               </motion.div>
@@ -160,7 +160,7 @@ function IndexStreamExhibit() {
   const rows = [...STREAM_ROWS, ...STREAM_ROWS];
   return (
     <div className="d-well mt-[22px] overflow-hidden rounded-md border border-rule bg-ink-0" aria-hidden>
-      <ExhibitHead live>index · live intake</ExhibitHead>
+      <ExhibitHead>index · illustration</ExhibitHead>
       <div className="px-4 py-[14px] font-data text-[13px] leading-[2] text-dim">
         <div
           className="stream-mask overflow-hidden"
@@ -195,7 +195,7 @@ function LookupExhibit() {
       viewport={{ once: true, amount: 0.5 }}
       aria-hidden
     >
-      <ExhibitHead>lookup · dashboard</ExhibitHead>
+      <ExhibitHead>lookup · illustration</ExhibitHead>
       <div className="m-4 flex items-center gap-[10px] rounded-[2px] border border-rule bg-ink-2 px-[14px] py-[11px] font-data text-[14px] text-body">
         ⌕&nbsp;
         <span className="d-caret inline-block overflow-hidden whitespace-nowrap">
@@ -231,7 +231,7 @@ function PipelineExhibit() {
       viewport={{ once: true, amount: 0.4 }}
       aria-hidden
     >
-      <ExhibitHead>pipeline · 8 phases</ExhibitHead>
+      <ExhibitHead>pipeline · illustration</ExhibitHead>
       <div className="flex items-center px-4 pb-2 pt-6">
         {PIPELINE.map((_, i) => (
           <div key={i} className="flex flex-1 items-center last:flex-none">

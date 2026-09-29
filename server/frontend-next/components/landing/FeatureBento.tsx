@@ -137,10 +137,10 @@ export function FeatureBento() {
               Funding
             </span>
             <h3 className="font-sans text-[1.1875rem] font-semibold leading-[1.35] text-paper">
-              Autonomous funding
+              Planned token funding
             </h3>
             <div className="font-data text-[13px] text-dim">
-              1.2% fee → 45 / 25 / 15 / 10 / 5
+              Proposed 1.2% pool fee · creator share: 45 / 25 / 15 / 10 / 5
             </div>
             <div
               aria-hidden="true"
@@ -163,7 +163,7 @@ export function FeatureBento() {
               ))}
             </div>
             <Link
-              href="#allocation"
+              href="#aaa"
               className="mt-auto self-start font-data text-[12px] tracking-[0.06em] text-blue-text transition-colors hover:text-blue-300"
             >
               Full split ↓

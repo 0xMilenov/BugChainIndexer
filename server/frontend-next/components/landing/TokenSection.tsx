@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { SectionHeader } from "./SectionHeader";
 
-// Final fee distribution - the ledger. Sums to 100. Largest -> smallest.
+// Planned allocation of AAA's creator share of swap fees. Sums to 100.
 const LEDGER = [
   {
     pct: "45%",
@@ -12,7 +12,7 @@ const LEDGER = [
     ember: false,
     name: "Audits & Infrastructure",
     purpose: "Compute, RPC, and PoC execution. The actual auditing.",
-    arith: "45% of 1.2% = 0.54% of every swap",
+    arith: "45% of AAA's creator fee share",
   },
   {
     pct: "25%",
@@ -20,8 +20,8 @@ const LEDGER = [
     fill: "bg-alloc-burn",
     ember: true,
     name: "Buyback + Burn",
-    purpose: "Market buys sent to the burn address. Supply only goes down.",
-    arith: "25% of 1.2% = 0.30% of every swap",
+    purpose: "Planned market buys and burns after launch.",
+    arith: "25% of AAA's creator fee share",
   },
   {
     pct: "15%",
@@ -30,7 +30,7 @@ const LEDGER = [
     ember: false,
     name: "Creator / Development",
     purpose: "Building and maintaining the agent.",
-    arith: "15% of 1.2% = 0.18% of every swap",
+    arith: "15% of AAA's creator fee share",
   },
   {
     pct: "10%",
@@ -38,8 +38,8 @@ const LEDGER = [
     fill: "bg-alloc-stake",
     ember: false,
     name: "Staking / Revenue Share",
-    purpose: "Pro-rata to $AAA stakers.",
-    arith: "10% of 1.2% = 0.12% of every swap",
+    purpose: "Proposed fee sharing for stakers; details to come.",
+    arith: "10% of AAA's creator fee share",
   },
   {
     pct: "5%",
@@ -48,24 +48,24 @@ const LEDGER = [
     ember: false,
     name: "Marketing & Growth",
     purpose: "Reaching more of the ecosystem.",
-    arith: "5% of 1.2% = 0.06% of every swap",
+    arith: "5% of AAA's creator fee share",
   },
 ];
 
 // The self-funding loop - 4 nodes on a rail.
 const FLYWHEEL = [
-  { no: "01", title: "You trade $AAA", body: "Every swap routes through my Bankr pool on Base (1.2% fee)." },
-  { no: "02", title: "Fees fund audits", body: "45% goes straight to compute. No middleman, collected on-chain." },
-  { no: "03", title: "I ship findings", body: "More audits, more vulnerabilities surfaced, more eyes on me." },
-  { no: "04", title: "Buyback + burn", body: "25% of fees buy $AAA on market and burn it. Then it repeats." },
+  { no: "01", title: "Bankr launch · planned", body: "I plan to launch $AAA on Base with a 1.2% pool swap fee." },
+  { no: "02", title: "Fund more audits", body: "I plan to put 45% of my creator fee share toward audits and infrastructure." },
+  { no: "03", title: "I share findings", body: "Protocols receive my findings for free, whether or not they donate." },
+  { no: "04", title: "Buyback + burn · planned", body: "I plan to use 25% of my creator fee share for $AAA buybacks and burns." },
 ];
 
 const UTILITY = [
-  { no: "01", name: "Fee-funded audits", desc: "45% of every swap goes straight into running more autonomous audits" },
-  { no: "02", name: "Buyback + burn", desc: "25% of fees buy and burn $AAA on the open market" },
-  { no: "03", name: "Staking rewards", desc: "stake $AAA and earn 10% of all fees, plus bounty rewards" },
-  { no: "04", name: "Tag me on X", desc: "mention @AAA with any contract address and I'll queue it; stakers get priority" },
-  { no: "05", name: "Early access + priority", desc: "stakers see findings earlier and jump the queue for specific contracts" },
+  { no: "01", name: "Audit funding · planned", desc: "45% of my creator fee share for audits and infrastructure" },
+  { no: "02", name: "Buyback + burn · planned", desc: "25% of my creator fee share for market buys and burns" },
+  { no: "03", name: "Staking · planned", desc: "10% of my creator fee share reserved for a proposed staking program; terms are not live" },
+  { no: "04", name: "Free findings", desc: "I share findings with protocols without requiring payment or a donation" },
+  { no: "05", name: "Voluntary thanks", desc: "protocols may donate; the separate donation plan is shown here" },
 ];
 
 const REVEAL = {
@@ -81,8 +81,8 @@ export function TokenSection() {
       <div className="mx-auto max-w-6xl px-6">
         <SectionHeader
           eyebrow="Allocation"
-          title="Where the fees go."
-          sub="Every swap of $AAA carries a 1.2% fee. I don't take a salary. The fee funds the work. Here's the full split, on the record."
+          title="How I plan to fund the work."
+          sub="The $AAA token is not live. I plan a Bankr launch with a 1.2% pool swap fee; Bankr's share is still to be confirmed. This ledger splits only AAA's creator share of those fees."
         />
 
         {/* ============ THE LEDGER ============ */}
@@ -96,7 +96,7 @@ export function TokenSection() {
           {/* Inflow header bar */}
           <div className="flex flex-wrap items-center justify-between gap-4 border-t-2 border-blue-600 bg-blue-950 px-7 py-[18px]">
             <span className="font-data text-[12px] uppercase tracking-[0.12em] text-blue-300">
-              Inflow · 1.2% swap fee
+              Planned inflow · AAA creator share of 1.2% pool fee
             </span>
             <b className="font-data text-[12px] font-medium uppercase tracking-[0.12em] text-paper">
               100%
@@ -199,7 +199,7 @@ export function TokenSection() {
           {/* return loop label */}
           <div className="mt-4 flex items-center gap-3 px-2" aria-hidden>
             <span className="whitespace-nowrap font-data text-[11px] uppercase tracking-[0.12em] text-dim">
-              ↺ audits → credibility → volume
+              ↺ audits → findings → future funding
             </span>
             <span className="h-3.5 flex-1 rounded-b-xl border border-t-0 border-dashed border-rule-dot" />
           </div>
@@ -231,36 +231,33 @@ export function TokenSection() {
             </div>
           </motion.div>
 
-          {/* Bounty Wallet exhibit */}
+          {/* Voluntary donations, separate from the planned swap-fee allocation */}
           <motion.div
             {...REVEAL}
             className="d-rim self-start rounded-md border border-rule bg-ink-2 p-6 lg:col-span-5"
           >
             <span className="font-data text-[12px] font-medium uppercase tracking-[0.14em] text-faint">
-              Bounty wallet · manifest
+              Voluntary donations · planned split
             </span>
             <div className="mt-3.5 flex items-center justify-between gap-2.5 rounded-[2px] border border-blue-600/20 bg-blue-950 px-3.5 py-2.5">
-              <span className="font-data text-[13px] text-blue-300">0x… published at launch</span>
-              <span className="rounded-[2px] border border-rule-strong px-[7px] py-0.5 font-data text-[11px] font-medium tracking-[0.1em] text-dim">
-                COPY
-              </span>
+              <span className="font-data text-[13px] text-blue-300">Donation address · coming later</span>
             </div>
             <div className="mt-3.5">
               <div className="flex items-center justify-between border-b border-rule-dot py-2.5 text-[13.5px]">
-                <span className="text-dim">Goes to creator</span>
-                <span className="font-data text-body">100%</span>
+                <span className="text-dim">Creator</span>
+                <span className="font-data text-body">40%</span>
               </div>
               <div className="flex items-center justify-between border-b border-rule-dot py-2.5 text-[13.5px]">
-                <span className="text-dim">Chain</span>
-                <span className="font-data text-body">Base</span>
+                <span className="text-dim">$AAA buybacks</span>
+                <span className="font-data text-body">30%</span>
               </div>
               <div className="flex items-center justify-between py-2.5 text-[13.5px]">
-                <span className="text-dim">Separate from fee split</span>
-                <span className="font-data text-body">Yes</span>
+                <span className="text-dim">Future audits</span>
+                <span className="font-data text-body">30%</span>
               </div>
             </div>
             <p className="mt-3.5 text-[13px] leading-[1.6] text-dim">
-              Address published at launch. Every disbursement will be on-chain and traceable.
+              I send findings to protocols for free. They may thank me with a donation, but they do not owe one. This planned donation split is separate from the $AAA swap-fee allocation.
             </p>
           </motion.div>
         </div>

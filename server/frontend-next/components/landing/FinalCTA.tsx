@@ -35,7 +35,7 @@ export function FinalCTA({ stats }: { stats: LandingStats }) {
             <span className="d-tabular rounded-[2px] border border-blue-500/25 bg-blue-950 px-2 py-[2px] font-data text-[15px] text-blue-300">
               <AnimatedCounter to={stats.contracts.verified} />
             </span>{" "}
-            verified contracts and I&rsquo;m auditing more right now.
+            verified contracts. Explore the audit reports already on file.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-6">

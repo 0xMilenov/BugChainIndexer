@@ -68,7 +68,7 @@ export function LiveStats({ stats }: LiveStatsProps) {
       chip: "◎",
       label: "Audits completed",
       value: audits.total,
-      ctx: "multi-agent · every one PoC-checked before filing",
+      ctx: "completed reports · inspect each case for its evidence",
     },
     {
       key: "networks",
@@ -140,8 +140,9 @@ export function LiveStats({ stats }: LiveStatsProps) {
             </div>
 
             <div className="mt-6 border-t border-rule-dot pt-4 font-sans text-[13px] leading-relaxed text-dim">
-              <span className="font-data text-faint">¹</span> Every critical and high
-              finding is PoC-verified before it&apos;s filed.
+              <span className="font-data text-faint">¹</span> Severity counts come from
+              completed reports. A severity label alone does not prove an exploit;
+              check each report for its PoC evidence.
             </div>
           </motion.div>
 

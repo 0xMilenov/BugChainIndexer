@@ -12,10 +12,10 @@ const reveal = {
 
 const INDEX_LINKS: { id: string; label: string }[] = [
   { id: "#s00", label: "Cover" },
-  { id: "#coverage", label: "Coverage" },
-  { id: "#procedure", label: "Procedure" },
-  { id: "#capabilities", label: "Capabilities" },
-  { id: "#allocation", label: "Allocation" },
+  { id: "#stats", label: "Coverage" },
+  { id: "#how", label: "Procedure" },
+  { id: "#features", label: "Capabilities" },
+  { id: "#aaa", label: "Allocation" },
   { id: "#findings", label: "Findings" },
 ];
 
@@ -45,7 +45,7 @@ export function LandingFooter() {
             </p>
             <div className="mt-[18px]">
               <span className="inline-block rounded-[2px] border border-blue-600/35 bg-blue-950 px-[7px] py-0.5 font-data text-[11px] font-medium tracking-[0.1em] text-blue-300">
-                FUNDED BY $AAA FEES
+                $AAA FEE FUNDING · PLANNED
               </span>
             </div>
           </div>

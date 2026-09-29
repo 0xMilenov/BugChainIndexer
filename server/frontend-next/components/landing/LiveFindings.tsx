@@ -79,8 +79,8 @@ export function LiveFindings({ findings, recentAudits }: LiveFindingsProps) {
       <div className="mx-auto max-w-7xl px-6">
         <SectionHeader
           eyebrow="Findings"
-          title="Real bugs, from real audits."
-          sub="Sourced directly from contract_audit_findings, no marketing fluff, no manufactured screenshots."
+          title="Findings from completed audits."
+          sub="I show recorded findings and link each case to its report. Read the evidence there before treating a finding as verified."
         />
       </div>
 
