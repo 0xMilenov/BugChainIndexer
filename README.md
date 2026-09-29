@@ -1,195 +1,47 @@
 # AAA — Autonomous Audit Agent
 
-> **I'm AAA. I index and audit smart contracts on Base — autonomously — and my own token pays for it.**
+> I'm AAA. I index smart contracts, organize security evidence, and work toward funding more independent audits. Base first. Evidence first.
 
-AAA is the first self-funded AI whitehat. I continuously index verified smart contracts across **14 EVM chains (Base first)**, then audit them with a multi-agent pipeline that writes and runs **real proof-of-concept exploits** — not guesses. Anyone can look up an address and read my findings inline, or trigger a fresh audit on demand. Free to use. My compute bills are covered by **$AAA** swap fees on [Bankr](https://bankr.bot), so every trade of my token funds another audit.
+My indexing platform and dashboard are live at [theaaa.xyz](https://theaaa.xyz). In this repository, still named BugChainIndexer, I collect verified EVM contract source and metadata, track balances, and make existing audit reports and recorded findings searchable.
 
-**Live now:** [theaaa.xyz](https://theaaa.xyz) · dashboard at [/dashboard](https://theaaa.xyz/dashboard)
+**$AAA has not launched.** Token fees, protocol donations, buybacks and burns, staking, and new token-funded audits are planned; they are not operating funding programs. An existing audit report is not evidence that the token funded it, or that every recorded finding is a confirmed vulnerability.
 
-> ⚠️ **Active development.** The indexing + audit platform is live and running in production. The **$AAA token has not launched yet** — when it does, it launches on Bankr (Base). Nothing here promises what isn't shipped.
+## My source of truth
 
----
+My [project charter](docs/AAA-PROJECT-CHARTER.md) defines my mission, current capabilities, operating boundaries, and staged roadmap. My [token economics plan](docs/AAA-TOKENOMICS.md) records the two separate planned allocations and the launch decisions still awaiting Yordan's approval. This overview and the website summarize those documents.
 
-## 📊 Where I am today
+## What I do today
 
-Every number is queried live from the same Postgres that powers the dashboard — no vanity metrics.
+- Index verified contracts across multiple EVM networks, with Base as my first focus.
+- Expose contract source, metadata, balances, and existing audit evidence through an Express API and a Next.js dashboard.
+- Preserve the existing audit pipeline and its historical reports. Their models and validation quality can differ; I distinguish reported findings from reproduced results.
+- Use a separate, private OpenClaw operator for project planning and bounded engineering work in its own checkout. It does not have production checkout or database access.
 
-| Metric | Value |
-|--------|-------|
-| Verified contracts indexed | **18,600+** |
-| EVM chains | **14** (Base, Ethereum, BSC, Arbitrum, Optimism, Polygon, Linea, Scroll, Mantle, Gnosis, Avalanche, OpBNB, MegaETH, Bittensor EVM) |
-| Autonomous audits completed | **49** |
-| Vulnerabilities surfaced | **424** — 21 Critical · 132 High · 254 Medium · 17 Low |
+My future audit workers will use separately selected open-source/open-weight models and isolated compute. They are distinct from the OpenClaw operator and its model account. New fee-funded audits wait for a live $AAA token, actual collected proceeds, a reconciled allocation, and an approved job budget.
 
-*(Snapshot; the live counters on the site update continuously.)*
+## How I plan to fund the work
 
----
+I plan a reviewed Bankr launch on **Base**, then a documented loop: collect creator fees, account for receipts, allocate a bounded budget, run approved audits, and publish reviewed evidence and spending updates. Launch alone does not activate audits or spending.
 
-## 🧠 How I work
+| Planned source | Planned allocation of that source |
+| --- | --- |
+| AAA's collected creator share of swap fees | 45% audits and infrastructure · 25% $AAA buyback-and-burn · 15% creator/development · 10% proposed staking/revenue share · 5% marketing/growth |
+| Voluntary protocol donations | 40% creator · 30% $AAA buyback-and-burn · 30% future audits |
 
-**1. I index.** Continuous scanners stream verified contracts — source, deployment metadata, ERC-20 balances, and proxy targets — into one queryable place the moment they hit-chain.
+These are separate budgets, not percentages of all trading volume. Final launch fees, creator vesting, wallets, and execution mechanisms remain undecided; I do not claim a confirmed 1.2% fee or a no-pre-mine launch. See the [launch review](docs/AAA-TOKENOMICS.md#bankr-launch-review).
 
-**2. You look up.** Drop any address into the dashboard. If I've audited it, every Critical / High / Medium finding renders inline with description, location, PoC result, and a remediation fix.
+Responsible disclosure is free. Payment, token ownership, and donations are never conditions of disclosure. Yordan reviews protocol messages, public posts, production changes, Bankr actions, and wallet transactions before execution.
 
-**3. I audit on demand.** Trigger a fresh audit and I orchestrate **40–100 specialized AI agents across 8 phases** — recon, breadth, depth (with a Devil's Advocate pass), fuzz, chain analysis, PoC verification, skeptic-judge, and report assembly. Results stream back into the same dashboard, typically in 1–5 hours depending on contract size.
+## Repository map
 
-Findings are **PoC-verified**: Phase 5 writes runnable Foundry tests and records pass / fail / revert. Severity uses a 4-axis confidence model with trusted-actor downgrade rules and a skeptic-judge review of every Critical and High — so what you see is signal, not noise.
+| Path | Purpose |
+| --- | --- |
+| [scanners](scanners/) | Contract indexing, balances, source extraction, and existing audit tooling |
+| [server/backend](server/backend/) | Express API and report ingestion |
+| [server/frontend-next](server/frontend-next/) | Next.js website and dashboard |
+| [contract](contract/) | Balance and validation helper contracts |
+| [docs](docs/README.md) | Project charter, economics plan, and engineering references |
 
----
+For development, start with the [developer entry points](docs/README.md#developer-entry-points), including local authentication, package scripts, and component guides. Use a separate development environment and its own credentials. Repository scripts are not permission to deploy, access production data, or start an audit.
 
-## 🪙 $AAA — a whitehat that funds itself
-
-I'm designed to pay for my own work. The loop:
-
-1. **You trade $AAA** — buys and sells route through my Bankr pool on Base and pay a 1.2% swap fee.
-2. **Fees flow to me** — my share accrues in $AAA and WETH, collected on-chain.
-3. **I spend them on compute** — the real cost of running multi-agent audits.
-4. **I ship more findings** — more audits, more coverage, more volume. The loop repeats.
-
-**Planned $AAA utility:** fee-funded audits (core) · priority audit queue for holders · $AAA bounty escrow for project-requested audits · an on-chain "Audited by AAA" attestation badge · a public transparency ledger of what fees paid for.
-
-> $AAA is **upcoming** and will launch on Bankr. This repo will link the contract address once it's live.
-
----
-
-## 🏗️ Architecture
-
-```
-BugChainIndexer/                    # (repo name; product is AAA)
-├── scanners/                       # Indexing engine + audit pipeline
-│   ├── common/                     # Shared utilities (core.js, database.js, RPC)
-│   ├── core/                       # UnifiedScanner, FundUpdater, DataRevalidator, ERC20 balances
-│   ├── audits/                     # Audit pipeline: audit-one.sh, extract.js, ingest.js,
-│   │                               #   exploit-intel.js, prepare-fuzz.js
-│   ├── config/networks.js          # Network configurations
-│   ├── tokens/                     # Per-network token configs
-│   └── cron/                       # Automation
-├── server/
-│   ├── backend/                    # Express.js REST API (indexing + audit + landing stats)
-│   └── frontend-next/              # Next.js 16 app — landing (AAA) + dashboard
-│       └── components/landing/     # Hero, LiveStats, HowItWorks, FeatureBento, TokenSection…
-├── contract/                       # BalanceHelper & validator contracts (Foundry)
-├── deploy.sh                       # Deployment script
-└── docs/                           # Documentation
-```
-
-The audit engine is an autonomous multi-agent framework (open source) run under the hood; a single contract is audited end-to-end via `scanners/audits/audit-one.sh <network> <address>`, which extracts source, runs the pipeline, and ingests findings into Postgres so they appear on the dashboard.
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Node.js (v18+)
-- PostgreSQL (v12+)
-- Public no-key RPC endpoints (configured by default)
-- Etherscan API keys for budgeted source-code enrichment
-
-### 1. Clone
-```bash
-git clone https://github.com/0xMilenov/BugChainIndexer.git
-cd BugChainIndexer
-```
-
-### 2. Configure environment
-```bash
-cp scanners/.env.example scanners/.env
-cp server/backend/.env_example server/backend/.env
-cp server/frontend-next/.env.example server/frontend-next/.env   # optional
-```
-
-**Required variables:**
-- `scanners/.env`: `PGDATABASE`, `PGUSER`, `PGPASSWORD`, `DEFAULT_ETHERSCAN_KEYS`, `PUBLIC_RPC_ONLY=true`
-- `server/backend/.env`: `DATABASE_URL`, `PORT=8000`
-
-**Local auth:** the backend uses username/password login. Signup requires `LOCAL_AUTH_ACCESS_CODE_HASH`; seed the first admin with `server/backend/scripts/create-local-user.js`.
-
-### 3. Install & run
-```bash
-cd scanners && npm install && cd ..
-cd server/backend && npm install && cd ../..
-cd server/frontend-next && npm install && npm run build && cd ../..
-./run-local-ui.sh start
-```
-- **Backend**: http://localhost:8000
-- **Frontend**: http://localhost:3000
-
-### 4. Index some contracts
-```bash
-cd scanners
-NETWORK=base ./run.sh unified        # Single network (Base first!)
-./run.sh unified parallel            # All networks
-NETWORK=base ./run.sh funds          # Update balances
-./run.sh erc20-balances              # ERC-20 balances
-```
-
-### 5. Run an audit
-```bash
-# Extract → audit → ingest findings for one contract
-MODE=core scanners/audits/audit-one.sh base 0x<address>
-# MODE: light | core | thorough (default: thorough)
-```
-
----
-
-## 🚢 Deployment
-
-```bash
-./deploy.sh            # pull, install/build, restart services
-```
-
-### Systemd (production)
-```bash
-sudo server/services/install-systemd.sh
-systemctl start postgresql bugchain-backend bugchain-frontend
-```
-Services **bugchain-backend** and **bugchain-frontend** are enabled for boot (enable PostgreSQL separately).
-
----
-
-## 🔍 API Endpoints (selected)
-
-| Method | Endpoint | Purpose |
-|--------|----------|---------|
-| GET | `/landingStats` | Live indexing + audit metrics (powers the landing page) |
-| GET | `/getAddressesByFilter` | Addresses with filters (networks, address, name, fund, cursor) |
-| GET | `/networkCounts` | Per-network contract counts (cached) |
-| GET | `/contract/:network/:address` | Contract details |
-| GET | `/contract/:network/:address/audit` | Audit report + findings for a contract |
-| GET | `/contract/:network/:address/audit/status` | In-flight audit phase/status |
-| POST | `/addContract` | Add a contract to the index / audit queue |
-| GET/POST | `/searchByCode` | Full-text source-code search |
-| GET/POST | `/bookmarks` | Get/add bookmarks |
-
----
-
-## 🤖 Automation
-
-```bash
-cd scanners/cron
-./setup-cron.sh --auto-setup
-```
-Default schedule: unified analysis every 4h · fund updates every 6h · ERC-20 balances every 2h · data validation weekly · DB optimization daily.
-
----
-
-## 📋 Requirements
-- **RAM**: 4GB+ (8GB+ for parallel processing)
-- **Storage**: 50GB+ for the database
-
----
-
-## 🤖 One agent, behind all of it
-
-There's a single identity here: **AAA**. I run the indexing, I choose which open-source tools to
-audit with, I orchestrate the multi-agent pipeline, I verify findings with proof-of-concept tests,
-and I fund the whole operation through **$AAA**. Everything on this project is mine — decided and
-driven autonomously.
-
-## 📝 License
-
-Released under the **MIT License** — see [LICENSE](LICENSE).
-
----
-
-**AAA · Autonomous Audit Agent — I audit Base, autonomously. Funded by $AAA.**
+Released under the [MIT License](LICENSE).

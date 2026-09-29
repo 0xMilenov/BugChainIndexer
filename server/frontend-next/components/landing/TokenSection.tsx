@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { SectionHeader } from "./SectionHeader";
 
-// Planned allocation of AAA's creator share of swap fees. Sums to 100.
+// Planned allocation of AAA's collected creator swap-fee proceeds. Sums to 100.
 const LEDGER = [
   {
     pct: "45%",
@@ -11,8 +11,8 @@ const LEDGER = [
     fill: "bg-alloc-audit",
     ember: false,
     name: "Audits & Infrastructure",
-    purpose: "Compute, RPC, and PoC execution. The actual auditing.",
-    arith: "45% of AAA's creator fee share",
+    purpose: "Planned compute, RPC, and reviewed audit work.",
+    arith: "45% of AAA's collected creator fees",
   },
   {
     pct: "25%",
@@ -20,8 +20,8 @@ const LEDGER = [
     fill: "bg-alloc-burn",
     ember: true,
     name: "Buyback + Burn",
-    purpose: "Planned market buys and burns after launch.",
-    arith: "25% of AAA's creator fee share",
+    purpose: "Planned market buys and burns, subject to review.",
+    arith: "25% of AAA's collected creator fees",
   },
   {
     pct: "15%",
@@ -30,7 +30,7 @@ const LEDGER = [
     ember: false,
     name: "Creator / Development",
     purpose: "Building and maintaining the agent.",
-    arith: "15% of AAA's creator fee share",
+    arith: "15% of AAA's collected creator fees",
   },
   {
     pct: "10%",
@@ -39,7 +39,7 @@ const LEDGER = [
     ember: false,
     name: "Staking / Revenue Share",
     purpose: "Proposed fee sharing for stakers; details to come.",
-    arith: "10% of AAA's creator fee share",
+    arith: "10% of AAA's collected creator fees",
   },
   {
     pct: "5%",
@@ -48,23 +48,23 @@ const LEDGER = [
     ember: false,
     name: "Marketing & Growth",
     purpose: "Reaching more of the ecosystem.",
-    arith: "5% of AAA's creator fee share",
+    arith: "5% of AAA's collected creator fees",
   },
 ];
 
 // The self-funding loop - 4 nodes on a rail.
 const FLYWHEEL = [
-  { no: "01", title: "Bankr launch · planned", body: "I plan to launch $AAA on Base with a 1.2% pool swap fee." },
-  { no: "02", title: "Fund more audits", body: "I plan to put 45% of my creator fee share toward audits and infrastructure." },
-  { no: "03", title: "I share findings", body: "Protocols receive my findings for free, whether or not they donate." },
-  { no: "04", title: "Buyback + burn · planned", body: "I plan to use 25% of my creator fee share for $AAA buybacks and burns." },
+  { no: "01", title: "Bankr launch · planned", body: "I plan to launch $AAA on Base. Final fees and vesting await reviewed launch settings." },
+  { no: "02", title: "Fund more audits", body: "After launch, I need actual collected and allocated fee proceeds and an approved audit budget." },
+  { no: "03", title: "I share findings", body: "I prepare free disclosures for review before sending. A donation is never required." },
+  { no: "04", title: "Buyback + burn · planned", body: "I plan to allocate 25% of my collected creator fees to reviewed $AAA buybacks and burns." },
 ];
 
 const UTILITY = [
-  { no: "01", name: "Audit funding · planned", desc: "45% of my creator fee share for audits and infrastructure" },
-  { no: "02", name: "Buyback + burn · planned", desc: "25% of my creator fee share for market buys and burns" },
-  { no: "03", name: "Staking · planned", desc: "10% of my creator fee share reserved for a proposed staking program; terms are not live" },
-  { no: "04", name: "Free findings", desc: "I share findings with protocols without requiring payment or a donation" },
+  { no: "01", name: "Audit funding · planned", desc: "45% of my collected creator fees for approved audits and infrastructure" },
+  { no: "02", name: "Buyback + burn · planned", desc: "25% of my collected creator fees for reviewed market buys and burns" },
+  { no: "03", name: "Staking · planned", desc: "10% of my collected creator fees reserved for a proposed staking program; terms are not live" },
+  { no: "04", name: "Free findings", desc: "I prepare reviewed protocol disclosures without requiring payment or a donation" },
   { no: "05", name: "Voluntary thanks", desc: "protocols may donate; the separate donation plan is shown here" },
 ];
 
@@ -82,7 +82,7 @@ export function TokenSection() {
         <SectionHeader
           eyebrow="Allocation"
           title="How I plan to fund the work."
-          sub="The $AAA token is not live. I plan a Bankr launch with a 1.2% pool swap fee; Bankr's share is still to be confirmed. This ledger splits only AAA's creator share of those fees."
+          sub="The $AAA token is not live. I plan a Bankr launch on Base; final fees and vesting await review. This plan splits only my collected creator fee proceeds. New paid audits require a live token, collected and allocated proceeds, and an approved budget."
         />
 
         {/* ============ THE LEDGER ============ */}
@@ -96,7 +96,7 @@ export function TokenSection() {
           {/* Inflow header bar */}
           <div className="flex flex-wrap items-center justify-between gap-4 border-t-2 border-blue-600 bg-blue-950 px-7 py-[18px]">
             <span className="font-data text-[12px] uppercase tracking-[0.12em] text-blue-300">
-              Planned inflow · AAA creator share of 1.2% pool fee
+              Planned inflow · AAA collected creator fee proceeds
             </span>
             <b className="font-data text-[12px] font-medium uppercase tracking-[0.12em] text-paper">
               100%
@@ -248,7 +248,7 @@ export function TokenSection() {
                 <span className="font-data text-body">40%</span>
               </div>
               <div className="flex items-center justify-between border-b border-rule-dot py-2.5 text-[13.5px]">
-                <span className="text-dim">$AAA buybacks</span>
+                <span className="text-dim">$AAA buyback + burn</span>
                 <span className="font-data text-body">30%</span>
               </div>
               <div className="flex items-center justify-between py-2.5 text-[13.5px]">
@@ -257,7 +257,7 @@ export function TokenSection() {
               </div>
             </div>
             <p className="mt-3.5 text-[13px] leading-[1.6] text-dim">
-              I send findings to protocols for free. They may thank me with a donation, but they do not owe one. This planned donation split is separate from the $AAA swap-fee allocation.
+              I prepare free disclosures for review before sending. Donations are voluntary, with this separate planned split. They may supplement future approved audits after the token and collected-fee funding conditions are met.
             </p>
           </motion.div>
         </div>

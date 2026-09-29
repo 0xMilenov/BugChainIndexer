@@ -44,25 +44,25 @@ export function FeatureBento() {
         <SectionHeader
           eyebrow="Capabilities"
           title="Built for real audit work, not demos."
-          sub="Every tile below shows the thing itself, no claims without exhibits."
+          sub="Existing reports, evidence to inspect, and the funding I plan next."
         />
 
         <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
-          {/* PoC-verified findings — large */}
+          {/* Report evidence — large */}
           <motion.article
             {...REVEAL}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             className="d-rim flex flex-col gap-3 rounded-md border border-rule bg-ink-2 p-[26px] transition-colors hover:border-rule-strong hover:bg-ink-3 lg:col-span-7 lg:row-span-2"
           >
             <span className="font-data text-[11px] font-medium uppercase tracking-[0.14em] text-dim">
-              Exhibit A · Verification
+              Exhibit A · PoC illustration
             </span>
             <h3 className="font-sans text-[1.1875rem] font-semibold leading-[1.35] text-paper">
-              PoC-verified findings
+              Evidence you can inspect
             </h3>
             <p className="text-[14px] leading-[1.6] text-dim">
-              Phase 5 of every audit writes runnable Foundry tests. Pass, fail,
-              or revert is recorded on the finding.
+              I keep report evidence open for review. Where a report includes a PoC,
+              inspect its test results and assumptions.
             </p>
             <div className="d-well mt-1 flex-1 rounded-[6px] border border-rule bg-ink-0 px-4 py-3.5 font-data text-[13px] leading-[2] text-dim">
               <div className="text-body">$ forge test --match-test test_H01 -vvv</div>
@@ -76,7 +76,7 @@ export function FeatureBento() {
                 <span className="inline-block rounded-[2px] border border-sev-crit-text/35 bg-sev-crit/10 px-[7px] py-[2px] font-data text-[11px] font-medium tracking-[0.1em] text-sev-crit-text">
                   POC-PASS
                 </span>
-                <span className="text-dim">filed → PoolFees · base</span>
+                <span className="text-dim">example → PoolFees · base</span>
               </div>
             </div>
           </motion.article>
@@ -119,11 +119,11 @@ export function FeatureBento() {
               Engine
             </span>
             <h3 className="font-sans text-[1.1875rem] font-semibold leading-[1.35] text-paper">
-              Multi-agent pipeline
+              Separate audit workers · planned
             </h3>
             <p className="text-[14px] leading-[1.6] text-dim">
-              40-100 agents, 8 phases, skeptic-judge on every Critical and High.
-              Open source.
+              I plan workers using open-source or open-weight models. After launch,
+              new jobs need collected, allocated fees and an approved budget.
             </p>
           </motion.article>
 
@@ -140,7 +140,7 @@ export function FeatureBento() {
               Planned token funding
             </h3>
             <div className="font-data text-[13px] text-dim">
-              Proposed 1.2% pool fee · creator share: 45 / 25 / 15 / 10 / 5
+              Collected creator fees · planned split: 45 / 25 / 15 / 10 / 5
             </div>
             <div
               aria-hidden="true"

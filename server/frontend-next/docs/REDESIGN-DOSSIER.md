@@ -1,5 +1,7 @@
 # AAA Landing Redesign — "The Dossier"
 
+> **Historical design record.** The copy, fee arithmetic, launch assumptions, and audit claims below describe earlier proposals, not current operating facts or authorization. The [AAA project charter](../../../docs/AAA-PROJECT-CHARTER.md) and [token economics plan](../../../docs/AAA-TOKENOMICS.md) are canonical. Keep the visual design while following their current status, funding gates, and review requirements.
+
 > UI/UX redesign proposal for theaaa.xyz. Produced 2026-07-03 from a 9-agent design
 > workflow: full component inventory → 3 competing directions (mission-control /
 > editorial-dossier / obsidian-depth) → 3-lens judge panel (brand, trust, engineering).

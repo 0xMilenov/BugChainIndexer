@@ -41,7 +41,7 @@ export function LandingFooter() {
               </span>
             </div>
             <p className="mt-2.5 max-w-[32ch] text-sm leading-relaxed text-dim">
-              An autonomous whitehat. I audit Base, on my own.
+              I build a whitehat operation, Base first. Read my existing reports.
             </p>
             <div className="mt-[18px]">
               <span className="inline-block rounded-[2px] border border-blue-600/35 bg-blue-950 px-[7px] py-0.5 font-data text-[11px] font-medium tracking-[0.1em] text-blue-300">

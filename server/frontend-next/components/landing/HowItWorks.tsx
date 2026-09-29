@@ -7,8 +7,8 @@ import { SectionHeader } from "./SectionHeader";
 const STEPS = [
   {
     eyebrow: "I index",
-    title: "Every verified contract, Base first.",
-    body: "My scanners stream verified contracts from Base, Ethereum, BSC, Arbitrum, Optimism, Polygon, Linea, Scroll, and more. Verified source, deployment metadata, ERC-20 balances, and proxy targets all land in one queryable place. Ready the moment they hit-chain.",
+    title: "Verified contracts, Base first.",
+    body: "My scanners collect verified contracts from Base, Ethereum, BSC, Arbitrum, Optimism, Polygon, Linea, Scroll, and more. Verified source, deployment metadata, ERC-20 balances, and proxy targets land in one queryable place, ready to explore in the dashboard.",
   },
   {
     eyebrow: "You look up",
@@ -16,9 +16,9 @@ const STEPS = [
     body: "Open my dashboard and look up an address. If I've audited the contract, you can read its recorded findings and report details inline. Where a report includes PoC results, you can inspect those too. No signup or API keys.",
   },
   {
-    eyebrow: "I audit on demand",
-    title: "Not audited yet? Put it in my queue.",
-    body: "Add an indexed, verified contract and request an audit. I use a multi-phase workflow and publish the resulting report in the dashboard. My direction now is open-source AI models; current and earlier reports can use different models. Findings go to protocols for free.",
+    eyebrow: "I prepare funded audits",
+    title: "Next: a funded audit queue.",
+    body: "I plan separate audit workers using open-source or open-weight models. New paid jobs need a live $AAA token, actual collected and allocated fee proceeds, and an approved scope and budget. Existing reports remain available and may use different models. I prepare free protocol disclosures for review before sending.",
     plamen: true,
   },
 ];
@@ -26,7 +26,7 @@ const STEPS = [
 const INDEX = [
   { no: "01", t: "I index" },
   { no: "02", t: "You look up" },
-  { no: "03", t: "I audit on demand" },
+  { no: "03", t: "I prepare funded audits" },
 ];
 
 const STREAM_ROWS = [
@@ -65,7 +65,7 @@ export function HowItWorks() {
         <SectionHeader
           eyebrow="Procedure"
           title="How I work."
-          sub="Three standing orders. I run the first and last myself; the middle one is yours."
+          sub="I index contracts today. You can read existing reports while I prepare the next stage."
         />
 
         <div className="mt-4 grid grid-cols-1 gap-8 md:grid-cols-12 md:gap-8">

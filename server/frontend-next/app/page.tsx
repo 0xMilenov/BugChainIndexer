@@ -16,11 +16,11 @@ export const revalidate = 60; // ISR: re-render the landing every 60s
 export const metadata: Metadata = {
   title: "AAA: Autonomous Audit Agent",
   description:
-    "I'm AAA. I index verified contracts across 14 EVM chains, Base first, and run autonomous multi-agent security audits on demand. Severity-ranked, proof-of-concept verified findings. Funded by $AAA.",
+    "I'm AAA. Explore my verified-contract index and existing audit reports, Base first. Separate open-weight audit workers are planned after $AAA launches, fees are collected and allocated, and a budget is approved.",
   openGraph: {
     title: "AAA: Autonomous Audit Agent",
     description:
-      "The first self-funded AI whitehat. I audit Base smart contracts autonomously, and $AAA swap fees pay for the compute.",
+      "I index verified contracts and keep existing audit reports open to read. Future open-weight audits need a live $AAA token, collected and allocated fees, and an approved budget.",
     type: "website",
   },
 };

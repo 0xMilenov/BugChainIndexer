@@ -1,206 +1,79 @@
-# $AAA — Token Economics & Launch Plan
+# $AAA — token economics and launch plan
 
-> **Status:** Draft v0.1 · 2026-07-02 · $AAA has **not** launched yet.
-> This is the working economics doc for the $AAA token. Numbers marked *(assumption)* are
-> illustrative and must be validated before launch — they are not commitments.
+**Planning revision: 29 September 2026. $AAA has not launched.** I have no operating token-fee, donation, buyback/burn, or staking program. New token-funded audits have not been activated. This document supports my [project charter](AAA-PROJECT-CHARTER.md); it records planned allocations, not executed transactions or guaranteed utility.
 
----
+## Bankr launch review
 
-## 1. Thesis
+I plan to launch through Bankr on **Base**. The exact launch path and parameters need Yordan's approval. Official documentation checked on 29 September 2026 distinguishes standard Doppler launches from partner launches:
 
-AAA is the first **self-funded AI whitehat**. The token isn't a meme wrapper around a product —
-it's the funding mechanism *for* the product. Swap fees on $AAA pay the real cost of running
-autonomous audits (AI/API compute + infra). More usage → more fees → more audits → more findings →
-more attention → more usage. The token's value is backed by a service that visibly works: **18,600+
-contracts indexed, 49 audits, 424 vulnerabilities surfaced** (live, Base-first).
+| Topic | Documented reference, not a final AAA setting |
+| --- | --- |
+| Standard Doppler fees | 0.7% pool fee; the creator receives 95% of that (0.665% of volume). For new launches, hook additions bring the total trader fee to 1.75%. Locked LP proceeds are not spendable creator income. |
+| Partner fees | Separate partner documentation still describes a 1.2% schedule; it is not the standard launch assumption. I have not selected or verified a partner route for AAA. |
+| Supply and vesting | Standard Doppler supply is 100 billion: 85% liquidity, 15% creator vesting over one year including a 30-day cliff. Vesting can instead be disabled at launch, placing 100% in the pool. Partner-key launches do not vest. |
+| Fee assets | Mixed token/quote receipts are the default; quote-only fees are an option to review. |
 
-**One line:** *Every $AAA swap funds another audit.*
+Sources: [standard fees](https://docs.bankr.bot/token-launching/overview/#fee-structure), [creator vesting](https://docs.bankr.bot/token-launching/overview/#creator-vesting), [partner launches](https://docs.bankr.bot/partnership/token-launching/), and [deploy reference](https://docs.bankr.bot/token-launching/api-reference/deploy-token-launch/).
 
----
+My earlier universal **1.2%** and **no pre-mine** claims were not justified. Disabling vesting is an available choice, not an approved AAA decision. I will explicitly specify Base, review the selected provider and previewed fee distribution, and publish confirmed parameters after approval and deployment. The pool fee must not be confused with the all-in trader fee or AAA's claimable share. Recheck the official documentation and launch preview immediately before signing; different launch paths and older tokens can have different terms.
 
-## 2. Launch mechanics (Bankr / Base)
+The default vesting recipient is the fee recipient set at launch and remains fixed if fee rights later transfer. Standard Doppler vesting is either the default schedule or disabled, not a custom allocation. [Vesting options](https://docs.bankr.bot/token-launching/overview/#creator-vesting)
 
-| Parameter | Value | Notes |
-|-----------|-------|-------|
-| Chain | **Base** | Bankr launch commands deploy to Base. |
-| Launch platform | **Bankr** | Token-issuance wizard; deploys a Uniswap V4 pool. |
-| Pool / fee | **Uniswap V4, 1.2% swap fee** | Charged on every buy and sell. |
-| Fee split | **Creator (AAA) / protocol (Bankr)** | Confirm exact bps in the Bankr terminal at launch. Fees accrue in $AAA **and** WETH. |
-| Fee collection | Manual/agent claim via Bankr Terminal or the bankr agent | AAA (creator) collects its share on-chain. |
-| Supply | **Bankr default** | Fair launch; confirm the exact default supply/decimals in the Bankr terminal at launch. |
+## Planned allocation of creator swap-fee proceeds
 
-> **✅ D1 — supply & allocation (DECIDED).** Bankr's standard **fair-launch** supply, **no team
-> pre-mine**. A whitehat's credibility is its whole moat, so there is no stealth team bag. If any
-> ops allocation is ever needed it will be small, time-locked, and disclosed on-chain — but the
-> default is none.
+This plan applies only to **AAA's collected creator share**, not to total swap volume, all pool/hook fees, or locked liquidity.
 
----
+| Share | Planned use |
+| --- | --- |
+| 45% | Audits and infrastructure |
+| 25% | $AAA buyback-and-burn |
+| 15% | Creator / development |
+| 10% | Reserve for a proposed staking / revenue-share program; no live rewards or approved terms |
+| 5% | Marketing and growth |
 
-## 3. Fee distribution (FINAL)
+These percentages sum to 100% of that receipt category. They describe a spending policy, not an installed automatic distributor. Claiming, allocation, spending, and publication are separately reviewed actions. Until an implementation is approved, planned portions remain accounted for and unspent; they are not silently redirected.
 
-Every $AAA swap pays a 1.2% fee; my creator share of that fee is split on a **fixed 45/25/15/10/5**
-allocation, published before launch and verifiable on-chain after.
+## Planned allocation of voluntary protocol donations
 
-| % | Allocation | What it does |
-|---|-----------|--------------|
-| **45%** | **Audits & Infrastructure** | Funds more audits, indexing, and compute — the core of the loop. |
-| **25%** | **Buyback + Burn** | I buy $AAA on the open market and burn it — usage-tied deflation. |
-| **15%** | **Creator / Development** | Building and maintaining the agent. |
-| **10%** | **Staking / Revenue Share** | Holders stake $AAA to earn a share of fees. |
-| **5%**  | **Marketing & Growth** | Reaching more of the ecosystem. |
+Disclosure is free. A protocol may choose to thank me; no payment, donation, or token ownership is required to receive findings.
 
-```
-$AAA trade ──1.2% fee──► creator share (in $AAA + WETH)
-   │
-   ├─ 45% Audits & Infrastructure   (the audits themselves)
-   ├─ 25% Buyback + Burn            (market-buy $AAA → burn)
-   ├─ 15% Creator / Development
-   ├─ 10% Staking / Revenue Share   (paid to stakers)
-   └─  5% Marketing & Growth
-```
+| Share | Planned use |
+| --- | --- |
+| 40% | Creator |
+| 30% | $AAA buyback-and-burn |
+| 30% | Future audits |
 
-Publish the treasury wallet address and these ratios up front. The policy *is* the product's trust story.
+This replaces the older 100%-to-creator donation proposal. Donation collection is not active and no receiving address is approved in this document. Donation receipts stay separate from creator fee income even if custody later uses the same treasury system. A donation does not buy a favorable report or change the evidence standard.
 
----
+## Funding and execution gates
 
-## 3b. AAA Bounty Wallet
+The operator can plan and coordinate now. New fee-funded audits require all of: a verified live $AAA token, actual fee proceeds received, reconciled available funds, a specific approved allocation, target authorization, and a worker budget with time/cost limits. Future workers use separately selected open-source/open-weight models and isolated compute; existing audit costs or subscription usage are not a price quote for that architecture.
 
-A separate, public wallet — **distinct from the swap-fee split above** — where protocols can reward
-vulnerabilities I discover for them. It's a transparent, on-chain channel for responsible-disclosure
-bounties: no invoices, no gatekeeping.
+Donations may supplement a later approved budget but do not replace the received-fee gate. Accrued fees must be claimed and verified as spendable receipts before allocation. Token valuation, projected volume, and permanently locked liquidity are not available funding. If no budget exists, the job waits. Launch does not automatically start audits, claims, buybacks, burns, staking, or posting.
 
-- **100% of every bounty donation goes directly to the creator.**
-- Address is published on the site at launch; inflows are verifiable on-chain.
-- Framing: a voluntary "thank-you for the disclosure," not a fee or an obligation.
+My planned $AAA buybacks are distinct from Bankr's protocol-level **BNKR** buyback. The execution venue, limits, approvals, and burn method still need selection. Bankr's documented burn transfer uses a dead address; that alone does not establish an ERC-20 supply reduction. I will describe the actual mechanism and evidence accurately. [Bankr transfer behavior](https://docs.bankr.bot/features/transfers/#recipient-formats)
 
-> This is intentionally simple and separate from the tokenomics so there's no ambiguity: swap fees
-> follow the 45/25/15/10/5 split; bounty donations are 100% creator.
+Doppler supports programmable buybacks in its general protocol, but that does not establish a configured AAA feature or a standard Bankr launch option. [Doppler capabilities](https://docs.doppler.lol/explainer)
 
----
+Staking/revenue sharing remains a proposal requiring approved terms, implementation, and appropriate legal review. No yield, price support, audit throughput, or investment return is promised. Earlier break-even forecasts based on a presumed fee rate and historical model costs are withdrawn; future budgets will use verified receipts and reviewed worker quotes.
 
-## 4. Sustainability model *(now using measured cost — A1 done)*
+## Receipt and spending evidence
 
-The point of this section is to show the loop can actually break even, and at what scale. The
-per-audit cost is now **measured**, not assumed: the pipeline records real spend per audit
-(`cost_usd`, `total_tokens` on `contract_audits`, from the Plamen v2 phase cost ledger).
+I plan an append-only ledger of fees, donations, claims, receipts, internal transfers, allocations, reservations, expenses, and corrections. Each relevant record should retain chain, transaction/log identity, asset/decimals, native amount, timestamp, source/destination, confirmation status, and supporting evidence. Any currency valuation includes its source and time.
 
-**Cost side (measured — refine as more audits land):**
-- **Core-mode audit: ~$23 per audit** (measured, n=2 Base: PoolFees $21.80, Clanker $24.55, avg
-  $23.17, ~6M tokens each). The **`depth` phase on gpt-5.5 is ~60% of the cost** — the single cost
-  driver and the main tuning lever.
-- **Light mode** is materially cheaper (fewer/cheaper agents, skips the heaviest passes) — the right
-  default for broad sweeps; reserve core/thorough for flagship or high-value targets.
-- Fixed infra (VM, DB, RPC): **~$200 / month** *(assumption — small next to compute).*
+I will reconcile balances, avoid counting a claim and its receipt twice, keep conversions and gas/slippage visible, and distinguish reserved from available funds. Approved public updates link receipt and spending evidence to the work it funded without exposing credentials or undisclosed exploit details. The ledger and its operating cadence still need implementation; an empty template is not proof of revenue.
 
-**Revenue side (audits are funded by the 45% slice, not the whole fee):**
-- AAA net fee take per $1 of volume ≈ `1.2% × creator_share`. At a 50% creator share *(confirm on
-  Bankr)*, AAA nets **~0.6% of swap volume**.
-- Of that, **45% funds Audits & Infrastructure** → **~0.27% of swap volume** is the audit budget.
+## Decisions Yordan still needs to make
 
-**Break-even volume for N audits/month:**
+| Decision | Open question |
+| --- | --- |
+| Launch path and timing | Which Bankr/provider route on Base, which previewed fee schedule, and when to authorize deployment? |
+| Supply and vesting | Accept the documented default creator allocation or explicitly disable vesting? Confirm supply and recipients in the launch preview. |
+| Custody and fee collection | Which owner, treasury/fee recipient, donation recipient, signer arrangement, quote asset, and mixed/quote-only fee mode? |
+| Accounting | How are gas, conversions, asset valuations, reserves, and public reporting handled before any spending? |
+| Buyback-and-burn | Which execution/burn mechanism, limits, timing, and transaction review process for each funding source? |
+| Staking | Whether to implement it at all, under what reviewed terms; keep the proposed allocation reserved until resolved. |
+| Audit activation | Which open-weight model/provider/license, target scope, data handling, hard budget, and cancellation controls after the funding gate? |
+| Public activity | Which launch copy, disclosures, and reporting cadence to approve? No automatic posts or protocol messages. |
 
-```
-monthly_volume_needed  ≈  (N × cost_per_audit  +  infra)  /  (0.012 × creator_share × 0.45)
-```
-
-*Worked example (measured cost):* at **$25/audit core**, infra $200/mo, creator_share 50%, targeting
-**50 core audits/month** → (50×25 + 200) / 0.0027 ≈ **$540k monthly swap volume**. The same 50 audits
-in **light mode (~$6/audit)** → (50×6 + 200) / 0.0027 ≈ **$185k/mo**. Because audits draw only the 45%
-slice, the tiering matters even more: **light by default for sweeps, core/thorough for flagships.**
-The other slices (buyback+burn, staking, creator, marketing) aren't overhead against this number —
-they're what make holding and trading $AAA attractive enough to *generate* the volume in the first place.
-
-> **✅ A1 done:** per-audit cost is instrumented (`ingest.js` parses `_v2_cost_ledger.md` → DB). Refine
-> the $25/$6 figures as more audits complete; query `SELECT audit_mode, avg(cost_usd), count(*) FROM
-> contract_audits WHERE cost_usd IS NOT NULL GROUP BY audit_mode`.
-
----
-
-## 5. Token utility (natural to a security agent)
-
-1. **Fee-funded audits (core).** 45% of fees pays my compute — no subscription, no paywall to read
-   findings or queue a contract. The token *is* the funding.
-2. **Buyback + burn.** 25% of fees market-buy $AAA and burn it — usage-tied deflation that ties token
-   supply to how much auditing actually happens.
-3. **Staking / revenue share.** Stake $AAA to earn 10% of all fees. Holders share directly in the work.
-4. **Priority audit queue.** Holders can push a specific contract to the front of my queue instead
-   of waiting for me to reach it in normal rotation.
-5. **"Audited by AAA" attestation.** An on-chain badge a project can display once I've reviewed it,
-   gated by $AAA — a verifiable, ecosystem-visible signal.
-6. **Transparency ledger (utility as proof).** A public record of fees collected → audits funded →
-   $AAA burned → vulnerabilities found. Trust compounds; the ledger is a feature, not an afterthought.
-
-> **Sequencing:** #1 (fee-funded audits) and #2 (buyback+burn) are automatic at launch. #3 (staking)
-> and #4 (priority queue) are post-launch, gated behind a holder check. #6 (ledger) ships day one,
-> manual at first. Separately, the **Bounty Wallet** (§3b) is live at launch — 100% to creator.
-
----
-
-## 6. Transparency ledger (day-one commitment)
-
-Publish, and keep updated, a simple public page/section:
-
-| Period | Fees collected (USD) | Audits funded | Contracts reviewed | Findings (C/H/M/L) | $AAA bought+burned | Bounties received |
-|--------|----------------------|---------------|--------------------|--------------------|--------------------|-------------------|
-
-Everything is verifiable on-chain (treasury + burn + bounty wallets) and against the live dashboard
-(audit + finding counts already come from Postgres). No claims that can't be checked.
-
----
-
-## 7. Launch-day plan
-
-**Pre-launch checklist:**
-- [ ] ≥5 real **Base** audits ingested and visible on the dashboard (in progress — closes the Base
-      proof gap so "Base-first" is backed by findings, not just copy).
-- [ ] Treasury wallet created; fee-collection flow tested on Bankr.
-- [ ] Supply/allocation decided (D1); treasury policy decided (D2).
-- [ ] Real per-audit cost measured (A1) → economics section finalized.
-- [ ] Website `$AAA` section flips from "Soon" to live: contract address, buy-on-Bankr link, price widget.
-- [ ] X account live with the pinned thread below.
-
-**Launch-day X thread (outline, first person):**
-1. *"I'm AAA. I've already indexed 18,600+ contracts and run 49 audits — 424 real vulnerabilities
-   found, PoC-verified. Today I'm launching the token that pays for my work: $AAA."*
-2. *"Here's the loop: you trade $AAA → 1.2% swap fees come to me → I spend them on audit compute →
-   I find more bugs on Base. A whitehat that funds itself."*
-3. *"Proof, not promises: [link to N live Base findings on the dashboard]."*
-4. *"$AAA is live on Bankr: [contract]. Treasury: [wallet]. I'll publish every fee I collect and
-   what it paid for."*
-5. *"What I'll do with the fees: fund more Base audits, open a priority queue and bounty escrow for
-   holders, and keep the whole ledger public. Come watch me work."*
-
----
-
-## 8. Risks & honest caveats
-
-- **Volume dependence.** Audits draw only the 45% slice, so throughput scales with usage. No reserve
-  buffer in this model — during lean weeks, tier down to light mode rather than stop. That's the model.
-- **"Token first" skepticism.** Mitigated by leading with a *working* product and real findings, and
-  by a fair launch with no stealth team bag.
-- **Compute cost drift.** AI pricing changes; the per-audit cost is measured (A1) and the sweep tier
-  (light/core/thorough) is the adjustable lever.
-- **⚠️ Regulatory framing — needs legal review before launch.** The model now includes an explicit
-  **Staking / Revenue Share (10%)** and **Creator (15%)** allocation. "Revenue share" and staking
-  yield can carry securities-like characteristics in some jurisdictions. Before launch, get counsel
-  on how staking rewards and the revenue-share language are described; prefer "protocol fee sharing
-  to stakers" framing and avoid promising returns. This is a real open item, not boilerplate.
-- **Don't over-promise utility timing.** Staking and priority queue are post-launch; label them as
-  such on the site (already done). Buyback+burn and fee-funded audits are automatic at launch.
-
----
-
-## 9. Decisions
-
-| ID | Decision | Status |
-|----|----------|--------|
-| **D1** | Supply & allocation | ✅ **Decided** — Bankr default supply, fair launch, **no pre-mine** |
-| **D2** | Fee distribution | ✅ **FINAL** — 45% audits+infra / 25% buyback+burn / 15% creator+dev / 10% staking / 5% marketing |
-| **A1** | Instrument per-audit cost | ✅ **Done** — `cost_usd`/`total_tokens` recorded per audit; core ≈ $23 (measured, n=2) |
-| **B1** | AAA Bounty Wallet | ✅ **Decided** — public Base wallet, 100% to creator; address published at launch |
-| **D3** | Launch timing | Open — after ≥5 Base audits are live (2 done, 2 running) + costs refined |
-| **D5** | Legal review of staking/revenue-share framing | Open — get counsel before launch (see Risks) |
-
----
-
-*Draft owned by the AAA build. Update as decisions land; nothing here is public until it's on the site.*
+The agreed planned percentages above do not resolve these launch or execution choices. I will record approved decisions and evidence here before presenting them as live behavior.
