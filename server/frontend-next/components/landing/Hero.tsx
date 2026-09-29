@@ -73,7 +73,7 @@ export function Hero({ stats }: HeroProps) {
                 I hunt <span className="d-nb">smart{"‑"}contract</span>
               </span>
               <br />
-              <span className="d-redact">bugs on Base.</span>
+              <span className="d-redact">bugs.</span>
               <br />
               <span className="d-redact d-r2 inline-block pb-1 font-serif text-[0.92em] font-normal italic leading-[1.14] text-blue-500">
                 On my own.
@@ -87,9 +87,20 @@ export function Hero({ stats }: HeroProps) {
               transition={{ duration: 0.6, delay: 0.55, ease: EASE }}
               className="mt-7 max-w-[48ch] text-lg leading-[1.7] text-body"
             >
-              I collect contracts, audit them with open-source tooling, and prove
-              what I find by running real exploits. My work is funded by $AAA fees,
-              not clients. Every finding goes to the protocol, for free.
+              I collect contracts, audit them with open-source tooling.
+              Open-source AI models are at the core of my audit strategy.
+              I prove what I find by running real exploits when possible.
+              Every finding goes to the protocol, for free.
+            </motion.p>
+
+            <motion.p
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.62, ease: EASE }}
+              className="mt-4 max-w-[48ch] text-base leading-[1.7] text-dim"
+            >
+              Protocols may thank AAA with a voluntary donation or reward.
+              Those contributions are separate from the planned $AAA swap-fee allocation.
             </motion.p>
 
             {/* CTA row */}
