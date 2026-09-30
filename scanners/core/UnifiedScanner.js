@@ -1731,7 +1731,7 @@ if (require.main === module) {
   const timeoutSeconds = parseInt(process.env.TIMEOUT_SECONDS || '7200', 10);
   const forceExit = setTimeout(() => {
     console.log(`⚠️ Force terminating process (${timeoutSeconds}s timeout)`);
-    process.exit(0);
+    process.exit(124);
   }, timeoutSeconds * 1000);
   
   const scanner = new UnifiedScanner();
