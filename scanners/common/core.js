@@ -1596,6 +1596,40 @@ class HttpRpcClient {
     return this.makeRequest('eth_getCode', [address, 'latest']);
   }
 
+  // Robinhood's free public RPC accepts JSON-RPC batches. Keep batches small and
+  // fail closed if any response is missing, rather than misclassifying contracts.
+  async getCodeBatch(addresses) {
+    if (!addresses?.length) return [];
+    const rpcUrl = this.config.rpcUrls[0];
+    const codes = [];
+    for (let offset = 0; offset < addresses.length; offset += 20) {
+      const chunk = addresses.slice(offset, offset + 20);
+      const requests = chunk.map((address, index) => ({
+        jsonrpc: '2.0',
+        method: 'eth_getCode',
+        params: [address, 'latest'],
+        id: index + 1
+      }));
+      const response = await axios.post(rpcUrl, requests, {
+        timeout: 20000,
+        headers: { 'Content-Type': 'application/json' },
+        maxContentLength: 10 * 1024 * 1024
+      });
+      if (!Array.isArray(response.data) || response.data.length !== chunk.length) {
+        throw new Error(`Incomplete eth_getCode batch for ${this.network}`);
+      }
+      const byId = new Map(response.data.map(item => [item.id, item]));
+      for (let index = 0; index < chunk.length; index++) {
+        const item = byId.get(index + 1);
+        if (item?.error || typeof item?.result !== 'string' || !/^0x[0-9a-fA-F]*$/.test(item.result)) {
+          throw new Error(`Invalid eth_getCode result for ${this.network} batch item ${index + 1}`);
+        }
+        codes.push(item.result);
+      }
+    }
+    return codes;
+  }
+
   async getBalance(address) {
     const result = await this.makeRequest('eth_getBalance', [address, 'latest']);
     return result;

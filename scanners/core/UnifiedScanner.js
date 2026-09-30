@@ -383,8 +383,17 @@ class UnifiedScanner extends Scanner {
     this.log(`Processing ${addresses.length} addresses for advanced EOA filtering...`);
     
     // Check which are contracts vs EOA
-    const contractFlags = await this.isContracts(addresses);
-    const codeHashes = await this.getCodeHashes(addresses);
+    let contractFlags;
+    let codeHashes;
+    if (this.network === 'robinhood' && typeof this.alchemyClient?.getCodeBatch === 'function') {
+      const { ethers } = require('ethers');
+      const codes = await this.alchemyClient.getCodeBatch(addresses);
+      contractFlags = codes.map(code => code !== '0x');
+      codeHashes = codes.map(code => code !== '0x' ? ethers.keccak256(code) : this.ZERO_HASH);
+    } else {
+      contractFlags = await this.isContracts(addresses);
+      codeHashes = await this.getCodeHashes(addresses);
+    }
     
     // Batch fetch deployment times from database for all potential contracts
     const deploymentCache = new Map();
