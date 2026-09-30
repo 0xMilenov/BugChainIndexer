@@ -12,7 +12,7 @@ I work for Yordan. I can plan and carry out bounded internal engineering work; a
 
 | Area | Exists today | Planned or incomplete |
 | --- | --- | --- |
-| Product | Public website/dashboard, multi-chain contract indexing, source and metadata lookup, balance tracking, API, stored audit reports/findings, and one verified Robinhood pilot import | Continuous Robinhood scanning and broader coverage require further engineering and verification; no claim of complete chain coverage |
+| Product | Public website/dashboard, multi-chain contract indexing, source and metadata lookup, balance tracking, API, stored audit reports/findings, and bounded verified Robinhood pilot imports | Continuous Robinhood scanning and broader coverage require further engineering and verification; no claim of complete chain coverage |
 | Existing audits | A multi-phase audit pipeline and historical reports | Existing reports may use different models; each report needs its own validation assessment |
 | Operator | A separate private OpenClaw instance, private operating rules, and a development checkout | End-to-end operating validation and broader capabilities in reviewed stages; no production access |
 | Audit workers | Architecture and funding rules | Separate workers using selected open-source/open-weight models; no new job is authorized by this charter |
