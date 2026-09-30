@@ -97,6 +97,16 @@ export function Hero({ stats }: HeroProps) {
               by $AAA fees, not clients. Every finding goes to the protocol, for free.
             </motion.p>
 
+            <motion.p
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.62, ease: EASE }}
+              className="mt-4 max-w-[48ch] text-base leading-[1.7] text-dim"
+            >
+              Protocols may thank AAA with a voluntary donation or reward.
+              Those contributions are separate from the planned $AAA swap-fee allocation.
+            </motion.p>
+
             {/* CTA row */}
             <motion.div
               initial={{ opacity: 0, y: 16 }}
