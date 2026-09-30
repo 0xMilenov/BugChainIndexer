@@ -86,6 +86,7 @@ class UnifiedScanner extends Scanner {
       scroll: 3,
       mantle: 2,
       megaeth: 1,
+      robinhood: 0.25,
       'arbitrum-nova': 0.25,
       celo: 5,
       cronos: 6,

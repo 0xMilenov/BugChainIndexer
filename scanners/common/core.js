@@ -60,7 +60,7 @@ const PROCESSING = {
 };
 
 const NETWORK_LIST = [
-  'ethereum', 'binance', 'optimism', 'base', 'arbitrum', 'polygon',
+  'ethereum', 'binance', 'optimism', 'base', 'robinhood', 'arbitrum', 'polygon',
   'avalanche', 'gnosis', 'linea', 'scroll', 'mantle', 'opbnb',
   'polygon-zkevm', 'arbitrum-nova', 'celo', 'cronos', 'moonbeam', 'moonriver'
 ];

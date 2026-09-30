@@ -1,0 +1,24 @@
+# Robinhood Chain indexing: bounded free pilot
+
+**Assessment: 30 September 2026.** Robinhood Chain is the planned $AAA token chain, but indexing it is a separate product capability. This note records the free-data path and the checks needed before claiming broad coverage. The database network identifier is `robinhood` and the mainnet chain ID is `4663`; native balances use ETH. This does not imply that $AAA exists or that an audit was run.
+
+## Data path and observed behavior
+
+| Need | Free path | Bounded observation and limit |
+| --- | --- | --- |
+| Blocks, transfer logs, code, balances | Robinhood's public JSON-RPC at `https://rpc.mainnet.chain.robinhood.com` | The VM returned chain ID `0x1237`, code for a verified sample, and three consecutive 10-block Transfer-log queries (117–173 logs, 122–132 ms each). Public RPC is rate-limited and Robinhood explicitly does not recommend it for production throughput. |
+| Verified source | Sourcify v2 per-contract lookup, then existing Etherscan v2 `getsourcecode` fallback | A Robinhood sample (`0xcA60358C85Fe6fa0Cc190C18d7D23459AD50Ed1E`) had an exact Sourcify match with seven source files; the project's source extractor produced 26,410 characters and marked it verified. Etherscan returned no source for that same address, showing the providers' coverage differs. Sourcify forbids using its per-contract/list API as a bulk crawl. |
+| Creation metadata | Existing Etherscan v2 `getcontractcreation` call, optional | The existing key returned a creator for the sample. This endpoint's future free-plan availability must be rechecked; failure to obtain creation metadata must not turn verified source into an unverified record. |
+| Explorer links | Official Robinhood Blockscout address and transaction pages | The official domain is `https://robinhoodchain.blockscout.com`. Automated API requests from both the Mac and VM received a Cloudflare 403 challenge, so the scanner does not depend on its API. Browser link behavior should be checked separately. |
+
+Etherscan's [supported-chains guidance](https://docs.etherscan.io/supported-chains) says Robinhood community endpoints are free through **15 October 2026** and require Lite from 16 October; **source and ABI endpoints remain Free-tier**. Its [Free-tier limit](https://docs.etherscan.io/rate-limits) is 3 calls/second and 100,000 calls/day. This pilot uses the repository's existing keys and budgets; it does not create a paid account. Robinhood [documents the public RPC and its limits](https://docs.robinhood.com/chain/connecting/), and [Sourcify's API rules](https://sourcify.dev/server/api-docs/swagger.json) prohibit bulk crawling its live endpoints. A managed [Alchemy Free tier](https://www.alchemy.com/docs/reference/pricing-plans) may provide a more reliable no-charge RPC within account-wide monthly compute limits, but no plan status or Robinhood app has been verified or activated here.
+
+## Implementation boundary
+
+The existing scanner selects Transfer-log addresses, checks code, then requests verified source only for capped candidates. The Robinhood network configuration points to the public RPC and Etherscan v2 chain ID; Sourcify is already tried first for individual source lookups. No validator or balance-helper contract is assumed. The database stores network identifiers as text, so no schema migration is needed. Dashboard labels, native ETH formatting, and official explorer links use the same `robinhood` key.
+
+**Automatic scanning is not enabled in a cron profile.** The existing capped time-window scanner samples only its configured block count. At Robinhood's observed block rate, a 30–60-block run covers seconds, not the full interval between cron runs. Adding it to the normal four-hour schedule would create a misleading claim of comprehensive coverage. Before a recurring scan, measure requests, misses, verified yield, cursor gaps, public-RPC throttling, and memory over several bounded runs; then design a free provider budget and a catch-up policy that does not silently skip blocks. Do not use Sourcify's live API as a substitute bulk feed. The daily Parquet dataset is a separate option, but requires a size/compute review before use on the 4 GB VM.
+
+## Pilot acceptance and rollback
+
+The pilot may expose Robinhood in the dashboard after one bounded end-to-end import demonstrates: chain ID, nonempty on-chain code, independently verified source, database row keyed `robinhood`, source retrieval through the public API, and a correct official explorer link. It must not run an audit, wallet action, or unbounded scan. Check backend/frontend/indexer health and memory after deployment. To roll back the UI/backend capability, revert the feature commit and redeploy; the pilot record can remain as historical indexed data or be removed only after separate database review. No Robinhood cron entry needs removal.

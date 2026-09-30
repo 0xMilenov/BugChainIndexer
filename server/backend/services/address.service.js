@@ -678,7 +678,7 @@ exports.getNetworkCounts = async (forceRefresh = false) => {
   }
 
   // Ensure all known networks appear (with 0 if missing) so UI always shows a count
-  const KNOWN_NETWORKS = ['ethereum', 'binance', 'optimism', 'base', 'arbitrum', 'polygon', 'avalanche', 'gnosis', 'linea', 'scroll', 'mantle', 'megaeth'];
+  const KNOWN_NETWORKS = ['ethereum', 'binance', 'optimism', 'base', 'robinhood', 'arbitrum', 'polygon', 'avalanche', 'gnosis', 'linea', 'scroll', 'mantle', 'megaeth'];
   for (const net of KNOWN_NETWORKS) {
     if (out[net] === undefined) out[net] = 0;
   }

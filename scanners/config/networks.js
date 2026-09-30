@@ -811,6 +811,20 @@ const ADDITIONAL_NETWORKS = {
     logsOptimization: 'low-density'
   },
 
+  robinhood: {
+    chainId: 4663,
+    name: 'Robinhood Chain',
+    // Etherscan V2 supports chain 4663. Sourcify is tried first for individual
+    // verified-source lookups; no bulk explorer crawl is configured.
+    rpcUrls: envArray('ROBINHOOD_RPC_URL', [
+      'https://rpc.mainnet.chain.robinhood.com'
+    ]),
+    // No validator/helper contract is deployed here. Use per-address RPC calls.
+    nativeCurrency: 'ETH',
+    maxLogsBlockRange: { free: 10, premium: 10000 },
+    logsOptimization: 'low-density'
+  },
+
   subtensor: {
     chainId: 964,
     name: 'Bittensor EVM',

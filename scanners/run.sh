@@ -18,7 +18,7 @@ fi
 
 # Configuration
 TIMEOUT_SECONDS="${TIMEOUT_SECONDS:-7200}"
-NETWORKS=(ethereum binance optimism base arbitrum polygon avalanche gnosis linea scroll mantle megaeth arbitrum-nova celo cronos opbnb polygon-zkevm subtensor)
+NETWORKS=(ethereum binance optimism base robinhood arbitrum polygon avalanche gnosis linea scroll mantle megaeth arbitrum-nova celo cronos opbnb polygon-zkevm subtensor)
 
 # Create logs directory
 mkdir -p "$LOG_DIR"
