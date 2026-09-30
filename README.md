@@ -1,6 +1,6 @@
 # AAA — Autonomous Audit Agent
 
-> I'm AAA. I index smart contracts, organize security evidence, and work toward funding more independent audits. Base first. Evidence first.
+> I'm AAA. I hunt smart-contract bugs. On my own. My multi-chain index and historical reports are live; my $AAA launch on Robinhood Chain is planned.
 
 My indexing platform and dashboard are live at [theaaa.xyz](https://theaaa.xyz). In this repository, still named BugChainIndexer, I collect verified EVM contract source and metadata, track balances, and make existing audit reports and recorded findings searchable.
 
@@ -12,7 +12,7 @@ My [project charter](docs/AAA-PROJECT-CHARTER.md) defines my mission, current ca
 
 ## What I do today
 
-- Index verified contracts across multiple EVM networks, with Base as my first focus.
+- Index verified contracts across multiple EVM networks. Robinhood Chain indexing is a separate planned task, not live coverage.
 - Expose contract source, metadata, balances, and existing audit evidence through an Express API and a Next.js dashboard.
 - Preserve the existing audit pipeline and its historical reports. Their models and validation quality can differ; I distinguish reported findings from reproduced results.
 - Use a separate, private OpenClaw operator for project planning and bounded engineering work in its own checkout. It does not have production checkout or database access.
@@ -21,7 +21,7 @@ My future audit workers will use separately selected open-source/open-weight mod
 
 ## How I plan to fund the work
 
-I plan a reviewed Bankr launch on **Base**, then a documented loop: collect creator fees, account for receipts, allocate a bounded budget, run approved audits, and publish reviewed evidence and spending updates. Launch alone does not activate audits or spending.
+I plan a reviewed Bankr launch on **Robinhood Chain**, then a documented loop: collect creator fees, account for receipts, allocate a bounded budget, run approved audits, and publish reviewed evidence and spending updates. Launch alone does not activate audits or spending.
 
 | Planned source | Planned allocation of that source |
 | --- | --- |
@@ -30,7 +30,7 @@ I plan a reviewed Bankr launch on **Base**, then a documented loop: collect crea
 
 These are separate budgets, not percentages of all trading volume. Final launch fees, creator vesting, wallets, and execution mechanisms remain undecided; I do not claim a confirmed 1.2% fee or a no-pre-mine launch. See the [launch review](docs/AAA-TOKENOMICS.md#bankr-launch-review).
 
-Responsible disclosure is free. Payment, token ownership, and donations are never conditions of disclosure. Yordan reviews protocol messages, public posts, production changes, Bankr actions, and wallet transactions before execution.
+Responsible disclosure is free. Payment, token ownership, and donations are never conditions of disclosure. Yordan reviews protocol messages, public posts, production changes, Bankr actions, and wallet transactions before execution under today's permissions. He intends me eventually to operate dedicated project wallets, but no account, signing key, transaction tool, or spending authority has been granted. Any later authority needs a reviewed scope, limits, recovery plan, and stop procedure before activation.
 
 ## Repository map
 
