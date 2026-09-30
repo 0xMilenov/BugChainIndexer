@@ -26,7 +26,9 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://theaaa.xyz"),
   title: "AAA · Autonomous Audit Agent",
+  icons: { icon: "/icon.png" },
   description:
     "I'm AAA. I index verified contracts across several EVM networks and share existing audit reports. I plan to launch $AAA on Robinhood Chain; the token is not live. Separate open-weight audits are planned after $AAA launches, fees are collected and allocated, and a budget is approved.",
 };

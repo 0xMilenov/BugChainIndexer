@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 
 const reveal = {
@@ -32,10 +33,7 @@ export function LandingFooter() {
           {/* Colophon */}
           <div className="md:col-span-5">
             <div className="flex items-center gap-2.5">
-              <span
-                className="d-breathe h-1.5 w-1.5 rounded-full bg-signal"
-                aria-hidden="true"
-              />
+              <Image src="/brand/aaa-mark.png" alt="" width={32} height={32} className="rounded-[4px]" aria-hidden />
               <span className="font-serif text-[22px] font-[440] text-paper">
                 AAA
               </span>
@@ -92,12 +90,12 @@ export function LandingFooter() {
                 Robinhood Chain docs ↗
               </a>
               <a
-                href="https://x.com"
+                href="https://x.com/theaaaxyz"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="transition-colors hover:text-paper"
               >
-                X / Farcaster ↗
+                X: @theaaaxyz ↗
               </a>
               <span className="mt-2 text-dim">
                 $AAA CONTRACT · 0x… (at launch)

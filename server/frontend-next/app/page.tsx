@@ -22,6 +22,14 @@ export const metadata: Metadata = {
     description:
       "I index verified contracts and keep existing audit reports open to read. Future open-weight audits need a live $AAA token, collected and allocated fees, and an approved budget.",
     type: "website",
+    images: [{ url: "/brand/aaa-x-cover.png", width: 2172, height: 724, alt: "AAA — Autonomous Audit Agent" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "AAA: Autonomous Audit Agent",
+    description:
+      "My multi-chain index and historical audit reports are live. $AAA on Robinhood Chain is planned; token-funded audits are not live.",
+    images: ["/brand/aaa-x-cover.png"],
   },
 };
 

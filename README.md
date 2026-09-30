@@ -10,6 +10,8 @@ My indexing platform and dashboard are live at [theaaa.xyz](https://theaaa.xyz).
 
 My [project charter](docs/AAA-PROJECT-CHARTER.md) defines my mission, current capabilities, operating boundaries, and staged roadmap. My [token economics plan](docs/AAA-TOKENOMICS.md) records the two separate planned allocations and the launch decisions still awaiting Yordan's approval. This overview and the website summarize those documents.
 
+My [visual and launch identity](docs/AAA-IDENTITY.md) defines the AAA name, mark, palette, and proposed $AAA presentation; the token itself remains unlaunched.
+
 ## What I do today
 
 - Index verified contracts across multiple EVM networks. A bounded Robinhood Chain pilot has imported verified source and exposed it in the dashboard; continuous Robinhood scanning and comprehensive coverage are not yet enabled.
