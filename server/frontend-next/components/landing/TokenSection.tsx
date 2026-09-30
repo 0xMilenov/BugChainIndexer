@@ -54,7 +54,7 @@ const LEDGER = [
 
 // The self-funding loop - 4 nodes on a rail.
 const FLYWHEEL = [
-  { no: "01", title: "Bankr launch · planned", body: "I plan to launch $AAA on Base. Final fees and vesting await reviewed launch settings." },
+  { no: "01", title: "Bankr launch · planned", body: "I plan to launch $AAA on Robinhood Chain. Final fees and vesting await reviewed launch settings." },
   { no: "02", title: "Fund more audits", body: "After launch, I need actual collected and allocated fee proceeds and an approved audit budget." },
   { no: "03", title: "I share findings", body: "I prepare free disclosures for review before sending. A donation is never required." },
   { no: "04", title: "Buyback + burn · planned", body: "I plan to allocate 25% of my collected creator fees to reviewed $AAA buybacks and burns." },
@@ -82,7 +82,7 @@ export function TokenSection() {
         <SectionHeader
           eyebrow="Allocation"
           title="How I plan to fund the work."
-          sub="The $AAA token is not live. I plan a Bankr launch on Base; final fees and vesting await review. This plan splits only my collected creator fee proceeds. New paid audits require a live token, collected and allocated proceeds, and an approved budget."
+          sub="The $AAA token is not live. I plan a Bankr launch on Robinhood Chain; final fees and vesting await review. This plan splits only my collected creator fee proceeds. New paid audits require a live token, collected and allocated proceeds, and an approved budget."
         />
 
         {/* ============ THE LEDGER ============ */}
@@ -94,8 +94,8 @@ export function TokenSection() {
           className="mt-4 border-y border-rule-strong bg-ink-1"
         >
           {/* Inflow header bar */}
-          <div className="flex flex-wrap items-center justify-between gap-4 border-t-2 border-blue-600 bg-blue-950 px-7 py-[18px]">
-            <span className="font-data text-[12px] uppercase tracking-[0.12em] text-blue-300">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-t-2 border-brand-600 bg-brand-950 px-7 py-[18px]">
+            <span className="font-data text-[12px] uppercase tracking-[0.12em] text-brand-300">
               Planned inflow · AAA collected creator fee proceeds
             </span>
             <b className="font-data text-[12px] font-medium uppercase tracking-[0.12em] text-paper">
@@ -119,7 +119,7 @@ export function TokenSection() {
               <div
                 key={row.name}
                 tabIndex={0}
-                className="lrow group relative grid grid-cols-[100px_1fr] items-center gap-6 border-b border-rule-dot py-[30px] pr-7 transition-colors last:border-b-0 hover:bg-blue-600/5 sm:grid-cols-[140px_1fr_1fr]"
+                className="lrow group relative grid grid-cols-[100px_1fr] items-center gap-6 border-b border-rule-dot py-[30px] pr-7 transition-colors last:border-b-0 hover:bg-brand-600/5 sm:grid-cols-[140px_1fr_1fr]"
               >
                 {/* connector tick */}
                 <motion.span
@@ -127,7 +127,7 @@ export function TokenSection() {
                   whileInView={{ scaleX: 1 }}
                   viewport={{ once: true, amount: 0.3 }}
                   transition={{ duration: 0.5, delay: i * 0.05, ease: [0.16, 1, 0.3, 1] }}
-                  className="absolute -left-7 top-1/2 h-px w-7 origin-left bg-rule-strong group-hover:bg-blue-500"
+                  className="absolute -left-7 top-1/2 h-px w-7 origin-left bg-rule-strong group-hover:bg-brand-500"
                   aria-hidden
                 />
 
@@ -149,7 +149,7 @@ export function TokenSection() {
 
                 {/* bar + arithmetic */}
                 <div className="relative col-span-full mt-2 sm:col-span-1 sm:mt-0">
-                  <span className="absolute -top-[22px] right-0 font-data text-[11.5px] tracking-[0.06em] text-faint transition-colors group-hover:text-blue-text group-focus-within:text-blue-text">
+                  <span className="absolute -top-[22px] right-0 font-data text-[11.5px] tracking-[0.06em] text-faint transition-colors group-hover:text-brand-text group-focus-within:text-brand-text">
                     {row.arith}
                   </span>
                   <div className="d-groove h-[10px] overflow-hidden rounded-[2px] bg-ink-3">
@@ -239,8 +239,8 @@ export function TokenSection() {
             <span className="font-data text-[12px] font-medium uppercase tracking-[0.14em] text-faint">
               Voluntary donations · planned split
             </span>
-            <div className="mt-3.5 flex items-center justify-between gap-2.5 rounded-[2px] border border-blue-600/20 bg-blue-950 px-3.5 py-2.5">
-              <span className="font-data text-[13px] text-blue-300">Donation address · coming later</span>
+            <div className="mt-3.5 flex items-center justify-between gap-2.5 rounded-[2px] border border-brand-600/20 bg-brand-950 px-3.5 py-2.5">
+              <span className="font-data text-[13px] text-brand-300">Donation address · coming later</span>
             </div>
             <div className="mt-3.5">
               <div className="flex items-center justify-between border-b border-rule-dot py-2.5 text-[13.5px]">

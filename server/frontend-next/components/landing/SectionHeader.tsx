@@ -28,7 +28,7 @@ export function SectionHeader({
       className="mb-14 sm:mb-16"
     >
       <div className="mb-6 flex items-center gap-4">
-        <span className="shrink-0 font-data text-[11.5px] font-medium uppercase tracking-[0.16em] text-blue-text">
+        <span className="shrink-0 font-data text-[11.5px] font-medium uppercase tracking-[0.16em] text-brand-text">
           {eyebrow}
         </span>
         <motion.span

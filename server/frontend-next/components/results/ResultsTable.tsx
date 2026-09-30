@@ -26,9 +26,9 @@ function ColumnSortIcon({
   if (sortColumn !== col)
     return <ChevronsUpDown className="ml-1 inline-block h-3 w-3 text-ghost" />;
   return sortDirection === "asc" ? (
-    <ChevronUp className="ml-1 inline-block h-3 w-3 text-blue-text" />
+    <ChevronUp className="ml-1 inline-block h-3 w-3 text-brand-text" />
   ) : (
-    <ChevronDown className="ml-1 inline-block h-3 w-3 text-blue-text" />
+    <ChevronDown className="ml-1 inline-block h-3 w-3 text-brand-text" />
   );
 }
 

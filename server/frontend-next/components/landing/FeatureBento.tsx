@@ -68,7 +68,7 @@ export function FeatureBento() {
               <div className="text-body">$ forge test --match-test test_H01 -vvv</div>
               <div>[⠔] Compiling 14 files with solc 0.8.24</div>
               <div>Ran 1 test for test/H01_FeeRounding.t.sol</div>
-              <div className="text-blue-400">
+              <div className="text-brand-400">
                 [PASS] test_H01_lastClaimantShortfall() (gas: 287,441)
               </div>
               <div>assertion: last claimant receives 15% less than pro-rata ✓</div>
@@ -81,7 +81,7 @@ export function FeatureBento() {
             </div>
           </motion.article>
 
-          {/* 14 EVM chains */}
+          {/* Indexed EVM networks; Robinhood Chain indexing is not live yet. */}
           <motion.article
             {...REVEAL}
             transition={{ duration: 0.5, delay: 0.06, ease: [0.16, 1, 0.3, 1] }}
@@ -91,10 +91,10 @@ export function FeatureBento() {
               Reach
             </span>
             <h3 className="font-sans text-[1.1875rem] font-semibold leading-[1.35] text-paper">
-              14 EVM chains, Base first
+              Multi-chain contract coverage
             </h3>
             <div className="flex flex-wrap gap-1.5">
-              <span className="inline-flex items-center gap-1.5 rounded-[2px] border border-blue-600/35 bg-blue-950 px-2 py-[3px] font-data text-[11.5px] text-blue-300">
+              <span className="inline-flex items-center gap-1.5 rounded-[2px] border border-brand-600/35 bg-brand-950 px-2 py-[3px] font-data text-[11.5px] text-brand-300">
                 <i className="d-breathe h-[5px] w-[5px] rounded-[1px] bg-signal" />
                 base
               </span>
@@ -107,6 +107,9 @@ export function FeatureBento() {
                 </span>
               ))}
             </div>
+            <p className="text-[12.5px] leading-[1.55] text-dim">
+              Robinhood Chain indexing is planned. My $AAA launch there is a separate next step.
+            </p>
           </motion.article>
 
           {/* Multi-agent pipeline */}
@@ -164,7 +167,7 @@ export function FeatureBento() {
             </div>
             <Link
               href="#aaa"
-              className="mt-auto self-start font-data text-[12px] tracking-[0.06em] text-blue-text transition-colors hover:text-blue-300"
+              className="mt-auto self-start font-data text-[12px] tracking-[0.06em] text-brand-text transition-colors hover:text-brand-300"
             >
               Full split ↓
             </Link>

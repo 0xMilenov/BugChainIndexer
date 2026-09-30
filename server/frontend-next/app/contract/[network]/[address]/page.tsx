@@ -36,7 +36,7 @@ function Tag({
 }) {
   const cls =
     tone === "ok"
-      ? "border-blue-600/40 bg-blue-950 text-blue-300"
+      ? "border-brand-600/40 bg-brand-950 text-brand-300"
       : tone === "warn"
         ? "border-sev-high/40 bg-sev-high/10 text-sev-high"
         : "border-rule bg-ink-2 text-faint";
@@ -53,7 +53,7 @@ function BackLink() {
   return (
     <Link
       href="/dashboard"
-      className={`${EYEBROW} inline-flex items-center gap-2 text-faint transition-colors hover:text-blue-text`}
+      className={`${EYEBROW} inline-flex items-center gap-2 text-faint transition-colors hover:text-brand-text`}
     >
       <ArrowLeft className="h-3.5 w-3.5" />
       Back to the index
@@ -153,10 +153,10 @@ export default function ContractDetailPage() {
     <div className="space-y-6">
       {/* ── Subject header ── */}
       <div className="border border-rule bg-ink-1 d-rim">
-        <div className="border-t-2 border-blue-600 px-6 pb-6 pt-5 sm:px-8">
+        <div className="border-t-2 border-brand-600 px-6 pb-6 pt-5 sm:px-8">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div className="min-w-0">
-              <div className={`${EYEBROW} flex items-center gap-2 text-blue-text`}>
+              <div className={`${EYEBROW} flex items-center gap-2 text-brand-text`}>
                 <span className={`inline-block h-2 w-2 rounded-full ${netColor}`} aria-hidden />
                 Subject · {contract.network}
               </div>
@@ -178,7 +178,7 @@ export default function ContractDetailPage() {
                       href={explorerUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 break-all font-data text-[13px] text-blue-text hover:text-blue-300"
+                      className="inline-flex items-center gap-1.5 break-all font-data text-[13px] text-brand-text hover:text-brand-300"
                     >
                       {contract.address}
                       <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-70" />
@@ -217,11 +217,11 @@ export default function ContractDetailPage() {
                   showToast?.("Failed to update bookmark.", "error");
                 }
               }}
-              className={`${BTN} shrink-0 ${bookmarked ? "border-blue-600/50 text-blue-text" : ""}`}
+              className={`${BTN} shrink-0 ${bookmarked ? "border-brand-600/50 text-brand-text" : ""}`}
               aria-label={bookmarked ? "Remove bookmark" : "Add bookmark"}
             >
               {bookmarked ? (
-                <BookmarkCheck className="h-4 w-4 fill-blue-600 text-blue-600" />
+                <BookmarkCheck className="h-4 w-4 fill-brand-600 text-brand-600" />
               ) : (
                 <Bookmark className="h-4 w-4" />
               )}
@@ -251,7 +251,7 @@ export default function ContractDetailPage() {
                   href={txExplorerUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-data text-[13px] text-blue-text hover:text-blue-300"
+                  className="font-data text-[13px] text-brand-text hover:text-brand-300"
                 >
                   {deployTxHash?.slice(0, 10)}…{deployTxHash?.slice(-8)}
                 </a>
@@ -327,7 +327,7 @@ function Field({
       <dt className="font-data text-[11px] uppercase tracking-[0.1em] text-faint">{label}</dt>
       <dd
         className={`mt-1.5 text-[14px] ${
-          accent ? "font-data font-semibold text-blue-text" : mono ? "font-data text-dim" : "text-body"
+          accent ? "font-data font-semibold text-brand-text" : mono ? "font-data text-dim" : "text-body"
         }`}
       >
         {value}

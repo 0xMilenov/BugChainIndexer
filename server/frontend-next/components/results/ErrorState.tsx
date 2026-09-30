@@ -21,7 +21,7 @@ export function ErrorState({ message }: ErrorStateProps) {
         )}
         <button
           onClick={() => window.location.reload()}
-          className="mt-4 rounded-md bg-blue-600 px-4 py-2 text-paper text-sm transition hover:bg-blue-700"
+          className="mt-4 rounded-md bg-brand-600 px-4 py-2 text-ink-0 text-sm transition hover:bg-brand-500"
         >
           Reload Page
         </button>

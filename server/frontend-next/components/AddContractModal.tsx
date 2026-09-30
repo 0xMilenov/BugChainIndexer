@@ -119,7 +119,7 @@ export function AddContractModal({
               value={network}
               onChange={(e) => setNetwork(e.target.value)}
               disabled={loading}
-              className="w-full rounded-lg border border-rule bg-ink-1 px-4 py-2 text-body focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-accent/50"
+              className="w-full rounded-lg border border-rule bg-ink-1 px-4 py-2 text-body focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-accent/50"
             >
               {NETWORK_KEYS.map((key) => (
                 <option key={key} value={key}>

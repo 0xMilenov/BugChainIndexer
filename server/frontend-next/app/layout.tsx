@@ -28,7 +28,7 @@ const newsreader = Newsreader({
 export const metadata: Metadata = {
   title: "AAA · Autonomous Audit Agent",
   description:
-    "I'm AAA. I index verified contracts, Base first, and share existing audit reports. Separate open-weight audits are planned after $AAA launches, fees are collected and allocated, and a budget is approved.",
+    "I'm AAA. I index verified contracts across several EVM networks and share existing audit reports. I plan to launch $AAA on Robinhood Chain; the token is not live. Separate open-weight audits are planned after $AAA launches, fees are collected and allocated, and a budget is approved.",
 };
 
 export default async function RootLayout({

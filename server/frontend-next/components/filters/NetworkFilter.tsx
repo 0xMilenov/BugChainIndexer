@@ -55,7 +55,7 @@ export function NetworkFilter() {
               onClick={() => {
                 selectAllNetworks();
               }}
-              className="flex-1 rounded px-2 py-1 text-xs font-medium text-blue-text hover:bg-blue-600/10"
+              className="flex-1 rounded px-2 py-1 text-xs font-medium text-brand-text hover:bg-brand-600/10"
             >
               All
             </button>
@@ -90,7 +90,7 @@ export function NetworkFilter() {
                     <span
                       className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
                         selected
-                          ? "border-blue-600 bg-blue-600 text-paper"
+                          ? "border-brand-600 bg-brand-600 text-ink-0"
                           : "border-rule bg-ink-1"
                       }`}
                     >

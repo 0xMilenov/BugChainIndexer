@@ -2,27 +2,27 @@
 
 /* Hacker theme - dark by default */
 :root {
-  --bg-primary: #0a0a0f;
-  --bg-secondary: #12121a;
-  --bg-tertiary: #1a1a24;
-  /* AAA — Base-blue accent (kept the --accent-cyan var names to avoid a repo-wide rename) */
-  --accent-cyan: #0052ff;
-  --accent-cyan-dim: #0043cc;
-  --accent-soft: #5b8dff;
+  --bg-primary: #090d0a;
+  --bg-secondary: #121a14;
+  --bg-tertiary: #1b271d;
+  /* AAA brand: vivid field green against deep graphite; independent from chain marks. */
+  --accent-brand: #b6e33b;
+  --accent-brand-dim: #85ad23;
+  --accent-soft: #d0f073;
   --accent-amber: #ffb800;
   --text-primary: #e4e4e7;
   --text-muted: #71717a;
   --border: #27272a;
-  --focus-ring: 0 0 0 2px rgba(0, 82, 255, 0.35);
+  --focus-ring: 0 0 0 2px rgba(182, 227, 59, 0.42);
 }
 
 @theme inline {
-  --color-bg-primary: #0a0a0f;
-  --color-bg-secondary: #12121a;
-  --color-bg-tertiary: #1a1a24;
-  --color-accent: #0052ff;
-  --color-accent-dim: #0043cc;
-  --color-accent-soft: #5b8dff;
+  --color-bg-primary: #090d0a;
+  --color-bg-secondary: #121a14;
+  --color-bg-tertiary: #1b271d;
+  --color-accent: #b6e33b;
+  --color-accent-dim: #85ad23;
+  --color-accent-soft: #d0f073;
   --color-accent-amber: #ffb800;
   --color-text-muted: #71717a;
   --color-border: #27272a;
@@ -30,38 +30,38 @@
   --font-mono: var(--font-geist-sans);
 
   /* ===== Dossier landing tokens (v2) — additive; dashboard keeps the tokens above ===== */
-  --color-ink-0: #06070b;
-  --color-ink-1: #0c0e15;
-  --color-ink-2: #121620;
-  --color-ink-3: #1b2030;
-  --color-ink-4: #242a3a;
-  --color-rule: #242b3b;
-  --color-rule-strong: #333b52;
-  --color-rule-dot: #3e465c;
-  --color-paper: #f2f3f7;
-  --color-body: #dde1ea;
-  --color-dim: #b0b6c7;
-  --color-faint: #828aa0;
-  --color-ghost: #3b4152;
-  --color-blue-950: #001233;
-  --color-blue-700: #0041cc;
-  --color-blue-600: #0052ff;
-  --color-blue-500: #3d7bff;
-  --color-blue-400: #7aa5ff;
-  --color-blue-300: #b0c9ff;
-  --color-blue-text: #5e90ff;
-  --color-signal: #57d7ff;
+  --color-ink-0: #080c09;
+  --color-ink-1: #0d140f;
+  --color-ink-2: #142019;
+  --color-ink-3: #1b2b20;
+  --color-ink-4: #26372a;
+  --color-rule: #293d2d;
+  --color-rule-strong: #38503a;
+  --color-rule-dot: #49604a;
+  --color-paper: #f2f6ee;
+  --color-body: #dfe9d8;
+  --color-dim: #b7c8af;
+  --color-faint: #8fa487;
+  --color-ghost: #53664f;
+  --color-brand-950: #1a2a0b;
+  --color-brand-700: #71991b;
+  --color-brand-600: #b6e33b;
+  --color-brand-500: #c6ed60;
+  --color-brand-400: #d9f596;
+  --color-brand-300: #eafbca;
+  --color-brand-text: #c8ed72;
+  --color-signal: #a9d84d;
   --color-sev-crit: #ff4757;
   --color-sev-high: #ff8a3d;
   --color-sev-med: #ffc24d;
   --color-sev-low: #4da3ff;
   --color-sev-crit-text: #ff6b78;
   --color-sev-low-text: #66b1ff;
-  --color-alloc-audit: #0052ff;
+  --color-alloc-audit: #b6e33b;
   --color-alloc-burn: #ff6b3d;
-  --color-alloc-dev: #7aa5ff;
-  --color-alloc-stake: #57d7ff;
-  --color-alloc-growth: #8a90a2;
+  --color-alloc-dev: #d9f596;
+  --color-alloc-stake: #a9d84d;
+  --color-alloc-growth: #879b81;
 
   --font-serif: var(--font-newsreader);
   --font-data: var(--font-geist-mono);
@@ -69,15 +69,15 @@
 
 /* Dossier CSS custom-properties for effects that aren't Tailwind color utilities */
 :root {
-  --track: #070910;
+  --track: #090f0a;
   --rim: inset 0 1px 0 rgb(255 255 255 / 0.05);
   --groove: inset 0 1px 3px rgb(0 0 0 / 0.55), 0 1px 0 rgb(255 255 255 / 0.03);
   --well: inset 0 2px 8px rgb(0 0 0 / 0.6), inset 0 1px 0 rgb(0 0 0 / 0.8), 0 1px 0 rgb(255 255 255 / 0.04);
   --shadow-1: 0 1px 2px rgb(0 0 0 / 0.5);
   --shadow-2: 0 2px 8px rgb(0 0 0 / 0.45), 0 8px 24px -8px rgb(0 0 0 / 0.5);
   --shadow-3: 0 4px 16px rgb(0 0 0 / 0.5), 0 24px 48px -12px rgb(0 0 0 / 0.6);
-  --glow-blue: 0 0 0 1px #0052ff3d, 0 0 32px -6px #0052ff66;
-  --glow-signal: 0 0 12px -2px #57d7ff80;
+  --glow-brand: 0 0 0 1px #b6e33b3d, 0 0 32px -6px #b6e33b66;
+  --glow-signal: 0 0 12px -2px #a9d84d80;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-inout: cubic-bezier(0.65, 0, 0.35, 1);
 }
@@ -99,7 +99,7 @@ body {
 
 /* Text selection uses the brand accent, not the browser default */
 ::selection {
-  background: color-mix(in srgb, var(--color-blue-600) 32%, transparent);
+  background: color-mix(in srgb, var(--color-brand-600) 32%, transparent);
   color: var(--color-paper);
 }
 
@@ -129,7 +129,7 @@ body {
   box-shadow: var(--focus-ring);
 }
 :where(a, button, [role="button"], [tabindex]):focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--color-blue-500) 70%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--color-brand-500) 70%, transparent);
   outline-offset: 2px;
   border-radius: 3px;
 }
@@ -161,7 +161,7 @@ body {
 .skip-link:focus {
   left: 10px;
   top: 10px;
-  background: var(--accent-cyan);
+  background: var(--accent-brand);
   color: var(--bg-primary);
   padding: 8px 12px;
   border-radius: 8px;
@@ -170,17 +170,17 @@ body {
 /* Grid overlay for hacker aesthetic */
 .bg-grid-overlay {
   background-image:
-    linear-gradient(rgba(0, 82, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 82, 255, 0.03) 1px, transparent 1px);
+    linear-gradient(rgba(182, 227, 59, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(182, 227, 59, 0.03) 1px, transparent 1px);
   background-size: 40px 40px;
 }
 
 /* Glow effect */
-.glow-cyan {
-  box-shadow: 0 0 20px rgba(0, 82, 255, 0.15);
+.glow-brand {
+  box-shadow: 0 0 20px rgba(182, 227, 59, 0.15);
 }
-.glow-cyan-hover:hover {
-  box-shadow: 0 0 24px rgba(0, 82, 255, 0.25);
+.glow-brand-hover:hover {
+  box-shadow: 0 0 24px rgba(182, 227, 59, 0.25);
 }
 
 /* Landing-page animations */
@@ -216,7 +216,7 @@ html { scroll-behavior: smooth; }
 .d-rim-3 { box-shadow: var(--rim), var(--shadow-3); }
 .d-groove { background: var(--track); box-shadow: var(--groove); }
 .d-well { box-shadow: var(--well); }
-.d-glow-blue { box-shadow: var(--glow-blue); }
+.d-glow-brand { box-shadow: var(--glow-brand); }
 .d-glow-signal { box-shadow: var(--glow-signal); }
 .d-tabular { font-variant-numeric: tabular-nums; }
 

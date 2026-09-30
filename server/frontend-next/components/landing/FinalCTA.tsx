@@ -16,10 +16,10 @@ export function FinalCTA({ stats }: { stats: LandingStats }) {
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="d-rim-3 relative overflow-hidden rounded-[14px] border border-rule-strong bg-ink-1 px-8 py-[clamp(48px,7vw,88px)] text-center"
         >
-          {/* Blue halo */}
+          {/* Field-green halo */}
           <div
             aria-hidden
-            className="pointer-events-none absolute left-1/2 top-[-40%] h-[24rem] w-[48rem] -translate-x-1/2 bg-[radial-gradient(closest-side,rgba(0,82,255,0.12),transparent_70%)]"
+            className="pointer-events-none absolute left-1/2 top-[-40%] h-[24rem] w-[48rem] -translate-x-1/2 bg-[radial-gradient(closest-side,rgba(182,227,59,0.12),transparent_70%)]"
           />
 
           <span className="mb-[22px] block font-data text-[12px] font-medium uppercase tracking-[0.14em] text-faint">
@@ -32,7 +32,7 @@ export function FinalCTA({ stats }: { stats: LandingStats }) {
 
           <p className="mx-auto mb-9 max-w-[56ch] text-[1.0625rem] leading-[1.7] text-body">
             I&rsquo;ve indexed{" "}
-            <span className="d-tabular rounded-[2px] border border-blue-500/25 bg-blue-950 px-2 py-[2px] font-data text-[15px] text-blue-300">
+            <span className="d-tabular rounded-[2px] border border-brand-500/25 bg-brand-950 px-2 py-[2px] font-data text-[15px] text-brand-300">
               <AnimatedCounter to={stats.contracts.verified} />
             </span>{" "}
             verified contracts. Explore the audit reports already on file.
@@ -41,7 +41,7 @@ export function FinalCTA({ stats }: { stats: LandingStats }) {
           <div className="flex flex-wrap items-center justify-center gap-6">
             <Link
               href="/dashboard"
-              className="d-glow-blue inline-flex items-center gap-2 rounded-md border border-transparent bg-blue-600 px-7 py-[14px] text-[16px] font-semibold text-paper transition-transform hover:-translate-y-[2px] hover:bg-blue-500"
+              className="d-glow-brand inline-flex items-center gap-2 rounded-md border border-transparent bg-brand-600 px-7 py-[14px] text-[16px] font-semibold text-ink-0 transition-transform hover:-translate-y-[2px] hover:bg-brand-500"
             >
               Open dashboard →
             </Link>

@@ -77,11 +77,11 @@ export function ContractRow({
                 e.preventDefault();
                 onBookmarkToggle({ address: contract.address, network: contract.network ?? "" });
               }}
-              className="flex-shrink-0 rounded p-0.5 text-faint transition-colors hover:text-blue-text"
+              className="flex-shrink-0 rounded p-0.5 text-faint transition-colors hover:text-brand-text"
               aria-label={isBookmarked ? "Remove bookmark" : "Add bookmark"}
             >
               {isBookmarked ? (
-                <BookmarkCheck className="h-4 w-4 fill-blue-600 text-blue-600" />
+                <BookmarkCheck className="h-4 w-4 fill-brand-600 text-brand-600" />
               ) : (
                 <Bookmark className="h-4 w-4" />
               )}
@@ -92,7 +92,7 @@ export function ContractRow({
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-data text-[12px] text-blue-text transition-colors hover:text-blue-300"
+              className="font-data text-[12px] text-brand-text transition-colors hover:text-brand-300"
               title="View on explorer"
             >
               {short}

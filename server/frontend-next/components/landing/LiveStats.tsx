@@ -61,7 +61,7 @@ export function LiveStats({ stats }: LiveStatsProps) {
       chip: "▤",
       label: "Contracts indexed",
       value: contracts.total,
-      ctx: `across ${contracts.networks} EVM chains, Base first, streamed as they verify`,
+      ctx: `across ${contracts.networks} indexed EVM networks, streamed as they verify`,
     },
     {
       key: "audits",
@@ -158,7 +158,7 @@ export function LiveStats({ stats }: LiveStatsProps) {
                 className="d-rim flex flex-1 flex-col justify-center gap-2 rounded-md border border-rule bg-ink-2 px-6 py-5 transition-colors hover:border-rule-strong hover:bg-ink-3"
               >
                 <div className="flex items-center gap-2.5">
-                  <span className="flex h-7 w-7 flex-none items-center justify-center rounded-[2px] border border-blue-600/20 bg-blue-950 font-data text-[13px] text-blue-400">
+                  <span className="flex h-7 w-7 flex-none items-center justify-center rounded-[2px] border border-brand-600/20 bg-brand-950 font-data text-[13px] text-brand-400">
                     {inst.chip}
                   </span>
                   <span className="font-data text-xs font-medium uppercase tracking-[0.14em] text-faint">

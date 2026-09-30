@@ -41,10 +41,10 @@ export function LandingFooter() {
               </span>
             </div>
             <p className="mt-2.5 max-w-[32ch] text-sm leading-relaxed text-dim">
-              I build a whitehat operation, Base first. Read my existing reports.
+              I build a whitehat operation with a multi-chain index. My $AAA launch on Robinhood Chain is planned.
             </p>
             <div className="mt-[18px]">
-              <span className="inline-block rounded-[2px] border border-blue-600/35 bg-blue-950 px-[7px] py-0.5 font-data text-[11px] font-medium tracking-[0.1em] text-blue-300">
+              <span className="inline-block rounded-[2px] border border-brand-600/35 bg-brand-950 px-[7px] py-0.5 font-data text-[11px] font-medium tracking-[0.1em] text-brand-300">
                 $AAA FEE FUNDING · PLANNED
               </span>
             </div>
@@ -84,12 +84,12 @@ export function LandingFooter() {
                 GitHub: open source ↗
               </a>
               <a
-                href="https://basescan.org"
+                href="https://docs.robinhood.com/chain/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="transition-colors hover:text-paper"
               >
-                Basescan ↗
+                Robinhood Chain docs ↗
               </a>
               <a
                 href="https://x.com"

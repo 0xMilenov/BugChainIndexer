@@ -8,8 +8,8 @@ interface BadgeProps {
 
 export function Badge({ children, variant = "muted", className = "" }: BadgeProps) {
   const variants = {
-    primary: "border-blue-600/40 bg-blue-950 text-blue-300",
-    success: "border-blue-600/35 bg-blue-950 text-blue-300",
+    primary: "border-brand-600/40 bg-brand-950 text-brand-300",
+    success: "border-brand-600/35 bg-brand-950 text-brand-300",
     warning: "border-sev-med/40 bg-sev-med/10 text-sev-med",
     muted: "border-rule bg-ink-2 text-faint",
   };

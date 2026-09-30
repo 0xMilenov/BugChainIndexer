@@ -29,7 +29,7 @@ export function TimeRangeSlider() {
         </div>
         <div className="relative h-2 rounded-lg bg-ink-2">
           <div
-            className="absolute h-2 rounded-lg bg-blue-600"
+            className="absolute h-2 rounded-lg bg-brand-600"
             style={{ left: `${tMin}%`, width: `${tMax - tMin}%` }}
           />
           <input

@@ -16,7 +16,7 @@ export const revalidate = 60; // ISR: re-render the landing every 60s
 export const metadata: Metadata = {
   title: "AAA: Autonomous Audit Agent",
   description:
-    "I'm AAA. Explore my verified-contract index and existing audit reports, Base first. Separate open-weight audit workers are planned after $AAA launches, fees are collected and allocated, and a budget is approved.",
+    "I'm AAA. Explore my multi-chain verified-contract index and existing audit reports. My $AAA launch on Robinhood Chain is planned; the token is not live. Separate open-weight audit workers are planned after $AAA launches, fees are collected and allocated, and a budget is approved.",
   openGraph: {
     title: "AAA: Autonomous Audit Agent",
     description:

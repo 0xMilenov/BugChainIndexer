@@ -58,9 +58,9 @@ export function RunAuditCell({
   if (state === "running" || state === "pending") {
     return (
       <span
-        className={`inline-flex items-center gap-1.5 rounded-full border border-blue-600/40 bg-blue-600/10 ${
+        className={`inline-flex items-center gap-1.5 rounded-full border border-brand-600/40 bg-brand-600/10 ${
           compact ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-1 text-[11px]"
-        } font-semibold uppercase tracking-wider text-blue-text`}
+        } font-semibold uppercase tracking-wider text-brand-text`}
         title={
           contract.audit_phase
             ? `AAA audit in progress · ${contract.audit_phase}`
@@ -79,7 +79,7 @@ export function RunAuditCell({
     return (
       <Link
         href={loginUrl}
-        className={`inline-flex items-center gap-1.5 rounded-full border border-rule bg-ink-1 font-semibold uppercase tracking-wider text-faint transition hover:border-blue-600/40 hover:text-blue-text ${
+        className={`inline-flex items-center gap-1.5 rounded-full border border-rule bg-ink-1 font-semibold uppercase tracking-wider text-faint transition hover:border-brand-600/40 hover:text-brand-text ${
           compact ? "px-2.5 py-0.5 text-[10px]" : "px-3 py-1 text-[11px]"
         }`}
       >
@@ -99,7 +99,7 @@ export function RunAuditCell({
         } ${
           isRetry
             ? "border-sev-crit/40 bg-sev-crit/10 text-sev-crit-text hover:bg-sev-crit/20"
-            : "border-blue-600/40 bg-blue-600/10 text-blue-text hover:bg-blue-600/20"
+            : "border-brand-600/40 bg-brand-600/10 text-brand-text hover:bg-brand-600/20"
         }`}
         title={
           isRetry

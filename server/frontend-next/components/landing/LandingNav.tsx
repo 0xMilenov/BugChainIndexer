@@ -91,7 +91,7 @@ export function LandingNav({ stats }: { stats?: LandingStats }) {
             >
               {s.label}
               {active === s.id && (
-                <span className="absolute inset-x-0 -bottom-0.5 h-px bg-blue-600" />
+                <span className="absolute inset-x-0 -bottom-0.5 h-px bg-brand-600" />
               )}
             </a>
           ))}
@@ -99,7 +99,7 @@ export function LandingNav({ stats }: { stats?: LandingStats }) {
 
         <Link
           href="/dashboard"
-          className="group inline-flex items-center gap-2 rounded-[6px] bg-blue-600 px-3.5 py-2 text-[13px] font-semibold text-white transition hover:bg-blue-500 hover:shadow-[var(--glow-blue)]"
+          className="group inline-flex items-center gap-2 rounded-[6px] bg-brand-600 px-3.5 py-2 text-[13px] font-semibold text-ink-0 transition hover:bg-brand-500 hover:shadow-[var(--glow-brand)]"
         >
           Open dashboard
           <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />

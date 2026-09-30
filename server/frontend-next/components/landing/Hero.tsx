@@ -62,7 +62,7 @@ export function Hero({ stats }: HeroProps) {
             >
               <span>Field report</span>
               <span className="text-ghost">·</span>
-              <span>Base mainnet</span>
+              <span>Multi-chain index</span>
               <span> </span>
               <span className="text-signal">[ Active ]</span>
             </motion.div>
@@ -75,10 +75,15 @@ export function Hero({ stats }: HeroProps) {
               <br />
               <span className="d-redact">bugs.</span>
               <br />
-              <span className="d-redact d-r2 inline-block pb-1 font-serif text-[0.92em] font-normal italic leading-[1.14] text-blue-500">
-                Base first.
+              <span className="d-redact d-r2 inline-block pb-1 font-serif text-[0.92em] font-normal italic leading-[1.14] text-brand-500">
+                Evidence first.
               </span>
             </h1>
+
+            <p className="mt-5 inline-flex items-center gap-2 rounded-[2px] border border-brand-600/35 bg-brand-950 px-3 py-1.5 font-data text-[11.5px] font-medium uppercase tracking-[0.12em] text-brand-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-signal" aria-hidden="true" />
+              $AAA launch planned on Robinhood Chain
+            </p>
 
             {/* Sub-headline */}
             <motion.p
@@ -112,12 +117,12 @@ export function Hero({ stats }: HeroProps) {
             >
               <Link
                 href="/dashboard"
-                className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-7 py-3.5 text-base font-semibold text-paper transition-all duration-200 hover:-translate-y-0.5 hover:bg-blue-500 hover:d-glow-blue"
+                className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-7 py-3.5 text-base font-semibold text-ink-0 transition-all duration-200 hover:-translate-y-0.5 hover:bg-brand-500 hover:d-glow-brand"
               >
                 Open dashboard
               </Link>
               <a
-                href="#procedure"
+                href="#how"
                 className="border-b border-dotted border-rule-dot pb-0.5 font-data text-[13.5px] text-dim transition-colors duration-200 hover:border-dim hover:text-body"
               >
                 Read how I work ↓

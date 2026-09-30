@@ -34,7 +34,7 @@ export function FundRangeSlider() {
         </div>
         <div className="relative h-2 rounded-lg bg-ink-2">
           <div
-            className="absolute h-2 rounded-lg bg-blue-600"
+            className="absolute h-2 rounded-lg bg-brand-600"
             style={{ left: `${fMin}%`, width: `${fMax - fMin}%` }}
           />
           <input

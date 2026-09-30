@@ -518,7 +518,7 @@ function SearchPageContent() {
       <section className="mb-4 rounded-lg border border-rule bg-ink-1 px-4 py-3">
         <div className="grid gap-4 md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] md:items-center">
           <div className="flex min-w-0 items-start gap-3">
-            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-blue-600/30 bg-blue-600/10 text-blue-text">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-brand-600/30 bg-brand-600/10 text-brand-text">
               <CalendarDays className="h-4 w-4" />
             </span>
             <div className="min-w-0">
@@ -549,7 +549,7 @@ function SearchPageContent() {
                 <>
                   <Link
                     href={`/contract/${dailyTopContract.network}/${dailyTopContract.address}`}
-                    className="mt-1 block truncate text-sm font-semibold text-blue-text hover:underline"
+                    className="mt-1 block truncate text-sm font-semibold text-brand-text hover:underline"
                     title={dailyTopContract.address}
                   >
                     {dailyTopContractName || dailyTopContract.address}

@@ -24,7 +24,7 @@ export default function ContractError({
       <div className="max-w-2xl mx-auto p-6">
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-blue-text hover:text-blue-300 hover:underline mb-6"
+          className="inline-flex items-center gap-2 text-brand-text hover:text-brand-300 hover:underline mb-6"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to search
@@ -39,7 +39,7 @@ export default function ContractError({
           <button
             type="button"
             onClick={reset}
-            className="px-4 py-2 rounded-lg bg-ink-2 border border-rule hover:bg-blue-600/10 text-body text-sm font-medium"
+            className="px-4 py-2 rounded-lg bg-ink-2 border border-rule hover:bg-brand-600/10 text-body text-sm font-medium"
           >
             Try again
           </button>

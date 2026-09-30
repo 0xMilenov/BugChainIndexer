@@ -53,7 +53,7 @@ export function Header({ onToggleFilters, sidebarOpen, filterBadgeCount, onShowB
             ) : (
               <Link
                 href={loginUrl}
-                className="flex items-center gap-1 px-3 py-1 rounded-md transition relative bg-ink-1 text-faint hover:bg-ink-2 hover:text-blue-text flex-shrink-0"
+                className="flex items-center gap-1 px-3 py-1 rounded-md transition relative bg-ink-1 text-faint hover:bg-ink-2 hover:text-brand-text flex-shrink-0"
                 aria-label="Log in"
               >
                 <LogIn className="h-4 w-4" />
@@ -63,13 +63,13 @@ export function Header({ onToggleFilters, sidebarOpen, filterBadgeCount, onShowB
             {onShowBookmarks && (
               <button
                 onClick={onShowBookmarks}
-                className="flex items-center gap-1 px-3 py-1 rounded-md transition relative bg-ink-1 text-faint hover:bg-ink-2 hover:text-blue-text flex-shrink-0"
+                className="flex items-center gap-1 px-3 py-1 rounded-md transition relative bg-ink-1 text-faint hover:bg-ink-2 hover:text-brand-text flex-shrink-0"
                 aria-label="Show bookmarks"
               >
                 <Bookmark className="h-4 w-4" />
                 <span className="hidden sm:inline">Bookmarks</span>
                 {bookmarkCount > 0 && (
-                  <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600/20 text-blue-text px-1.5 text-xs font-medium">
+                  <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-brand-600/20 text-brand-text px-1.5 text-xs font-medium">
                     {bookmarkCount}
                   </span>
                 )}

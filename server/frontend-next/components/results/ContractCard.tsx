@@ -38,7 +38,7 @@ export function ContractCard({ contract, nativePrices, isBookmarked = false, onB
   const netColor = NETWORK_COLORS[netKey] ?? "bg-gray-500";
 
   return (
-    <div className="rounded-md border border-rule bg-ink-1 p-4 shadow-sm transition hover:border-blue-600/30 hover:shadow-lg">
+    <div className="rounded-md border border-rule bg-ink-1 p-4 shadow-sm transition hover:border-brand-600/30 hover:shadow-lg">
       <div className="flex items-center justify-between gap-3">
         {onBookmarkToggle && (
           <button
@@ -47,11 +47,11 @@ export function ContractCard({ contract, nativePrices, isBookmarked = false, onB
               e.preventDefault();
               onBookmarkToggle({ address: contract.address, network: contract.network ?? "" });
             }}
-            className="flex-shrink-0 rounded p-0.5 text-faint hover:text-blue-text transition"
+            className="flex-shrink-0 rounded p-0.5 text-faint hover:text-brand-text transition"
             aria-label={isBookmarked ? "Remove bookmark" : "Add bookmark"}
           >
             {isBookmarked ? (
-              <BookmarkCheck className="h-4 w-4 fill-blue-600 text-blue-text" />
+              <BookmarkCheck className="h-4 w-4 fill-brand-600 text-brand-text" />
             ) : (
               <Bookmark className="h-4 w-4" />
             )}
@@ -62,13 +62,13 @@ export function ContractCard({ contract, nativePrices, isBookmarked = false, onB
             href={link}
             target="_blank"
             rel="noopener noreferrer"
-            className="break-all font-data text-xs font-medium text-blue-text hover:underline flex-1 min-w-0"
+            className="break-all font-data text-xs font-medium text-brand-text hover:underline flex-1 min-w-0"
             title="View on explorer"
           >
             {short}
           </a>
         ) : (
-          <span className="break-all font-data text-xs font-medium text-blue-text flex-1 min-w-0">
+          <span className="break-all font-data text-xs font-medium text-brand-text flex-1 min-w-0">
             {short}
           </span>
         )}
@@ -99,7 +99,7 @@ export function ContractCard({ contract, nativePrices, isBookmarked = false, onB
       )}
       <div className="mt-3 flex flex-col rounded-md bg-ink-2 px-2 py-1.5 text-xs">
         <span className="text-faint">Funds</span>
-        <span className="mt-0.5 font-semibold text-blue-text">
+        <span className="mt-0.5 font-semibold text-brand-text">
           {formatFund(contract, nativePrices)}
         </span>
       </div>

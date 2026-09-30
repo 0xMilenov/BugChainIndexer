@@ -4,9 +4,9 @@
  * Dossier v2 hero backdrop. Presentational only, no props.
  *
  * Reproduces the mockup `.hero-bg`:
- *  - a content-sized radial halo (rgba(0,82,255,.08) → transparent) anchored
+ *  - a content-sized radial halo (rgba(182,227,59,.08) → transparent) anchored
  *    toward the text column (top:10%, left:-10%, 56rem × 36rem);
- *  - a 96px accent-tinted (rgba(0,82,255,.04)) grid masked toward the text
+ *  - a 96px accent-tinted (rgba(182,227,59,.04)) grid masked toward the text
  *    column via a radial ellipse mask;
  *  - the single 14s signal sweep line (.d-sweep, self-styled in globals.css).
  *
@@ -25,7 +25,7 @@ export function GridBackground() {
           width: "56rem",
           height: "36rem",
           background:
-            "radial-gradient(closest-side, rgba(0,82,255,0.08), transparent 70%)",
+            "radial-gradient(closest-side, rgba(182,227,59,0.08), transparent 70%)",
         }}
       />
 
@@ -34,7 +34,7 @@ export function GridBackground() {
         className="absolute inset-0"
         style={{
           backgroundImage:
-            "linear-gradient(rgba(0,82,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,82,255,0.04) 1px, transparent 1px)",
+            "linear-gradient(rgba(182,227,59,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(182,227,59,0.04) 1px, transparent 1px)",
           backgroundSize: "96px 96px",
           maskImage:
             "radial-gradient(ellipse 90% 70% at 30% 40%, black 30%, transparent 75%)",

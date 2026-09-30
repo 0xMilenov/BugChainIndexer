@@ -7,7 +7,7 @@ import { SectionHeader } from "./SectionHeader";
 const STEPS = [
   {
     eyebrow: "I index",
-    title: "Verified contracts, Base first.",
+    title: "Verified contracts across EVM networks.",
     body: "My scanners collect verified contracts from Base, Ethereum, BSC, Arbitrum, Optimism, Polygon, Linea, Scroll, and more. Verified source, deployment metadata, ERC-20 balances, and proxy targets land in one queryable place, ready to explore in the dashboard.",
   },
   {
@@ -77,7 +77,7 @@ export function HowItWorks() {
                 <div key={item.no} className="relative flex items-baseline gap-4 pl-[18px]">
                   <span
                     className={`absolute left-0 top-[6px] bottom-[6px] w-[2px] transition-colors duration-300 ${
-                      isActive ? "bg-blue-600" : "bg-transparent"
+                      isActive ? "bg-brand-600" : "bg-transparent"
                     }`}
                   />
                   <span className="font-data text-[11px] tracking-[0.14em] text-faint">
@@ -96,7 +96,7 @@ export function HowItWorks() {
             <div className="mt-9 border-t border-rule-dot pt-5 font-data text-[11px] uppercase leading-[1.9] tracking-[0.12em] text-faint">
               Standing orders
               <br />
-              Base mainnet
+              Multi-chain index
             </div>
           </div>
 
@@ -114,7 +114,7 @@ export function HowItWorks() {
                 viewport={{ once: true, amount: 0.3 }}
                 transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
               >
-                <div className="mb-3 font-data text-[11.5px] uppercase tracking-[0.14em] text-blue-text">
+                <div className="mb-3 font-data text-[11.5px] uppercase tracking-[0.14em] text-brand-text">
                   {s.eyebrow}
                 </div>
                 <h3 className="font-serif text-[1.875rem] font-medium leading-[1.15] tracking-tight text-paper">
@@ -130,7 +130,7 @@ export function HowItWorks() {
 
                 {s.plamen && (
                   <p className="mt-3 font-data text-[12.5px] leading-[1.6] text-faint">
-                    <span className="mr-1 text-blue-text">²</span>
+                    <span className="mr-1 text-brand-text">²</span>
                     Audit method and evidence vary by report; inspect each case file.
                   </p>
                 )}
@@ -175,7 +175,7 @@ function IndexStreamExhibit() {
               <div key={i} className="overflow-hidden text-ellipsis whitespace-nowrap">
                 <span className="text-body">{r.net}</span>{" "}
                 <span className="text-faint">{r.addr}</span> {r.label}{" "}
-                <span className="text-blue-400">✓</span>
+                <span className="text-brand-400">✓</span>
               </div>
             ))}
           </div>
@@ -239,8 +239,8 @@ function PipelineExhibit() {
               variants={{
                 rest: { backgroundColor: "var(--ghost)", boxShadow: "0 0 0 0 transparent" },
                 in: {
-                  backgroundColor: "var(--blue-500)",
-                  boxShadow: "0 0 8px -1px #3D7BFF99",
+                  backgroundColor: "var(--color-brand-500)",
+                  boxShadow: "0 0 8px -1px #c6ed6099",
                 },
               }}
               transition={{ duration: 0.25, delay: 0.2 + i * 0.16 }}
