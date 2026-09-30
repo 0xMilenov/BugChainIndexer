@@ -1,6 +1,6 @@
 # Robinhood Chain indexing: bounded free pilot
 
-**Assessment: 30 September 2026.** Robinhood Chain is the planned $AAA token chain, but indexing it is a separate product capability. This note records the free-data path and the checks needed before claiming broad coverage. The database network identifier is `robinhood` and the mainnet chain ID is `4663`; native balances use ETH. This does not imply that $AAA exists or that an audit was run.
+**Assessment and live pilot: 30 September 2026.** Robinhood Chain is the planned $AAA token chain, but indexing it is a separate product capability. This note records the free-data path, a successful one-contract pilot, and the throughput blocker before broad coverage. The database network identifier is `robinhood` and the mainnet chain ID is `4663`; native balances use ETH. This does not imply that $AAA exists or that an audit was run.
 
 ## Data path and observed behavior
 
@@ -19,6 +19,12 @@ The existing scanner selects Transfer-log addresses, checks code, then requests 
 
 **Automatic scanning is not enabled in a cron profile.** The existing capped time-window scanner samples only its configured block count. At Robinhood's observed block rate, a 30–60-block run covers seconds, not the full interval between cron runs. Adding it to the normal four-hour schedule would create a misleading claim of comprehensive coverage. Before a recurring scan, measure requests, misses, verified yield, cursor gaps, public-RPC throttling, and memory over several bounded runs; then design a free provider budget and a catch-up policy that does not silently skip blocks. Do not use Sourcify's live API as a substitute bulk feed. The daily Parquet dataset is a separate option, but requires a size/compute review before use on the 4 GB VM.
 
+## Pilot result
+
+Commit `6624ac0` added configuration and dashboard support and was deployed on the production VM. The backend imported verified `LunchBaseToken` at `0xcA60358C85Fe6fa0Cc190C18d7D23459AD50Ed1E` under `robinhood`: the API returns its 26 KB source and compiler metadata, the network count is one, and the public contract and dashboard pages display it with the official explorer link. The import used the existing bounded single-contract API path; it did not run an audit. Backend, frontend, PostgreSQL, and Nginx remained active with about 1.6 GB available VM memory afterward.
+
+A separate scanner-discovery pass was limited to **three blocks and two enrichment candidates**. It read 40 Transfer logs and 42 distinct addresses in 962 ms, then spent roughly 57 seconds on code-based address filtering. It identified 32 contracts, selected two, and reached source enrichment for one funded candidate, but hit the 90-second process limit before completion. No scanner yield or sustained throughput is proven by that pass, and it must not be reported as a successful automatic index run. The scanner's internal time limit currently exits with code zero, so the process result alone is not success evidence. No Robinhood cron was enabled.
+
 ## Pilot acceptance and rollback
 
-The pilot may expose Robinhood in the dashboard after one bounded end-to-end import demonstrates: chain ID, nonempty on-chain code, independently verified source, database row keyed `robinhood`, source retrieval through the public API, and a correct official explorer link. It must not run an audit, wallet action, or unbounded scan. Check backend/frontend/indexer health and memory after deployment. To roll back the UI/backend capability, revert the feature commit and redeploy; the pilot record can remain as historical indexed data or be removed only after separate database review. No Robinhood cron entry needs removal.
+The manual pilot passed the end-to-end acceptance checks. Continue to label Robinhood a **pilot**, not comprehensive or continuous coverage. Before enabling a recurring job, make the scanner complete a bounded run within its limit, prove a reliable free RPC request budget, and ensure its cursor advances without silently dropping most blocks. To roll back the UI/backend capability, revert the feature commits and redeploy; the pilot record can remain as historical indexed data or be removed only after separate database review. No Robinhood cron entry needs removal.

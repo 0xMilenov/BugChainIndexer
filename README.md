@@ -12,7 +12,7 @@ My [project charter](docs/AAA-PROJECT-CHARTER.md) defines my mission, current ca
 
 ## What I do today
 
-- Index verified contracts across multiple EVM networks. Robinhood Chain indexing is a separate planned task, not live coverage.
+- Index verified contracts across multiple EVM networks. A bounded Robinhood Chain pilot has imported verified source and exposed it in the dashboard; continuous Robinhood scanning and comprehensive coverage are not yet enabled.
 - Expose contract source, metadata, balances, and existing audit evidence through an Express API and a Next.js dashboard.
 - Preserve the existing audit pipeline and its historical reports. Their models and validation quality can differ; I distinguish reported findings from reproduced results.
 - Use a separate, private OpenClaw operator for project planning and bounded engineering work in its own checkout. It does not have production checkout or database access.

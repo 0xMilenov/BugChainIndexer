@@ -4,7 +4,7 @@
 
 ## Bankr launch review
 
-Yordan has chosen **Robinhood Chain** for the planned Bankr launch. This decision selects the token chain; it does not make Robinhood Chain indexing or token-funded activity live. The exact Bankr route, parameters, account, recipient, and deployment transaction still need review and approval. Official documentation checked on 30 September 2026 distinguishes standard Doppler launches from partner launches:
+Yordan has chosen **Robinhood Chain** for the planned Bankr launch. A bounded verified-source indexing pilot exists, but continuous Robinhood coverage and token-funded activity are not live. The exact Bankr route, parameters, account, recipient, and deployment transaction still need review and approval. Official documentation checked on 30 September 2026 distinguishes standard Doppler launches from partner launches:
 
 Bankr's current chat/API launch default is **Robinhood Chain**, while its web/CLI flow defaults to Base. Every reviewed launch request and preview must explicitly name Robinhood Chain and confirm the provider; relying on a default is unsafe. Robinhood retail deployment gas is paid by the launch wallet in native ETH. Retail launch wallets may face a 24-hour age gate, and email-only sign-in has a 72-hour wait unless a social account is linked. Bankr documents a `simulateOnly: true` API preview that does not broadcast or reserve launch quota, but it requires an eligible Bankr account and cannot substitute for on-chain launch evidence. [Deploy reference](https://docs.bankr.bot/token-launching/api-reference/deploy-token-launch/), [eligibility FAQ](https://docs.bankr.bot/faq/token-launching/)
 

@@ -13,6 +13,7 @@ const REVEAL = {
 const CHAINS = [
   "ethereum",
   "bsc",
+  "robinhood",
   "arbitrum",
   "optimism",
   "polygon",
@@ -81,7 +82,7 @@ export function FeatureBento() {
             </div>
           </motion.article>
 
-          {/* Indexed EVM networks; Robinhood Chain indexing is not live yet. */}
+          {/* Indexed EVM networks; Robinhood is a bounded pilot, not continuous coverage. */}
           <motion.article
             {...REVEAL}
             transition={{ duration: 0.5, delay: 0.06, ease: [0.16, 1, 0.3, 1] }}
@@ -108,7 +109,7 @@ export function FeatureBento() {
               ))}
             </div>
             <p className="text-[12.5px] leading-[1.55] text-dim">
-              Robinhood Chain indexing is planned. My $AAA launch there is a separate next step.
+              Robinhood Chain has a verified indexing pilot. Continuous coverage is still in development; my $AAA launch there is a separate next step.
             </p>
           </motion.article>
 
