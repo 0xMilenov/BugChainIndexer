@@ -706,7 +706,11 @@ class UnifiedScanner extends Scanner {
         const contractAddr = contract.address || contract;
         try {
           const enrichment = await this.withContractEnrichmentTimeout(
-            () => getContractEtherscanEnrichment(this, contractAddr),
+            () => getContractEtherscanEnrichment(
+              this,
+              contractAddr,
+              this.network === 'robinhood' ? { includeDeploymentData: false } : {}
+            ),
             contractAddr
           );
           return {
