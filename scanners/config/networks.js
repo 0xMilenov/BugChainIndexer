@@ -814,6 +814,7 @@ const ADDITIONAL_NETWORKS = {
   robinhood: {
     chainId: 4663,
     name: 'Robinhood Chain',
+    apiKeys: DEFAULT_ETHERSCAN_KEYS,
     // Etherscan V2 supports chain 4663. Sourcify is tried first for individual
     // verified-source lookups; no bulk explorer crawl is configured.
     rpcUrls: envArray('ROBINHOOD_RPC_URL', [
