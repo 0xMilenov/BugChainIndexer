@@ -67,9 +67,8 @@ export function LandingNav({ stats }: { stats?: LandingStats }) {
       }`}
     >
       <div className="mx-auto flex h-full max-w-6xl items-center justify-between gap-4 px-6">
-        <Link href="/" className="flex min-w-0 items-center gap-2.5">
-          <Image src="/brand/aaa-mark.png" alt="" width={30} height={30} className="shrink-0 rounded-[4px]" aria-hidden />
-          <span className="font-serif text-xl font-medium tracking-[0.02em] text-paper">AAA</span>
+        <Link href="/" aria-label="AAA home" className="flex min-w-0 items-center gap-2.5">
+          <Image src="/brand/aaa-mark.png" alt="" width={34} height={34} className="shrink-0 rounded-[4px]" aria-hidden />
           {scrolled && liveReadout ? (
             <span className="hidden truncate font-data text-[11px] uppercase tracking-[0.14em] text-signal sm:inline">
               {liveReadout}

@@ -17,35 +17,11 @@ interface HeaderProps {
 export function Header({ onToggleFilters, sidebarOpen, filterBadgeCount, onShowBookmarks, bookmarkCount = 0 }: HeaderProps) {
   const { user, loginUrl } = useAuth();
   return (
-    <header className="sticky top-0 z-30 h-16 flex flex-col justify-center border-b border-rule bg-ink-0/95 backdrop-blur-md shadow-cyan-500/5">
+    <header className="sticky top-0 z-30 h-16 flex flex-col justify-center border-b border-rule bg-ink-0/95 backdrop-blur-md">
       <div className="mx-auto w-full px-4 sm:px-6">
         <div className="flex items-center justify-between">
-          <Link href="/" className="flex items-center space-x-3 group">
-            <div className="relative h-10 w-10 flex-shrink-0 rounded-full overflow-hidden group/logo">
-              <div
-                className="h-full w-full rounded-full overflow-hidden"
-                style={{ opacity: 0.82 }}
-              >
-                <Image
-                  src="/logo-black2.png"
-                  alt="AAA"
-                  fill
-                  className="object-contain"
-                  sizes="40px"
-                  priority
-                />
-              </div>
-              <div
-                className="absolute inset-0 rounded-full bg-[#a1a1aa]/50 opacity-0 transition-opacity duration-200 group-hover/logo:opacity-100 pointer-events-none"
-                aria-hidden
-              />
-            </div>
-            <h1
-              className="text-xl font-bold transition-colors group-hover:opacity-90"
-              style={{ color: "#a1a1aa" }}
-            >
-              AAA
-            </h1>
+          <Link href="/" aria-label="AAA home" className="inline-flex items-center rounded-[4px] transition-opacity hover:opacity-80">
+            <Image src="/brand/aaa-mark.png" alt="" width={40} height={40} className="rounded-[4px]" priority aria-hidden />
           </Link>
           <div className="flex items-center gap-2 flex-nowrap shrink-0">
             {user ? (

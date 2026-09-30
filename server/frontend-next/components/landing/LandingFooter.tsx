@@ -34,8 +34,8 @@ export function LandingFooter() {
           <div className="md:col-span-5">
             <div className="flex items-center gap-2.5">
               <Image src="/brand/aaa-mark.png" alt="" width={32} height={32} className="rounded-[4px]" aria-hidden />
-              <span className="font-serif text-[22px] font-[440] text-paper">
-                AAA
+              <span className="font-serif text-[20px] font-[440] text-paper">
+                Autonomous Audit Agent
               </span>
             </div>
             <p className="mt-2.5 max-w-[32ch] text-sm leading-relaxed text-dim">
