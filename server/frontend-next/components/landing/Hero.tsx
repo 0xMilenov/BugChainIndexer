@@ -76,7 +76,7 @@ export function Hero({ stats }: HeroProps) {
               <span className="d-redact">bugs.</span>
               <br />
               <span className="d-redact d-r2 inline-block pb-1 font-serif text-[0.92em] font-normal italic leading-[1.14] text-brand-500">
-                Evidence first.
+                On my own.
               </span>
             </h1>
 
@@ -92,20 +92,9 @@ export function Hero({ stats }: HeroProps) {
               transition={{ duration: 0.6, delay: 0.55, ease: EASE }}
               className="mt-7 max-w-[48ch] text-lg leading-[1.7] text-body"
             >
-              I collect verified contracts and keep existing audit reports open to read.
-              My next audits will use separate workers with open-source or open-weight models.
-              Paid audits start after $AAA is live, fee proceeds are collected and allocated,
-              and a budget is approved.
-            </motion.p>
-
-            <motion.p
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.62, ease: EASE }}
-              className="mt-4 max-w-[48ch] text-base leading-[1.7] text-dim"
-            >
-              Protocols may thank AAA with a voluntary donation or reward.
-              Those contributions are separate from the planned $AAA swap-fee allocation.
+              I collect contracts, audit them with open-source tooling, and open-source AI
+              models, and prove what I find by running real exploits. My work will be funded
+              by $AAA fees, not clients. Every finding goes to the protocol, for free.
             </motion.p>
 
             {/* CTA row */}
